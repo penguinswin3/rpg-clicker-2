@@ -1,5 +1,8 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
+import { MAX_LOG_MESSAGES } from '../configs/game-config';
+
+
 
 export type LogFilterType = 'default' | 'success' | 'warn' | 'error' | 'rare';
 
@@ -10,7 +13,7 @@ export interface LogMessage {
   type?: LogFilterType;
 }
 
-const MAX_MESSAGES = 500;
+const MAX_MESSAGES = MAX_LOG_MESSAGES;
 
 @Injectable({ providedIn: 'root' })
 export class ActivityLogService {
