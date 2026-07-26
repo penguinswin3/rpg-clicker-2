@@ -12,7 +12,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { ActivityLogService, LogMessage, LogFilterType } from './activity-log.service';
-// import { CURRENCY_FLAVOR } from '../flavor-text';
+import { RESOURCE_FLAVOR } from '../configs/flavor-text';
 
 export interface LogTextSegment {
   text: string;
@@ -161,8 +161,7 @@ export class ActivityLogComponent implements OnInit, OnDestroy, AfterViewChecked
       }
       const currencyId  = match[1];
       const displayText = match[2];
-      // const color = (CURRENCY_FLAVOR as Record<string, { color: string }>)[currencyId]?.color;
-      const color = 'white';
+      const color = RESOURCE_FLAVOR[currencyId]?.color;
       segments.push({ text: displayText, color });
       lastIndex = CUR_TOKEN.lastIndex;
     }

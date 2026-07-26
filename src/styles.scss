@@ -1,4 +1,22 @@
 /* You can add global styles to this file, and also import other style files */
-body {
-  background-color: #1d1d1d; // Use your hex, rgb, or color name
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background-color: #000;
+}
+
+app-root {
+  display: block;
+  height: 100%;
+}
+
+// UI chrome (buttons, toggles, tabs, nav) isn't meant to be text-selected —
+// components that display copyable data (e.g. Activity Log entries) opt back
+// in explicitly with their own `user-select: text`.
+button {
+  user-select: none;
 }

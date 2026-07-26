@@ -1,0 +1,25 @@
+:host {
+  display: contents;
+}
+
+.minigame-zone {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+}
+
+.zone-header {
+  padding: 4px 12px;
+  color: #aaa;
+  letter-spacing: 0.1em;
+  background: #111;
+  border-bottom: 1px solid #333;
+}
+
+.zone-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}

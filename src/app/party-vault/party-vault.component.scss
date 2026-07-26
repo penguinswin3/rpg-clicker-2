@@ -1,0 +1,149 @@
+:host {
+  display: contents;
+}
+
+.party-vault {
+  display: flex;
+  flex-direction: column;
+  width: 220px;
+  flex-shrink: 0;
+  background: #000;
+  border-right: 1px solid #333;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  overflow-y: auto;
+
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-track { background: #000; }
+  &::-webkit-scrollbar-thumb { background: #333; }
+  &::-webkit-scrollbar-thumb:hover { background: #555; }
+}
+
+.panel-header {
+  padding: 4px 12px;
+  background: #111;
+  border-bottom: 1px solid #333;
+}
+
+.panel-title {
+  color: #aaa;
+  letter-spacing: 0.1em;
+}
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 10px;
+  background: #0a0a0a;
+  border-bottom: 1px solid #222;
+}
+
+.filter-sep {
+  color: #2a2a2a;
+  padding: 0 4px;
+  font-size: 11px;
+  user-select: none;
+}
+
+.filter-btn {
+  background: #000;
+  color: #444;
+  border: 1px solid #2a2a2a;
+  font-family: inherit;
+  font-size: 10px;
+  padding: 1px 7px;
+  cursor: pointer;
+  transition: color 0.1s, border-color 0.1s, background 0.1s;
+
+  &:hover { color: #aaa; border-color: #555; }
+
+  &.active { color: #fff; border-color: #fff; background: #111; }
+}
+
+.vault-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 10px 10px;
+}
+
+.vault-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border: 1px solid #222;
+
+  &.expandable {
+    cursor: pointer;
+    user-select: none;
+
+    &:hover { border-color: #555; }
+  }
+}
+
+.vault-symbol {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.vault-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.vault-name-line {
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vault-amount-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.vault-amount {
+  color: #bbb;
+}
+
+.vault-rate {
+  color: #7fdc7f;
+  text-align: right;
+
+  &.negative { color: #e08080; }
+  &.zero { color: #666; }
+}
+
+.vault-sources {
+  padding: 2px 6px 4px 30px;
+  border: 1px solid #222;
+  border-top: none;
+}
+
+.source-row {
+  display: flex;
+  justify-content: space-between;
+  color: #777;
+  padding: 2px 0;
+}
+
+.source-rate {
+  color: #7fdc7f;
+
+  &.negative { color: #e08080; }
+  &.zero { color: #666; }
+}

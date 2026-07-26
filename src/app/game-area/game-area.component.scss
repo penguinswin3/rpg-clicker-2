@@ -1,0 +1,26 @@
+// Angular components default to `display: inline`, which breaks flex sizing on the
+// host itself — `contents` removes that box so .game-area is the real flex item.
+:host {
+  display: contents;
+}
+
+.game-area {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.half {
+  flex: 1 1 50%;
+  min-height: 0;
+
+  &.top {
+    border-bottom: 1px solid #333;
+  }
+}
+
+.game-area.solo .half.top {
+  flex: 1 1 100%;
+  border-bottom: none;
+}

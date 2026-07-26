@@ -5,12 +5,9 @@ project. It exists so that any agent (or contributor) working on a new feature m
 same choices a human designer steeped in this game's taste would make, without having to
 re-derive them from scratch each time.
 
-**This file is a living document.** Whenever the user (Brad) makes an opinionated design
-call — a color choice, a naming decision, a "no, do it like X instead" — that decision
-must be added here, not just applied once and forgotten. If you make a judgment call on
-his behalf that he later corrects, update this file so the correction sticks. If a rule
-here turns out to be wrong or superseded, edit or remove it rather than leaving stale
-guidance.
+**This file is a living document.** Whenever the developer makes an opinionated design
+decision it must be added here. If a decision changes in the future, update this file so the correction sticks. If a rule here turns out to be wrong or superseded, edit or remove
+ it rather than leaving it stale.
 
 ---
 
@@ -52,9 +49,10 @@ Concretely, that means:
 ### Layout anchor points
 
 - **Activity Log:** fixed to the bottom of the viewport, full width, collapsible.
-- **Top Bar:** fixed to the top. Currently a placeholder (ASCII logo + dead link) — not
-  yet aligned to the terminal style and should be brought in line with §1 when built out
-  for real (see §7, Jacks, and §8, The Crown, both of which dock into the top bar).
+- **Top Bar:** fixed to the top — ASCII title centered, Jacks/Crown docked left
+  (unlock-gated), Stats/Options docked right. Nav buttons stretch to fill the bar's full
+  height (`align-items: stretch` on `.top-bar`/`.nav-group`) rather than sitting small
+  and center-aligned within it — do this for any button added to the bar later.
 - **Game Screen (center):** top half is reserved for the primary clicker button(s),
   bottom half for minigame content (see §11).
 - **Side panels** (Party Vault / wallet, Character Select): collapsible sidebars.
@@ -65,13 +63,12 @@ Concretely, that means:
 
 Party Vault and Character Select use `[>]`-style collapse arrows (directional, implying
 "this points at where it opens"), while Activity Log uses `[-]`/`[+]` (state, not
-direction). Brad flagged this as an inconsistency worth fixing, not a deliberate
+direction). This as an inconsistency worth fixing, not a deliberate
 distinction.
 
 **Rule:** pick one convention project-wide. Default to the Activity Log's `[-]`/`[+]`
 (state-based) since it's the "no notes" baseline component — sidebars should adopt
-`[-]`/`[+]` rather than the reverse, unless Brad says otherwise when this is actually
-tackled.
+`[-]`/`[+]` rather than the reverse.
 
 ---
 
@@ -93,12 +90,21 @@ Notes and open issues to keep in mind (Brad's words, paraphrased):
 
 - The gray-vs-white line is a little fuzzy today (e.g. headers) — when in doubt, white
   reads as "content", gray reads as "chrome/meta".
+- **Correction:** top-bar nav buttons (Jacks/Crown/Stats/Options) use white label text,
+  not gray — gray read as too muted/low-contrast for primary navigation specifically.
+  Gray is still right for lower-emphasis chrome (dividers, timestamps, disabled state);
+  this is scoped to top-bar nav, not a blanket reversal of the gray-chrome rule above.
+- Rate/delta displays use color to carry meaning, not just currency identity: positive
+  is green, negative is red, and **exactly zero is gray** (`#666`) — a `0/s` rate is
+  inactive/informational, not a "positive" reading, so it shouldn't get the green
+  treatment. Apply this anywhere a signed rate or delta is shown (Party Vault's rate
+  column and per-source breakdown both do this).
 - Collapse arrows currently being cyan (like upgrades) may be a mismatch — an
   interaction-chrome element competing visually with the "impactful upgrade" color. Bias
   new chrome-only affordances (arrows, toggles, borders) toward gray/white, and reserve
   cyan/gold/purple for things that represent in-game power/rarity, not for pure UI plumbing.
 - Every currency gets its own persistent color + symbol — this pairing is core to the
-  game's identity (see §4 Resource Overview / Party Vault) and should extend to any new
+  game's identity (see §4/§7 Party Vault) and should extend to any new
   currency, upgrade tier, or resource-like entity (e.g. Crown jewels, Jack stats if they
   ever get symbols).
 - Characters also have associated colors, but used far more sparingly than currency
@@ -113,7 +119,7 @@ These are Brad's retrospective notes on the first game. No immediate action is i
 they're standing design opinions that should shape how each analogous system in RPG
 Clicker 2 gets built.
 
-### Party Vault (→ now "Resource Overview")
+### Party Vault
 - Overall the strongest panel in game 1 (after Activity Log). Reuse its shape: name,
   color, symbol, and quantity per currency, with per-second rates once unlocked.
 - EXP is the most shared/common currency across the whole game and probably deserves to
@@ -142,6 +148,11 @@ Clicker 2 gets built.
 ### Game Screen — Top Logo
 - Big ASCII logo looks cool but costs a lot of vertical space. When building the real
   top bar, weigh the logo's size against how much room it steals from gameplay content.
+- **Resolved:** the top bar now uses a compact ASCII banner (figlet "Small" font, 4 lines,
+  ~8px font-size — `GAME_TITLE_ASCII` in `flavor-text.ts`) instead of a giant logo or
+  plain text, so it keeps the ASCII-art feel without reproducing game 1's vertical-space
+  problem. If a bigger/different banner style is wanted later, swap the constant and
+  restyle `.title` in `top-bar.component.scss` — don't hand-edit the string in place.
 
 ### Dividers
 - Functional but there may be a better visual treatment; consider whether dividers
@@ -174,6 +185,21 @@ Clicker 2 gets built.
 - Hold-to-click (if implemented) must have a visible affordance — game 1 had none, and
   players had no way to discover it.
 - Avoid a dashed border on the button; it read as visually off/unintentional.
+- **Resolved (first demo button):** Fighter's button in `ButtonZoneComponent` is a
+  solid-bordered, generously padded button — no dashed border, no decorative frills —
+  and is only shown while Fighter is the active character (other characters currently
+  see the empty state). Use this as the template for each character's future button.
+- **Resolved (hold-to-click):** every primary button uses the shared
+  `HoldToClickDirective` (`src/app/shared/hold-to-click.directive.ts`) — fires once
+  immediately on press, then repeats every `AUTOCLICK_INTERVAL_MS` (`game-config.ts`,
+  1000ms base) for as long as it's held. The visible affordance called out above is a
+  small "hold to repeat" caption under the button — don't drop it when styling new
+  buttons, that's the exact gap game 1 had. When upgrades/Jacks speed this up later,
+  apply a multiplier on top of the base constant rather than editing it directly.
+- **Button title vs. flavor:** a character's button label ("action title", e.g.
+  Fighter's "Hard Labor") lives in `flavor-text.ts` (`CharacterFlavor.actionLabel`) —
+  it's cosmetic. The resource + amount it actually yields lives in `game-config.ts`
+  (`CHARACTER_ACTIONS`) — that's a game value. Don't hardcode either in the component.
 
 ### Options
 - The popup/modal approach is good and should be reused for any settings-like surface.
@@ -211,7 +237,7 @@ Clicker 2 gets built.
 
 - Upgrades modify the numbers and mechanics of buttons and minigames (multipliers,
   unlocks, mechanical changes — not just flat stat bumps).
-- Costs are generally paid in currencies from the wallet/Resource Overview.
+- Costs are generally paid in currencies from the wallet/Party Vault.
 - Upgrades can have **unlock requirements** independent of cost — e.g. reaching a certain
   level in a prerequisite upgrade, or an unrelated system-level unlock (a character, a
   minigame, a Jack, etc.). Unlock state and affordability are two separate gates and
@@ -225,12 +251,48 @@ Clicker 2 gets built.
 - Double as tutorialization and milestone pacing — an objective is often the first time
   a player is told a system exists, so its copy should teach, not just track.
 
-## 7. Resource Overview (formerly "Party Vault")
+## 7. Party Vault
 
 - Per currency: name, color, symbol, current quantity, and (once unlocked) rate/second.
 - Clicking a resource shows a breakdown of its income sources.
 - Carries forward all of §4's Party Vault notes above (EXP pinned at top, tooltips for
   unexplained mechanics like progress bars, collapsible sidebar).
+- **Unlock rule:** a currency only appears once its amount has gone above zero at least
+  once (`WalletService.isUnlocked`), and stays visible even if spent back down to zero —
+  it never re-locks. Filtering by character (`ALL` + one filter button per unlocked
+  character, Activity-Log filter-bar style) is a separate, independent concern from
+  unlock state.
+- **Live data, not static mock values:** amounts come from `WalletService` (mutated by
+  clicks/generators), rates + source breakdowns come from `PerSecondCalculatorService`
+  (aggregated from `GENERATORS` in `game-config.ts`). See the Performance subsection
+  under Design Patterns below before changing either service — the aggregation and
+  change-notification shape is deliberate, not incidental.
+
+### Performance: the per-second calculator
+
+The economy (`src/app/economy/`: `WalletService`, `PerSecondCalculatorService`,
+`GameLoopService`) is built to stay cheap as the number of resources/generators grows,
+because this is the one part of the game guaranteed to run continuously in the
+background regardless of what screen the player is looking at:
+
+- **Partial updates, not full recomputes.** `PerSecondCalculatorService` caches a
+  `{ total, sources }` aggregate per resource id. Recomputing one resource
+  (`recompute(resourceId)`) only touches that resource's own generator list — adding,
+  removing, or changing one generator later (an upgrade, a Jack) must stay O(generators
+  for that resource), never O(all generators/resources). Don't replace this with a
+  "recalculate everything on every tick" approach even if it looks simpler.
+- **Change-pulse, not snapshot cloning.** `WalletService.changes$` emits the *id* of the
+  resource that changed, not a cloned map/array of the whole wallet. Components read
+  current values imperatively (`getAmount`/`isUnlocked`) and call
+  `ChangeDetectorRef.markForCheck()` (OnPush throughout) — this avoids allocating and
+  diffing a new object on every tick.
+- **One shared tick, not per-resource timers.** `GameLoopService` runs a single 1-second
+  interval that walks every *active* generator's resource once — cost scales with active
+  generators, not with resource count or wall-clock granularity. If sub-second precision
+  is ever needed, switch this to a delta-time accumulator rather than adding more timers.
+- Any future system that produces or consumes resources (Upgrades, Jacks, minigames)
+  should register through `GENERATORS`/`WalletService.add`, not maintain its own parallel
+  amount/rate state — that's what would break the partial-update guarantee above.
 
 ## 8. Character Select
 
@@ -305,3 +367,58 @@ Clicker 2 gets built.
 - Currently under construction — no established visual pattern yet. When designed, they
   should still follow §1's terminal/monospace baseline rather than introducing a
   visually distinct "minigame skin."
+- **Gated like Jacks/Crown:** hidden until `UNLOCKS.minigames` (`game-config.ts`) is
+  true — when locked, the button zone simply fills the whole center column instead of
+  splitting 50/50 (`GameAreaComponent`'s `.solo` state), rather than showing a locked
+  placeholder in the bottom half.
+
+# Design Patterns
+
+- Game values such as costs, unlock requirements, resource yields should be dynamic and
+  extracted to a `game-config.ts` file. This includes cross-entity **relations** — e.g.
+  which character a resource is assigned to for Party Vault filtering — not just
+  scalar values and unlock flags.
+- Flavor aspects such as resource symbols or themed colors should be extracted to a
+  `flavor-text.ts` file. Character names/colors and the top-bar ASCII title
+  (`GAME_TITLE_ASCII`) live here too — anything purely cosmetic, as opposed to a game
+  value or relation.
+- Each feature area gets its own `game-config.ts` export (e.g. `UNLOCKS`, `CHARACTERS`,
+  `RESOURCES`, `GENERATORS`) and, where it has cosmetics, a matching `flavor-text.ts`
+  export merged in at the point of use (see `CharacterSelectService`,
+  `PartyVaultComponent`) — don't merge the two concerns into one object. Mutable runtime
+  state derived from that config (wallet amounts, unlock flags, computed rates) lives in
+  its own service (`src/app/economy/`) instead — config is static data, not state.
+- UI components should generally not be selectable with the cursor. Implemented via a
+  global `button { user-select: none; }` in `styles.scss` (covers every button-based
+  control) plus explicit `user-select: none` on non-`<button>` clickable chrome (modal
+  close, options toggle rows, expandable resource rows). Content meant to be copied
+  (Activity Log entries) opts back in explicitly and should keep doing so.
+
+### Game action log messages
+
+Every game action (clicking a button, purchasing an upgrade, completing an objective,
+etc.) logs a message through `ActivityLogService`, in this consistent shape:
+
+```
+<flavor sentence, present tense, ends with a period>. ({{resourceId|<signed amount> <symbol>}})
+```
+
+e.g. Fighter's button logs `You put in a hard day's work and earn some gold. ({{gold|+1 G}})`.
+
+- **Log level:** normal actions log at `'default'` (the INFO filter in the Activity Log's
+  filter bar) — reserve `'success'`/`'warn'`/`'error'`/`'rare'` for things that are
+  actually noteworthy, not routine play. This is what makes the INFO filter meaningfully
+  filterable — if routine actions used `'success'`, filtering it out would hide normal
+  play along with the log spam.
+- **Currency formatting:** the numeric delta is always the `{{resourceId|displayText}}`
+  token (already parsed by `ActivityLogComponent`/`RESOURCE_FLAVOR` — see §1 "Inline
+  colored tokens"), with `displayText` built from `formatSigned()`
+  (`shared/number-format.ts`) plus the resource's symbol, e.g. `+1 G`. Never hand-format
+  a bare number into a log string — it won't pick up the currency's color.
+- **Flavor sentence source:** lives in `flavor-text.ts` next to whatever it describes
+  (e.g. `CharacterFlavor.actionLogMessage` for a character's button) — not inline in the
+  component — so the same "config vs. flavor" split applies to log copy as to
+  everything else.
+- **Consistency:** every new action type should follow this exact shape (flavor sentence
+  + parenthesized colored delta, INFO level) rather than inventing a new phrasing
+  pattern — see `ButtonZoneComponent.logAction` for the reference implementation.

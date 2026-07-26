@@ -1,12 +1,11 @@
 <div class="top-bar">
-    <pre class="ascii">
-    ____  ____  ____________   ___ 
-   / __ \/ __ \/ ____/ ____/  |__ \
-  / /_/ / /_/ / / __/ /       __/ /
- / _, _/ ____/ /_/ / /___    / __/ 
-/_/ |_/_/    \____/\____/   /____/ 
-                                   
-    </pre>
+  <div class="nav-group left">
+    <button class="nav-btn" *ngFor="let b of leftButtons" (click)="open(b.id)">{{ b.label }}</button>
+  </div>
 
-    <a href="www.google.com">Click Me</a>
+  <pre class="title" [attr.aria-label]="gameTitle">{{ gameTitleAscii }}</pre>
+
+  <div class="nav-group right">
+    <button class="nav-btn" *ngFor="let b of rightButtons" (click)="open(b.id)">{{ b.label }}</button>
+  </div>
 </div>

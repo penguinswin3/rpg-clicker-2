@@ -1,0 +1,20 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #000;
+}
+
+.main-layout {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+  // Activity Log is fixed to the viewport bottom (untouched — it's the style baseline),
+  // so reserve matching space here rather than letting it cover this content.
+  padding-bottom: 26px;
+
+  &.log-expanded {
+    padding-bottom: 210px;
+  }
+}

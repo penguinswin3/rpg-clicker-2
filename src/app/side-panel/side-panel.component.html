@@ -1,0 +1,16 @@
+<div class="side-panel">
+  <div class="tab-bar">
+    <button
+      class="tab-btn"
+      *ngFor="let tab of tabs"
+      [class.active]="tab.id === activeTab"
+      (click)="selectTab(tab.id)">
+      {{ tab.label }}
+    </button>
+  </div>
+
+  <div class="tab-body">
+    <app-upgrades-panel *ngIf="activeTab === 'upgrades'"></app-upgrades-panel>
+    <app-objectives-panel *ngIf="activeTab === 'objectives'"></app-objectives-panel>
+  </div>
+</div>

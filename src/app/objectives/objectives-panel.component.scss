@@ -1,0 +1,11 @@
+:host {
+  display: contents;
+}
+
+.objectives-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+}

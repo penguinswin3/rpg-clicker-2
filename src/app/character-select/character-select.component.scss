@@ -1,0 +1,41 @@
+:host {
+  display: contents;
+}
+
+.character-select {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #0a0a0a;
+  border-bottom: 1px solid #333;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.character-box {
+  width: 64px;
+  height: 36px;
+  flex-shrink: 0;
+  background: #000;
+  color: #bbb;
+  border: 1px solid #333;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition: color 0.1s, border-color 0.1s, background 0.1s;
+
+  &:hover:not(.locked) {
+    color: #fff;
+    border-color: #555;
+  }
+
+  &.active {
+    color: #fff;
+    background: #111;
+  }
+
+  &.locked {
+    border-color: #1a1a1a;
+    cursor: default;
+  }
+}

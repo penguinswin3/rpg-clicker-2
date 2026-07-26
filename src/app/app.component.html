@@ -1,8 +1,24 @@
 <app-top-bar></app-top-bar>
+<app-character-select></app-character-select>
 
-<main>
+<div class="main-layout" [class.log-expanded]="!logMinimized">
+  <app-party-vault></app-party-vault>
+  <app-game-area></app-game-area>
+  <app-side-panel></app-side-panel>
+</div>
 
-  <app-activity-log></app-activity-log>
-</main>
+<app-activity-log></app-activity-log>
+
+<app-ui-modal
+  *ngIf="modalService.active$ | async as active"
+  [title]="modalTitle(active)"
+  (closed)="modalService.close()">
+  <ng-container [ngSwitch]="active">
+    <app-jacks-panel *ngSwitchCase="'jacks'"></app-jacks-panel>
+    <app-crown-panel *ngSwitchCase="'crown'"></app-crown-panel>
+    <app-stats-panel *ngSwitchCase="'stats'"></app-stats-panel>
+    <app-options-panel *ngSwitchCase="'options'"></app-options-panel>
+  </ng-container>
+</app-ui-modal>
 
 <router-outlet></router-outlet>

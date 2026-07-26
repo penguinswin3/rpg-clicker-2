@@ -1,0 +1,12 @@
+<div class="character-select">
+  <button
+    *ngFor="let slot of slots"
+    class="character-box"
+    [class.active]="slot.unlocked && slot.id === active"
+    [class.locked]="!slot.unlocked"
+    [style.borderColor]="slot.unlocked && slot.id === active ? slot.color : null"
+    [disabled]="!slot.unlocked"
+    (click)="select(slot.id)">
+    {{ slot.unlocked ? slot.label : '' }}
+  </button>
+</div>

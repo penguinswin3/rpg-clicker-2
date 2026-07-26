@@ -1,0 +1,8 @@
+<div class="game-area" [class.solo]="!minigamesUnlocked">
+  <div class="half top">
+    <app-button-zone></app-button-zone>
+  </div>
+  <div class="half bottom" *ngIf="minigamesUnlocked">
+    <app-minigame-zone></app-minigame-zone>
+  </div>
+</div>

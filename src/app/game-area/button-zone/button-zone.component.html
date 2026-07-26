@@ -1,0 +1,18 @@
+<div class="button-zone">
+  <div class="zone-header">[ BUTTONS ]</div>
+  <div class="zone-body">
+    <div class="action-wrap" *ngIf="action; else noButton">
+      <button
+        class="primary-button"
+        appHoldToClick
+        [holdToClickIntervalMs]="autoClickIntervalMs"
+        (appHoldToClick)="onAction()">
+        {{ actionLabel }}
+      </button>
+      <div class="hold-hint">hold to repeat</div>
+    </div>
+    <ng-template #noButton>
+      <app-empty-state message="No buttons unlocked"></app-empty-state>
+    </ng-template>
+  </div>
+</div>

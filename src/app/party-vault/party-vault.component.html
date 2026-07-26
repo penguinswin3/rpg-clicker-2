@@ -1,0 +1,61 @@
+<div class="party-vault">
+  <div class="panel-header">
+    <span class="panel-title">[ PARTY VAULT ]</span>
+  </div>
+
+  <div class="filter-bar">
+    <button
+      class="filter-btn"
+      [class.active]="allActive"
+      (click)="toggleAllFilters()">
+      ALL
+    </button>
+    <span class="filter-sep">|</span>
+    <button
+      class="filter-btn"
+      *ngFor="let c of characters"
+      [class.active]="activeFilters.has(c.id)"
+      [style.color]="activeFilters.has(c.id) ? c.color : null"
+      [style.borderColor]="activeFilters.has(c.id) ? c.color : null"
+      (click)="toggleFilter(c.id)">
+      {{ c.label }}
+    </button>
+  </div>
+
+  <div class="vault-list">
+    <app-empty-state *ngIf="filteredResources.length === 0" message="No resources unlocked"></app-empty-state>
+
+    <div class="vault-entry" *ngFor="let r of filteredResources">
+      <div
+        class="vault-row"
+        [class.expandable]="r.sources.length > 0"
+        (click)="toggleExpanded(r.id)">
+        <span class="vault-symbol" [style.borderColor]="r.color" [style.color]="r.color">{{ r.symbol }}</span>
+        <div class="vault-info">
+          <div class="vault-name-line" [style.color]="r.color">{{ r.name }}</div>
+          <div class="vault-amount-line">
+            <span class="vault-amount">{{ formatAmount(r.amount) }}</span>
+            <span
+              class="vault-rate"
+              [class.negative]="r.ratePerSecond < 0"
+              [class.zero]="r.ratePerSecond === 0">
+              {{ formatRate(r.ratePerSecond) }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="vault-sources" *ngIf="r.expanded && r.sources.length > 0">
+        <div class="source-row" *ngFor="let s of r.sources">
+          <span class="source-label">{{ s.label }}</span>
+          <span
+            class="source-rate"
+            [class.negative]="s.ratePerSecond < 0"
+            [class.zero]="s.ratePerSecond === 0">
+            {{ formatRate(s.ratePerSecond) }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

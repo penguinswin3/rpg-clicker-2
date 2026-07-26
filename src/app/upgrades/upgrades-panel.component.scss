@@ -1,0 +1,13 @@
+:host {
+  display: contents;
+}
+
+.upgrades-panel {
+  display: grid;
+  // Multi-column by default so a single unlocked category doesn't leave dead space
+  // (see AGENTS.md §4 Upgrades) — real cards slot into this grid later.
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 6px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+}
