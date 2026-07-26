@@ -1,5 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { GENERATORS, GeneratorConfig } from '../configs/game-config';
+import { UpgradesService } from '../upgrades/upgrades.service';
 
 export interface ResourceSource {
   label: string;
@@ -22,6 +23,8 @@ interface ResourceAggregate {
  */
 @Injectable({ providedIn: 'root' })
 export class PerSecondCalculatorService {
+  private upgrades = inject(UpgradesService);
+
   private generatorsByResource = new Map<string, GeneratorConfig[]>();
   private aggregates = new Map<string, ResourceAggregate>();
 
@@ -34,6 +37,15 @@ export class PerSecondCalculatorService {
     for (const resourceId of this.generatorsByResource.keys()) {
       this.recompute(resourceId);
     }
+
+    // An upgrade with a 'generator-rate' effect changes a resource's aggregate without
+    // WalletService ever emitting — re-derive every active resource's aggregate off this
+    // instead of GameLoopService having to know upgrades exist.
+    this.upgrades.changes$.subscribe(() => {
+      for (const resourceId of this.generatorsByResource.keys()) {
+        this.recompute(resourceId);
+      }
+    });
   }
 
   getRate(resourceId: string): number {
@@ -52,9 +64,10 @@ export class PerSecondCalculatorService {
   /** O(generators for this resource) — never touches any other resource's aggregate. */
   private recompute(resourceId: string): void {
     const generators = this.generatorsByResource.get(resourceId) ?? [];
+    const rateFor = (g: GeneratorConfig) => g.ratePerSecond + this.upgrades.getGeneratorRateBonus(g.id);
     this.aggregates.set(resourceId, {
-      total: generators.reduce((sum, g) => sum + g.ratePerSecond, 0),
-      sources: generators.map(g => ({ label: g.label, ratePerSecond: g.ratePerSecond })),
+      total: generators.reduce((sum, g) => sum + rateFor(g), 0),
+      sources: generators.map(g => ({ label: g.label, ratePerSecond: rateFor(g) })),
     });
   }
 }

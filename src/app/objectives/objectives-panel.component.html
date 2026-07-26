@@ -1,3 +1,23 @@
 <div class="objectives-panel">
-  <app-empty-state message="No objectives available"></app-empty-state>
+  <app-empty-state *ngIf="objectives.length === 0" message="No objectives available"></app-empty-state>
+
+  <div class="objective-row" *ngFor="let o of objectives" [class.completed]="o.completed">
+    <div
+      class="objective-fill"
+      *ngIf="!o.completed"
+      [style.width.%]="progressPercent(o)"
+      [style.background]="resourceColor(o.config.resourceId)"></div>
+    <div class="objective-desc">
+      Obtain
+      <span [style.color]="resourceColor(o.config.resourceId)">
+        {{ o.config.targetAmount }} {{ resourceSymbol(o.config.resourceId) }}
+      </span>
+    </div>
+    <div class="objective-status">
+      <span *ngIf="!o.completed" class="objective-progress">
+        {{ formatAmount(o.current) }}/{{ formatAmount(o.config.targetAmount) }}
+      </span>
+      <span *ngIf="o.completed" class="objective-done">DONE</span>
+    </div>
+  </div>
 </div>

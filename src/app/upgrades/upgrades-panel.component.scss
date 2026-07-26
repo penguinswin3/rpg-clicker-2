@@ -11,3 +11,67 @@
   font-family: 'Courier New', Courier, monospace;
   font-size: 12px;
 }
+
+.upgrade-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid #222;
+
+  &.maxed {
+    border-color: #1a1a1a;
+
+    .upgrade-name,
+    .upgrade-desc,
+    .upgrade-level {
+      color: #555;
+    }
+  }
+}
+
+.upgrade-name {
+  color: #bbb;
+}
+
+.upgrade-desc {
+  color: #666;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.upgrade-level {
+  color: #666;
+  font-size: 10px;
+}
+
+.upgrade-buy {
+  align-self: flex-start;
+  background: #000;
+  color: #0ff;
+  border: 1px solid #0ff;
+  font-family: inherit;
+  font-size: 11px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+
+  &:hover:not(:disabled) { background: #003333; }
+
+  &:disabled {
+    color: #555;
+    border-color: #333;
+    cursor: default;
+  }
+}
+
+.upgrade-cost-symbol {
+  font-weight: bold;
+}
+
+.upgrade-maxed {
+  align-self: flex-start;
+  color: #555;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}

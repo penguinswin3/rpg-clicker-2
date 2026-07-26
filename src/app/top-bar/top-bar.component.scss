@@ -27,7 +27,7 @@
 .title {
   flex-shrink: 0;
   margin: 0;
-  color: #bbb;
+  color: #fff;
   font-family: inherit;
   font-size: 12px;
   line-height: 1.1;
@@ -53,4 +53,26 @@
     border-color: #fff;
     background: #1a1a1a;
   }
+}
+
+.dev-tools-btn {
+  color: #0ff;
+  border-color: #0ff;
+
+  &:hover {
+    color: #0ff;
+    border-color: #0ff;
+    background: #003333;
+  }
+}
+
+.playtime-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #777;
+  border: 1px solid #2a2a2a;
+  font-size: 12px;
+  padding: 0 14px;
+  user-select: none;
 }

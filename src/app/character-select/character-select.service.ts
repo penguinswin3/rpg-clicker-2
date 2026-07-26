@@ -1,7 +1,9 @@
-import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { Injectable, inject } from '@angular/core';
+import { BehaviorSubject, Subject } from 'rxjs';
 import { CHARACTERS } from '../configs/game-config';
 import { getCharacterFlavor } from '../configs/flavor-text';
+import { StatisticsService } from '../statistics/statistics.service';
+import { AttentionService } from '../shared/attention.service';
 
 export interface CharacterSlot {
   id: string;
@@ -10,28 +12,64 @@ export interface CharacterSlot {
   unlocked: boolean;
 }
 
-// Locked slots render as empty boxes (per RPG Clicker 1 feedback: visible empty slots
-// signal "more are coming" without saying so).
-const CHARACTER_SLOTS: CharacterSlot[] = CHARACTERS.map(c => ({
-  id: c.id,
-  unlocked: c.unlocked,
-  ...getCharacterFlavor(c.id),
-}));
+export interface CharacterSelectSnapshot {
+  unlockedIds: string[];
+  activeId: string;
+}
 
-/** Tracks the active/displayed character. Non-active characters keep generating in the
- *  background — this service only controls which one is currently shown. */
+/** Tracks the active/displayed character and which characters are unlocked. Non-active
+ *  characters keep generating in the background — this only controls what's shown. */
 @Injectable({ providedIn: 'root' })
 export class CharacterSelectService {
-  readonly slots: CharacterSlot[] = CHARACTER_SLOTS;
+  private statistics = inject(StatisticsService);
+  private attention = inject(AttentionService);
 
-  private activeSource = new BehaviorSubject<string>(CHARACTER_SLOTS[0].id);
+  private readonly allIds = CHARACTERS.map(c => c.id);
+  private unlockedIds = new Set<string>(CHARACTERS.filter(c => c.unlocked).map(c => c.id));
+
+  private activeSource = new BehaviorSubject<string>(CHARACTERS[0].id);
   readonly active$ = this.activeSource.asObservable();
   get active(): string { return this.activeSource.getValue(); }
 
+  // Emits whenever unlock state changes (a new character unlocks) so components
+  // re-read `slots` — unlike `active$`, this isn't itself a stream of the changed value.
+  private changesSource = new Subject<void>();
+  readonly changes$ = this.changesSource.asObservable();
+
+  get slots(): CharacterSlot[] {
+    return this.allIds.map(id => ({
+      id,
+      unlocked: this.unlockedIds.has(id),
+      ...getCharacterFlavor(id),
+    }));
+  }
+
   select(id: string): void {
-    const slot = this.slots.find(s => s.id === id);
-    if (slot && slot.unlocked) {
+    if (this.unlockedIds.has(id)) {
       this.activeSource.next(id);
     }
+  }
+
+  /** Idempotent — unlocking an already-unlocked character is a no-op. */
+  unlock(id: string): void {
+    if (this.unlockedIds.has(id)) return;
+    this.unlockedIds.add(id);
+    this.statistics.recordMajorUnlock(`character-${id}`, `${getCharacterFlavor(id).label} unlocked`);
+    this.attention.markUnseen(`character:${id}`);
+    this.changesSource.next();
+  }
+
+  getSnapshot(): CharacterSelectSnapshot {
+    return { unlockedIds: [...this.unlockedIds], activeId: this.active };
+  }
+
+  restore(snapshot: CharacterSelectSnapshot | undefined): void {
+    if (snapshot?.unlockedIds?.length) {
+      this.unlockedIds = new Set(snapshot.unlockedIds);
+    }
+    if (snapshot?.activeId && this.unlockedIds.has(snapshot.activeId)) {
+      this.activeSource.next(snapshot.activeId);
+    }
+    this.changesSource.next();
   }
 }

@@ -18,6 +18,9 @@ import { JacksPanelComponent } from './jacks/jacks-panel.component';
 import { CrownPanelComponent } from './crown/crown-panel.component';
 import { StatsPanelComponent } from './statistics/stats-panel.component';
 import { OptionsPanelComponent } from './options/options-panel.component';
+import { CreditsPanelComponent } from './credits/credits-panel.component';
+import { DevToolsPanelComponent } from './dev-tools/dev-tools-panel.component';
+import { SaveService } from './save/save.service';
 
 @Component({
   selector: 'app-root',
@@ -36,17 +39,23 @@ import { OptionsPanelComponent } from './options/options-panel.component';
     CrownPanelComponent,
     StatsPanelComponent,
     OptionsPanelComponent,
+    CreditsPanelComponent,
+    DevToolsPanelComponent,
   ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppComponent implements OnInit, OnDestroy {
+  // Injected purely for their construction-time side effects (load-on-boot, autosave
+  // timer, generation tick) — nothing here calls into them again, so order matters:
+  // SaveService must construct (and hydrate every other service) before anything reads
+  // game state, which is guaranteed as long as it's injected somewhere in this component.
+  private saveService = inject(SaveService);
+  private gameLoop = inject(GameLoopService);
+
   private logger = inject(ActivityLogService);
   private cdr = inject(ChangeDetectorRef);
-  // Injected only to start the game loop at boot — the running interval is what matters,
-  // not this reference (nothing else here calls into it).
-  private gameLoop = inject(GameLoopService);
   modalService = inject(ModalService);
 
   private sub = new Subscription();

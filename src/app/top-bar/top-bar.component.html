@@ -6,6 +6,8 @@
   <pre class="title" [attr.aria-label]="gameTitle">{{ gameTitleAscii }}</pre>
 
   <div class="nav-group right">
+    <button class="nav-btn dev-tools-btn" *ngIf="devToolsEnabled" (click)="open('dev-tools')">Dev Tools</button>
+    <div class="playtime-box" *ngIf="showPlaytime">{{ playtimeDisplay }}</div>
     <button class="nav-btn" *ngFor="let b of rightButtons" (click)="open(b.id)">{{ b.label }}</button>
   </div>
 </div>

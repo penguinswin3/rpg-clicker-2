@@ -4,6 +4,8 @@
       class="tab-btn"
       *ngFor="let tab of tabs"
       [class.active]="tab.id === activeTab"
+      [class.has-attention]="hasAttention(tab.id) && !reducedMotion"
+      [class.has-attention-static]="hasAttention(tab.id) && reducedMotion"
       (click)="selectTab(tab.id)">
       {{ tab.label }}
     </button>

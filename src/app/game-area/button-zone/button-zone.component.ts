@@ -8,7 +8,9 @@ import { CharacterSelectService } from '../../character-select/character-select.
 import { WalletService } from '../../economy/wallet.service';
 import { ActivityLogService } from '../../activity-log/activity-log.service';
 import { CHARACTER_ACTIONS, CharacterActionConfig, AUTOCLICK_INTERVAL_MS } from '../../configs/game-config';
-import { getCharacterFlavor, RESOURCE_FLAVOR } from '../../configs/flavor-text';
+import { getActionFlavor, RESOURCE_FLAVOR } from '../../configs/flavor-text';
+import { StatisticsService } from '../../statistics/statistics.service';
+import { UpgradesService } from '../../upgrades/upgrades.service';
 
 /** Top half of the game screen — hosts the primary clicker button(s), one per
  *  character. Only Fighter has an action configured so far; everyone else sees the
@@ -25,6 +27,8 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
   private characterService = inject(CharacterSelectService);
   private wallet = inject(WalletService);
   private activityLog = inject(ActivityLogService);
+  private statistics = inject(StatisticsService);
+  private upgrades = inject(UpgradesService);
   private cdr = inject(ChangeDetectorRef);
   private sub = new Subscription();
 
@@ -36,7 +40,8 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
   }
 
   get actionLabel(): string {
-    return this.activeCharacterId ? getCharacterFlavor(this.activeCharacterId).actionLabel : '';
+    const action = this.action;
+    return action ? getActionFlavor(action.id).label : '';
   }
 
   ngOnInit(): void {
@@ -54,14 +59,16 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
     const action = this.action;
     if (!action) return;
 
-    this.wallet.add(action.resourceId, action.amountPerAction);
-    this.logAction(action);
+    const amount = action.amountPerAction + this.upgrades.getActionAmountBonus(action.id);
+    this.wallet.add(action.resourceId, amount);
+    this.statistics.recordAction(action.id);
+    this.logAction(action, amount);
   }
 
-  private logAction(action: CharacterActionConfig): void {
-    const { actionLogMessage } = getCharacterFlavor(action.characterId);
+  private logAction(action: CharacterActionConfig, amount: number): void {
+    const { logMessage } = getActionFlavor(action.id);
     const resource = RESOURCE_FLAVOR[action.resourceId];
-    const gainToken = `{{${action.resourceId}|${formatSigned(action.amountPerAction)} ${resource.symbol}}}`;
-    this.activityLog.log(`${actionLogMessage} (${gainToken})`, 'default');
+    const gainToken = `{{${action.resourceId}|${formatSigned(amount)} ${resource.symbol}}}`;
+    this.activityLog.log(`${logMessage} (${gainToken})`, 'default');
   }
 }

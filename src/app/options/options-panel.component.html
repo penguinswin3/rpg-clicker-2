@@ -1,17 +1,32 @@
 <div class="options-panel">
   <div class="section">
     <div class="section-header">// Save</div>
-    <button class="action-btn" disabled>Export Save</button>
-    <button class="action-btn" disabled>Import Save</button>
-    <button class="action-btn danger" disabled>Reset Save</button>
+    <button class="action-btn" (click)="copySave()">Copy Save to Clipboard</button>
+    <button class="action-btn" (click)="downloadSave()">Download Save File</button>
+
+    <textarea
+      class="import-input"
+      rows="3"
+      placeholder="Paste a base64 save here to import"
+      [(ngModel)]="importText"></textarea>
+    <button class="action-btn" (click)="importSave()">Import Save</button>
+
+    <button class="action-btn danger" (click)="resetSave()">Reset Save</button>
+
+    <div class="status-message" *ngIf="statusMessage">{{ statusMessage }}</div>
   </div>
 
   <div class="section">
     <div class="section-header">// Display</div>
-    <div class="toggle-row" *ngFor="let opt of displayToggles" (click)="toggle(opt)">
-      <span class="toggle-box" [class.on]="opt.enabled">{{ opt.enabled ? 'X' : ' ' }}</span>
+    <div class="toggle-row" *ngFor="let opt of toggles" (click)="toggle(opt.key)">
+      <span class="toggle-box" [class.on]="settings[opt.key]">{{ settings[opt.key] ? 'X' : ' ' }}</span>
       <span class="toggle-label">{{ opt.label }}</span>
     </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">// Credits</div>
+    <button class="action-btn" (click)="openCredits()">Credits</button>
   </div>
 
   <div class="version">v{{ version }}</div>

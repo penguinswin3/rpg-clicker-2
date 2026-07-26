@@ -3,6 +3,38 @@
 }
 
 .stats-panel {
-  min-width: 280px;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+}
+
+.playtime-row {
+  padding-bottom: 8px;
+  border-bottom: 1px solid #222;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.section-header {
+  color: #666;
+  letter-spacing: 0.05em;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #bbb;
+}
+
+.stat-value {
+  color: #fff;
+  flex-shrink: 0;
 }

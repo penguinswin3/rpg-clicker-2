@@ -1,4 +1,4 @@
-import { Directive, EventEmitter, HostListener, Input, OnDestroy, Output } from '@angular/core';
+import { ChangeDetectorRef, Directive, EventEmitter, HostBinding, HostListener, Input, OnDestroy, Output, inject } from '@angular/core';
 
 /**
  * Fires immediately on press, then keeps firing on an interval for as long as the
@@ -19,7 +19,16 @@ export class HoldToClickDirective implements OnDestroy {
 
   @Output() appHoldToClick = new EventEmitter<void>();
 
+  private cdr = inject(ChangeDetectorRef);
   private intervalId?: ReturnType<typeof setInterval>;
+
+  // Flips on every fire (press + each repeat) so the host template can alternate between
+  // two identically-defined "pulse" classes — a plain boolean toggled back to the same
+  // value wouldn't restart a CSS animation that already finished, alternating classes does.
+  private pulseState = false;
+
+  @HostBinding('class.hold-pulse-a') get pulseA(): boolean { return this.pulseState; }
+  @HostBinding('class.hold-pulse-b') get pulseB(): boolean { return !this.pulseState; }
 
   @HostListener('pointerdown', ['$event'])
   onPointerDown(event: PointerEvent): void {
@@ -37,8 +46,8 @@ export class HoldToClickDirective implements OnDestroy {
 
   private start(): void {
     if (this.intervalId) return;
-    this.appHoldToClick.emit();
-    this.intervalId = setInterval(() => this.appHoldToClick.emit(), this.holdToClickIntervalMs);
+    this.fire();
+    this.intervalId = setInterval(() => this.fire(), this.holdToClickIntervalMs);
   }
 
   private stop(): void {
@@ -46,5 +55,11 @@ export class HoldToClickDirective implements OnDestroy {
       clearInterval(this.intervalId);
       this.intervalId = undefined;
     }
+  }
+
+  private fire(): void {
+    this.pulseState = !this.pulseState;
+    this.cdr.markForCheck();
+    this.appHoldToClick.emit();
   }
 }

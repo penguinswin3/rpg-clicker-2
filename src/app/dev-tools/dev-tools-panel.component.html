@@ -1,0 +1,26 @@
+<div class="dev-tools-panel">
+  <div class="section">
+    <div class="section-header">// Currency</div>
+    <div class="btn-row">
+      <button class="action-btn" *ngFor="let amount of currencyGrants" (click)="grantCurrency(amount)">
+        +{{ formatAmount(amount) }} all
+      </button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">// Unlocks</div>
+    <button class="action-btn" (click)="unlockAllSystems()">Unlock All Systems</button>
+  </div>
+
+  <div class="section">
+    <div class="section-header">// Upgrades</div>
+    <div class="btn-row">
+      <button class="action-btn" (click)="maxAllUpgrades()">Max All</button>
+      <button class="action-btn" (click)="halveAllUpgrades()">Half All</button>
+      <button class="action-btn danger" (click)="zeroAllUpgrades()">Zero All</button>
+    </div>
+  </div>
+
+  <div class="status-message" *ngIf="statusMessage">{{ statusMessage }}</div>
+</div>

@@ -2,11 +2,11 @@
   <button
     *ngFor="let slot of slots"
     class="character-box"
-    [class.active]="slot.unlocked && slot.id === active"
-    [class.locked]="!slot.unlocked"
-    [style.borderColor]="slot.unlocked && slot.id === active ? slot.color : null"
-    [disabled]="!slot.unlocked"
+    [class.active]="slot.id === active"
+    [class.has-attention]="hasAttention(slot.id) && !reducedMotion"
+    [class.has-attention-static]="hasAttention(slot.id) && reducedMotion"
+    [style.borderColor]="slot.id === active ? slot.color : null"
     (click)="select(slot.id)">
-    {{ slot.unlocked ? slot.label : '' }}
+    {{ slot.label }}
   </button>
 </div>

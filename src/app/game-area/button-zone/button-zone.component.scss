@@ -48,6 +48,20 @@
 
   &:hover { background: #1a1a1a; }
   &:active { background: #222; }
+
+  // Fires once per HoldToClickDirective tick (press + every repeat while held) so the
+  // player can visually confirm the actual rate it's firing at, not just that it's
+  // "held." Two identically-defined classes, alternated by the directive, so the
+  // animation restarts on every tick even if the previous one already finished.
+  &.hold-pulse-a,
+  &.hold-pulse-b {
+    animation: hold-pulse 0.2s ease-out;
+  }
+}
+
+@keyframes hold-pulse {
+  0% { background: #3a3a3a; }
+  100% { background: #000; }
 }
 
 .hold-hint {

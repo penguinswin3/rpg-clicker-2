@@ -36,7 +36,9 @@ export class PartyVaultComponent implements OnInit, OnDestroy {
   private cdr = inject(ChangeDetectorRef);
   private sub = new Subscription();
 
-  readonly characters = this.characterService.slots.filter(s => s.unlocked);
+  get characters() {
+    return this.characterService.slots.filter(s => s.unlocked);
+  }
 
   // Same filter-set model as ActivityLogService/ActivityLogComponent: an empty set
   // means "show everything", otherwise only entries matching an active character id.
@@ -62,6 +64,7 @@ export class PartyVaultComponent implements OnInit, OnDestroy {
     // OnPush just needs a nudge to re-read the getters above.
     this.sub.add(this.wallet.changes$.subscribe(() => this.cdr.markForCheck()));
     this.sub.add(this.characterService.active$.subscribe(() => this.cdr.markForCheck()));
+    this.sub.add(this.characterService.changes$.subscribe(() => this.cdr.markForCheck()));
   }
 
   ngOnDestroy(): void {

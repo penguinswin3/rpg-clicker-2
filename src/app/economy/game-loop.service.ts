@@ -1,4 +1,5 @@
 import { Injectable, inject } from '@angular/core';
+import { Subject } from 'rxjs';
 import { WalletService } from './wallet.service';
 import { PerSecondCalculatorService } from './per-second-calculator.service';
 
@@ -8,11 +9,17 @@ import { PerSecondCalculatorService } from './per-second-calculator.service';
  * than a timer per resource, so cost scales with the number of *active* generators —
  * not with resource count or elapsed time. Instantiated eagerly from AppComponent so it
  * starts running as soon as the app boots, independent of which panels are on screen.
+ *
+ * `tick$` lets other once-a-second concerns (PlaytimeService) piggyback on this same
+ * interval instead of starting their own timer — one shared tick for the whole app.
  */
 @Injectable({ providedIn: 'root' })
 export class GameLoopService {
   private wallet = inject(WalletService);
   private calculator = inject(PerSecondCalculatorService);
+
+  private tickSource = new Subject<void>();
+  readonly tick$ = this.tickSource.asObservable();
 
   constructor() {
     setInterval(() => this.tick(), 1000);
@@ -25,5 +32,6 @@ export class GameLoopService {
         this.wallet.add(resourceId, rate);
       }
     }
+    this.tickSource.next();
   }
 }

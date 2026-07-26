@@ -24,7 +24,7 @@
   cursor: pointer;
   transition: color 0.1s, border-color 0.1s, background 0.1s;
 
-  &:hover:not(.locked) {
+  &:hover {
     color: #fff;
     border-color: #555;
   }
@@ -32,10 +32,5 @@
   &.active {
     color: #fff;
     background: #111;
-  }
-
-  &.locked {
-    border-color: #1a1a1a;
-    cursor: default;
   }
 }

@@ -1,0 +1,50 @@
+:host {
+  display: contents;
+}
+
+.dev-tools-panel {
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.section-header {
+  color: #0ff;
+  letter-spacing: 0.05em;
+}
+
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.action-btn {
+  align-self: flex-start;
+  background: #000;
+  color: #0ff;
+  border: 1px solid #0ff;
+  font-family: inherit;
+  font-size: 11px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+
+  &:hover { background: #003333; }
+
+  &.danger { color: #e08080; border-color: #a55; }
+  &.danger:hover { background: #331515; }
+}
+
+.status-message {
+  color: #7fdc7f;
+  font-size: 11px;
+}

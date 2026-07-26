@@ -1,3 +1,24 @@
 <div class="upgrades-panel">
-  <app-empty-state message="No upgrades unlocked"></app-empty-state>
+  <app-empty-state *ngIf="upgrades.length === 0" message="No upgrades unlocked"></app-empty-state>
+
+  <div class="upgrade-card" *ngFor="let u of upgrades" [class.maxed]="u.maxed">
+    <div class="upgrade-name">{{ flavor(u.config.id).label }}</div>
+    <div class="upgrade-desc">{{ flavor(u.config.id).description }}</div>
+    <div class="upgrade-level">Level {{ u.level }} / {{ u.config.maxLevel }}</div>
+
+    <button
+      class="upgrade-buy"
+      *ngIf="!u.maxed; else maxedLabel"
+      [disabled]="!canAfford(u)"
+      (click)="buy(u.config.id)">
+      Buy — {{ formatAmount(u.cost) }}
+      <span
+        class="upgrade-cost-symbol"
+        [style.color]="resourceColor(u.config.resourceId)"
+        [title]="resourceName(u.config.resourceId)">{{ resourceSymbol(u.config.resourceId) }}</span>
+    </button>
+    <ng-template #maxedLabel>
+      <div class="upgrade-maxed">MAXED</div>
+    </ng-template>
+  </div>
 </div>

@@ -1,6 +1,18 @@
 import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs';
 
+export interface WalletChange {
+  resourceId: string;
+  /** 0 when this emission came from `restore()` rather than a real gain/spend — lets
+   *  lifetime-gained tracking (StatisticsService) ignore save-load hydration. */
+  delta: number;
+}
+
+export interface WalletSnapshot {
+  amounts: Record<string, number>;
+  unlockedIds: string[];
+}
+
 /**
  * Canonical store for resource amounts. A resource is "unlocked" the moment its amount
  * first goes above zero, and stays unlocked even if it's spent back down to zero.
@@ -15,7 +27,7 @@ export class WalletService {
   private amounts = new Map<string, number>();
   private unlockedIds = new Set<string>();
 
-  private changesSource = new Subject<string>();
+  private changesSource = new Subject<WalletChange>();
   readonly changes$ = this.changesSource.asObservable();
 
   getAmount(resourceId: string): number {
@@ -34,6 +46,22 @@ export class WalletService {
     if (next > 0) {
       this.unlockedIds.add(resourceId);
     }
-    this.changesSource.next(resourceId);
+    this.changesSource.next({ resourceId, delta });
+  }
+
+  getSnapshot(): WalletSnapshot {
+    return {
+      amounts: Object.fromEntries(this.amounts),
+      unlockedIds: [...this.unlockedIds],
+    };
+  }
+
+  /** Replaces wallet state wholesale (save load) — does not affect lifetime-gained stats. */
+  restore(snapshot: WalletSnapshot | undefined): void {
+    this.amounts = new Map(Object.entries(snapshot?.amounts ?? {}));
+    this.unlockedIds = new Set(snapshot?.unlockedIds ?? []);
+    for (const resourceId of this.amounts.keys()) {
+      this.changesSource.next({ resourceId, delta: 0 });
+    }
   }
 }

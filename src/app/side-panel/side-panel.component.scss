@@ -27,8 +27,10 @@
   border: none;
   border-right: 1px solid #222;
   font-family: inherit;
-  font-size: 11px;
-  padding: 6px 4px;
+  // Matches .panel-header/.zone-header's 4px vertical padding + 12px font exactly, so
+  // this bar lines up with Party Vault's and the Button Zone's headers alongside it.
+  font-size: 12px;
+  padding: 4px 4px;
   cursor: pointer;
   transition: color 0.1s, background 0.1s;
 

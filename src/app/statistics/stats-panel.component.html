@@ -1,3 +1,35 @@
 <div class="stats-panel">
-  <app-empty-state message="No statistics recorded"></app-empty-state>
+  <div class="stat-row playtime-row">
+    <span class="stat-label">Playtime</span>
+    <span class="stat-value">{{ playtimeDisplay }}</span>
+  </div>
+
+  <ng-container *ngIf="hasAnyData; else emptyTpl">
+    <div class="section" *ngIf="actionCounts.length > 0">
+      <div class="section-header">// Actions</div>
+      <div class="stat-row" *ngFor="let a of actionCounts">
+        <span class="stat-label">{{ a.label }}</span>
+        <span class="stat-value">{{ a.count }}</span>
+      </div>
+    </div>
+
+    <div class="section" *ngIf="lifetimeGained.length > 0">
+      <div class="section-header">// Lifetime Currency</div>
+      <div class="stat-row" *ngFor="let r of lifetimeGained">
+        <span class="stat-label" [style.color]="r.color">{{ r.name }}</span>
+        <span class="stat-value">{{ r.amount }}</span>
+      </div>
+    </div>
+
+    <div class="section" *ngIf="majorUnlocks.length > 0">
+      <div class="section-header">// Major Unlocks</div>
+      <div class="stat-row" *ngFor="let u of majorUnlocks">
+        <span class="stat-label">[{{ formatTimestamp(u.timestamp) }}] {{ u.label }}</span>
+      </div>
+    </div>
+  </ng-container>
+
+  <ng-template #emptyTpl>
+    <app-empty-state message="No statistics recorded"></app-empty-state>
+  </ng-template>
 </div>
