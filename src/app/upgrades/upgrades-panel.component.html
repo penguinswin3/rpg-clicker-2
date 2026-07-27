@@ -11,11 +11,11 @@
       *ngIf="!u.maxed; else maxedLabel"
       [disabled]="!canAfford(u)"
       (click)="buy(u.config.id)">
-      Buy — {{ formatAmount(u.cost) }}
+      Buy —
       <span
-        class="upgrade-cost-symbol"
+        class="upgrade-cost"
         [style.color]="resourceColor(u.config.resourceId)"
-        [title]="resourceName(u.config.resourceId)">{{ resourceSymbol(u.config.resourceId) }}</span>
+        [title]="resourceName(u.config.resourceId)">{{ formatAmount(u.cost) }} {{ resourceSymbol(u.config.resourceId) }}</span>
     </button>
     <ng-template #maxedLabel>
       <div class="upgrade-maxed">MAXED</div>

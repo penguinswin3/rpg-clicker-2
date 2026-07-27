@@ -30,8 +30,8 @@ export class SidePanelComponent implements OnInit, OnDestroy {
   private sub = new Subscription();
 
   readonly tabs: TabDef[] = [
-    { id: 'upgrades', label: 'Upgrades' },
-    { id: 'objectives', label: 'Objectives' },
+    { id: 'upgrades', label: '[ Upgrades ]' },
+    { id: 'objectives', label: '[ Objectives ]' },
   ];
 
   activeTab: SideTab = 'upgrades';

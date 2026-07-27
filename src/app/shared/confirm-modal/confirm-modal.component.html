@@ -1,0 +1,7 @@
+<div class="confirm-modal" *ngIf="request as r">
+  <div class="confirm-message">{{ r.message }}</div>
+  <div class="confirm-actions">
+    <button class="action-btn" (click)="cancel()">Cancel</button>
+    <button class="action-btn danger" (click)="confirm()">{{ r.confirmLabel ?? 'Confirm' }}</button>
+  </div>
+</div>

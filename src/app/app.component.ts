@@ -1,10 +1,8 @@
-import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { Subscription } from 'rxjs';
 
 import { ActivityLogComponent } from './activity-log/activity-log.component';
-import { ActivityLogService } from './activity-log/activity-log.service';
 import { TopBarComponent } from './top-bar/top-bar.component';
 import { CharacterSelectComponent } from './character-select/character-select.component';
 import { PartyVaultComponent } from './party-vault/party-vault.component';
@@ -20,6 +18,7 @@ import { StatsPanelComponent } from './statistics/stats-panel.component';
 import { OptionsPanelComponent } from './options/options-panel.component';
 import { CreditsPanelComponent } from './credits/credits-panel.component';
 import { DevToolsPanelComponent } from './dev-tools/dev-tools-panel.component';
+import { ConfirmModalComponent } from './shared/confirm-modal/confirm-modal.component';
 import { SaveService } from './save/save.service';
 
 @Component({
@@ -41,12 +40,13 @@ import { SaveService } from './save/save.service';
     OptionsPanelComponent,
     CreditsPanelComponent,
     DevToolsPanelComponent,
+    ConfirmModalComponent,
   ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class AppComponent implements OnInit, OnDestroy {
+export class AppComponent {
   // Injected purely for their construction-time side effects (load-on-boot, autosave
   // timer, generation tick) — nothing here calls into them again, so order matters:
   // SaveService must construct (and hydrate every other service) before anything reads
@@ -54,23 +54,7 @@ export class AppComponent implements OnInit, OnDestroy {
   private saveService = inject(SaveService);
   private gameLoop = inject(GameLoopService);
 
-  private logger = inject(ActivityLogService);
-  private cdr = inject(ChangeDetectorRef);
   modalService = inject(ModalService);
-
-  private sub = new Subscription();
-  logMinimized = false;
-
-  ngOnInit(): void {
-    this.sub.add(this.logger.minimized$.subscribe(v => {
-      this.logMinimized = v;
-      this.cdr.markForCheck();
-    }));
-  }
-
-  ngOnDestroy(): void {
-    this.sub.unsubscribe();
-  }
 
   modalTitle(id: ModalId): string {
     return MODAL_TITLES[id];

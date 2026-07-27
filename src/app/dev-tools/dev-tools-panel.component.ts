@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { WalletService } from '../economy/wallet.service';
 import { UnlocksService } from '../shared/unlocks.service';
 import { UpgradesService } from '../upgrades/upgrades.service';
+import { SaveService } from '../save/save.service';
 import { RESOURCES, DEV_TOOLS_CURRENCY_GRANTS } from '../configs/game-config';
 import { formatAmount } from '../shared/number-format';
 
@@ -24,6 +25,7 @@ export class DevToolsPanelComponent {
   private wallet = inject(WalletService);
   private unlocks = inject(UnlocksService);
   private upgrades = inject(UpgradesService);
+  private saveService = inject(SaveService);
   private cdr = inject(ChangeDetectorRef);
 
   readonly currencyGrants = DEV_TOOLS_CURRENCY_GRANTS;
@@ -57,6 +59,13 @@ export class DevToolsPanelComponent {
   zeroAllUpgrades(): void {
     this.upgrades.resetAll();
     this.showStatus('Reset every upgrade to level 0.');
+  }
+
+  /** No confirmation, unlike OptionsPanelComponent.resetSave() — Dev Tools actions
+   *  bypass normal game rules on purpose (see class doc). The page reloads almost
+   *  immediately, so there's no status message to show. */
+  deleteSave(): void {
+    this.saveService.reset();
   }
 
   private showStatus(message: string): void {

@@ -50,6 +50,14 @@ export class StatisticsService {
     return [...this.lifetimeGained.entries()];
   }
 
+  /** Lifetime amount gained for one resource — 0 if none recorded yet. Used by
+   *  `ObjectivesService` for 'resource-threshold' objectives, which track *lifetime*
+   *  earned rather than the current wallet balance, so spending gold back down never
+   *  undoes progress toward one. */
+  getLifetimeGainedFor(resourceId: string): number {
+    return this.lifetimeGained.get(resourceId) ?? 0;
+  }
+
   getMajorUnlocks(): MajorUnlockRecord[] {
     return this.majorUnlocks;
   }

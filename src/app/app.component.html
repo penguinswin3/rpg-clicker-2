@@ -1,7 +1,7 @@
 <app-top-bar></app-top-bar>
 <app-character-select></app-character-select>
 
-<div class="main-layout" [class.log-expanded]="!logMinimized">
+<div class="main-layout">
   <app-party-vault></app-party-vault>
   <app-game-area></app-game-area>
   <app-side-panel></app-side-panel>
@@ -20,6 +20,7 @@
     <app-options-panel *ngSwitchCase="'options'"></app-options-panel>
     <app-credits-panel *ngSwitchCase="'credits'"></app-credits-panel>
     <app-dev-tools-panel *ngSwitchCase="'dev-tools'"></app-dev-tools-panel>
+    <app-confirm-modal *ngSwitchCase="'confirm'"></app-confirm-modal>
   </ng-container>
 </app-ui-modal>
 

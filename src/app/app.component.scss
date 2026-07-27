@@ -11,10 +11,12 @@
   display: flex;
   overflow: hidden;
   // Activity Log is fixed to the viewport bottom (untouched — it's the style baseline),
-  // so reserve matching space here rather than letting it cover this content.
-  padding-bottom: 26px;
-
-  &.log-expanded {
-    padding-bottom: 210px;
-  }
+  // so reserve matching space here rather than letting it cover this content. Always
+  // reserve its *expanded* height (~210px), not whatever its current collapsed/expanded
+  // state happens to be — this padding eats into .main-layout's own box, so shrinking it
+  // when the log collapses visibly moved everything centered above it (Button Zone,
+  // minigames) on every toggle. A collapsed log now just leaves empty space below the
+  // reserved area instead — the trade-off that keeps content position stable, which is
+  // the point.
+  padding-bottom: 210px;
 }

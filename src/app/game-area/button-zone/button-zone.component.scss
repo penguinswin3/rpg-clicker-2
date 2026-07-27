@@ -23,8 +23,11 @@
   min-height: 0;
   overflow-y: auto;
   display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
+  gap: 32px;
 }
 
 .action-wrap {
@@ -34,7 +37,11 @@
   gap: 8px;
 }
 
-.primary-button {
+// Shared base for every button in this zone — primary and timed-action buttons must
+// look like one consistent family (same size/border/font), not two different scales.
+// Anything button-specific (disabled state, the fill overlay, the hold-pulse animation)
+// layers on top of this rather than duplicating the shared properties.
+%zone-button {
   background: #000;
   color: #fff;
   border: 1px solid #fff;
@@ -43,8 +50,12 @@
   letter-spacing: 0.05em;
   padding: 14px 32px;
   cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.primary-button {
+  @extend %zone-button;
   touch-action: none;
-  transition: background 0.1s, color 0.1s;
 
   &:hover { background: #1a1a1a; }
   &:active { background: #222; }
@@ -68,4 +79,42 @@
   color: #444;
   font-size: 10px;
   letter-spacing: 0.05em;
+}
+
+.timed-action-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.timed-button {
+  @extend %zone-button;
+  position: relative;
+  overflow: hidden;
+
+  &:hover:not(:disabled) { background: #1a1a1a; }
+  &:active:not(:disabled) { background: #222; }
+
+  &:disabled {
+    color: #666;
+    border-color: #444;
+    cursor: default;
+  }
+}
+
+// Same shape as the Objectives panel's `.objective-fill` — fills left-to-right behind
+// the label at low opacity, inside the button itself rather than a separate bar below it.
+.timed-button-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: #fff;
+  opacity: 0.18;
+  transition: width 0.15s linear;
+  z-index: 0;
+}
+
+.timed-button-label {
+  position: relative;
+  z-index: 1;
 }

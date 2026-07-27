@@ -1,16 +1,33 @@
 <div class="button-zone">
-  <div class="zone-header">[ BUTTONS ]</div>
+  <div class="zone-header">[ QUESTS ]</div>
   <div class="zone-body">
-    <div class="action-wrap" *ngIf="action; else noButton">
-      <button
-        class="primary-button"
-        appHoldToClick
-        [holdToClickIntervalMs]="autoClickIntervalMs"
-        (appHoldToClick)="onAction()">
-        {{ actionLabel }}
-      </button>
-      <div class="hold-hint">hold to repeat</div>
-    </div>
+    <ng-container *ngIf="hasAnyButtons; else noButton">
+      <div class="action-wrap" *ngIf="action">
+        <button
+          class="primary-button"
+          appHoldToClick
+          [holdToClickIntervalMs]="autoClickIntervalMs"
+          (appHoldToClick)="onAction()"
+          (holdRepeat)="onHoldRepeat()">
+          {{ actionLabel }}
+        </button>
+        <div class="hold-hint" *ngIf="!hasHeld">hold to repeat</div>
+      </div>
+
+      <div class="timed-action-wrap" *ngFor="let t of timedActionsForActiveCharacter">
+        <button
+          class="timed-button"
+          [style.min-width]="timedActionMinWidthPx(t)"
+          [disabled]="t.running"
+          (click)="onTimedAction(t)">
+          <div
+            class="timed-button-fill"
+            *ngIf="t.running && t.config.duration.type === 'fixed'"
+            [style.width.%]="t.progress * 100"></div>
+          <span class="timed-button-label">{{ timedActionLabel(t) }}</span>
+        </button>
+      </div>
+    </ng-container>
     <ng-template #noButton>
       <app-empty-state message="No buttons unlocked"></app-empty-state>
     </ng-template>

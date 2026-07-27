@@ -1,22 +1,31 @@
 <div class="objectives-panel">
   <app-empty-state *ngIf="objectives.length === 0" message="No objectives available"></app-empty-state>
 
-  <div class="objective-row" *ngFor="let o of objectives" [class.completed]="o.completed">
+  <div
+    class="objective-row"
+    *ngFor="let o of objectives"
+    [class.completed]="o.completed"
+    [class.claimable]="o.claimable"
+    (click)="claim(o)">
     <div
       class="objective-fill"
       *ngIf="!o.completed"
       [style.width.%]="progressPercent(o)"
-      [style.background]="resourceColor(o.config.resourceId)"></div>
+      [style.background]="fillColor(o)"></div>
     <div class="objective-desc">
-      Obtain
-      <span [style.color]="resourceColor(o.config.resourceId)">
-        {{ o.config.targetAmount }} {{ resourceSymbol(o.config.resourceId) }}
-      </span>
+      <ng-container *ngIf="isResourceObjective(o); else countObjective">
+        Obtain
+        <span [style.color]="resourceColor(objectiveResourceId(o)!)">
+          {{ o.target }} {{ resourceSymbol(objectiveResourceId(o)!) }}
+        </span>
+      </ng-container>
+      <ng-template #countObjective>{{ objectiveVerb(o) }} {{ o.target }} times</ng-template>
     </div>
     <div class="objective-status">
-      <span *ngIf="!o.completed" class="objective-progress">
-        {{ formatAmount(o.current) }}/{{ formatAmount(o.config.targetAmount) }}
+      <span *ngIf="!o.completed && !o.claimable" class="objective-progress">
+        {{ formatAmount(o.current) }}/{{ formatAmount(o.target) }}
       </span>
+      <span *ngIf="o.claimable" class="objective-claim">CLAIM</span>
       <span *ngIf="o.completed" class="objective-done">DONE</span>
     </div>
   </div>

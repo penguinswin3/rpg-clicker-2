@@ -6,6 +6,7 @@ import { VERSION } from '../configs/game-config';
 import { SettingsService, SettingsState } from './settings.service';
 import { SaveService } from '../save/save.service';
 import { ModalService } from '../shared/modal.service';
+import { ConfirmService } from '../shared/confirm.service';
 
 interface ToggleOption {
   key: keyof SettingsState;
@@ -28,6 +29,7 @@ export class OptionsPanelComponent implements OnInit, OnDestroy {
   private settingsService = inject(SettingsService);
   private saveService = inject(SaveService);
   private modalService = inject(ModalService);
+  private confirmService = inject(ConfirmService);
   private cdr = inject(ChangeDetectorRef);
   private sub = new Subscription();
 
@@ -83,8 +85,12 @@ export class OptionsPanelComponent implements OnInit, OnDestroy {
   }
 
   resetSave(): void {
-    if (!confirm('Reset all progress? This cannot be undone.')) return;
-    this.saveService.reset();
+    this.confirmService.ask({
+      message: 'Reset all progress? This cannot be undone.',
+      confirmLabel: 'Reset',
+      onConfirm: () => this.saveService.reset(),
+    });
+    this.modalService.open('confirm');
   }
 
   private showStatus(message: string): void {

@@ -31,6 +31,17 @@
       color: #555 !important;
     }
   }
+
+  // Target reached, reward not yet collected — an explicit "click me" affordance rather
+  // than the reward just silently firing once the number crosses the threshold.
+  &.claimable {
+    cursor: pointer;
+    border-color: #ffd700;
+
+    &:hover {
+      background: #1a1a0a;
+    }
+  }
 }
 
 // Fills left-to-right as `current` approaches `targetAmount`; low opacity so the text
@@ -60,5 +71,12 @@
 
 .objective-done {
   color: #555;
+  flex-shrink: 0;
+}
+
+.objective-claim {
+  color: #ffd700;
+  font-weight: bold;
+  letter-spacing: 0.05em;
   flex-shrink: 0;
 }

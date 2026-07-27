@@ -8,6 +8,8 @@ import { SettingsService } from '../options/settings.service';
 import { AttentionService } from '../shared/attention.service';
 import { UnlocksService } from '../shared/unlocks.service';
 import { UpgradesService } from '../upgrades/upgrades.service';
+import { TimedActionsService } from '../timed-actions/timed-actions.service';
+import { HoldHintService } from '../shared/hold-hint.service';
 import { VERSION, OBJECTIVES, UPGRADES } from '../configs/game-config';
 import { SaveData, SCHEMA_VERSION } from './save-data';
 
@@ -32,8 +34,19 @@ export class SaveService {
   private attention = inject(AttentionService);
   private unlocks = inject(UnlocksService);
   private upgrades = inject(UpgradesService);
+  private timedActions = inject(TimedActionsService);
+  private holdHint = inject(HoldHintService);
 
   private createdAt = Date.now();
+
+  // Set right before a deliberate `location.reload()` that's meant to leave localStorage
+  // in a specific state (reset's removeItem, import's overwrite) — without this, the
+  // 'pagehide' handler below fires *during* that same reload and calls save(), which
+  // re-serializes the still-running in-memory services (nothing in memory has been
+  // cleared, only localStorage was touched) and writes the pre-reset/pre-import state
+  // right back before the new page can load. That race is what made Reset/Delete Save
+  // look like a no-op — the value came right back a moment after being removed.
+  private suppressAutosave = false;
 
   constructor() {
     this.loadFromLocalStorage();
@@ -44,9 +57,11 @@ export class SaveService {
     // leaving"), 'pagehide' catches actual navigation/reload/close. Both call the same
     // synchronous save(), so there's no async work racing the page's teardown.
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') this.save();
+      if (document.visibilityState === 'hidden' && !this.suppressAutosave) this.save();
     });
-    window.addEventListener('pagehide', () => this.save());
+    window.addEventListener('pagehide', () => {
+      if (!this.suppressAutosave) this.save();
+    });
   }
 
   save(): void {
@@ -65,13 +80,15 @@ export class SaveService {
       updatedAt: Date.now(),
       wallet: this.wallet.getSnapshot(),
       characters: this.characters.getSnapshot(),
-      objectives: { completedIds: this.objectives.getCompletedIds() },
+      objectives: this.objectives.getSnapshot(),
       statistics: this.statistics.getSnapshot(),
       playtimeSeconds: this.playtime.totalSeconds,
       settings: this.settings.state,
       unseenAttention: this.attention.getSnapshot(),
       upgrades: this.upgrades.getSnapshot(),
       unlocks: this.unlocks.getSnapshot(),
+      timedActions: this.timedActions.getSnapshot(),
+      holdHints: this.holdHint.getSnapshot(),
     };
     return btoa(JSON.stringify(data));
   }
@@ -101,12 +118,15 @@ export class SaveService {
   importBase64(base64: string): boolean {
     const trimmed = base64.trim();
     if (!this.parse(trimmed)) return false;
+    this.suppressAutosave = true;
     localStorage.setItem(SAVE_KEY, trimmed);
     location.reload();
     return true;
   }
 
+  /** Clears the save from localStorage and reloads to a fresh boot. */
   reset(): void {
+    this.suppressAutosave = true;
     localStorage.removeItem(SAVE_KEY);
     if (this.settings.state.reducedMotion) {
       location.reload();
@@ -157,13 +177,15 @@ export class SaveService {
       this.createdAt = data.createdAt ?? Date.now();
       this.wallet.restore(data.wallet);
       this.characters.restore(data.characters);
-      this.objectives.restore(data.objectives?.completedIds);
+      this.objectives.restore(data.objectives);
       this.statistics.restore(data.statistics);
       this.playtime.restore(data.playtimeSeconds);
       this.settings.restore(data.settings);
       this.attention.restore(data.unseenAttention);
       this.upgrades.restore(data.upgrades);
       this.unlocks.restore(data.unlocks);
+      this.timedActions.restore(data.timedActions);
+      this.holdHint.restore(data.holdHints);
     }
     return true;
   }

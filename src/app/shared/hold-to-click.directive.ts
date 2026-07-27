@@ -19,8 +19,14 @@ export class HoldToClickDirective implements OnDestroy {
 
   @Output() appHoldToClick = new EventEmitter<void>();
 
+  /** Emits the first time a single press turns into an actual hold — i.e. the pointer
+   *  stayed down long enough for a repeat, not just a tap. Lets a consumer (the "hold to
+   *  repeat" hint) tell a real hold apart from a quick click. */
+  @Output() holdRepeat = new EventEmitter<void>();
+
   private cdr = inject(ChangeDetectorRef);
   private intervalId?: ReturnType<typeof setInterval>;
+  private fireCount = 0;
 
   // Flips on every fire (press + each repeat) so the host template can alternate between
   // two identically-defined "pulse" classes — a plain boolean toggled back to the same
@@ -46,6 +52,7 @@ export class HoldToClickDirective implements OnDestroy {
 
   private start(): void {
     if (this.intervalId) return;
+    this.fireCount = 0;
     this.fire();
     this.intervalId = setInterval(() => this.fire(), this.holdToClickIntervalMs);
   }
@@ -58,8 +65,12 @@ export class HoldToClickDirective implements OnDestroy {
   }
 
   private fire(): void {
+    this.fireCount++;
     this.pulseState = !this.pulseState;
     this.cdr.markForCheck();
     this.appHoldToClick.emit();
+    if (this.fireCount === 2) {
+      this.holdRepeat.emit();
+    }
   }
 }
