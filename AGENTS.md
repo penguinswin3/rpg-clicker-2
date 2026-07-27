@@ -725,5 +725,94 @@ e.g. Fighter's button logs `You put in a hard day's work and earn some gold. ({{
   character/system unlock, not a currency amount). Don't treat either as license to skip
   or bend the convention elsewhere — both are scoped to exactly the case described.
 
+## Testing
+
+Two layers, run after any change that could plausibly touch them — this is a *regression
+suite* meant to be extended alongside every feature, not a one-time exercise:
+
+- **Unit** (Karma/Jasmine): `npm run test:unit` (headless, single run) or `ng test`
+  (interactive watch mode). Specs are co-located (`*.spec.ts` next to the file they test).
+- **E2E/smoke** (Playwright): `npm run test:e2e`, spec files under `e2e/`. Drives the real
+  rendered app in a headless browser against whatever dev server is already up on 4200
+  (or starts one) — reserve this layer for things only observable end-to-end (rendered
+  DOM/CSS state, full click-through flows across multiple components), not for logic a
+  unit test could exercise faster.
+- `npm run test:all` runs both.
+
+### Unit suite
+
+- **`src/testing/invariants.ts`** holds small, reusable assertion helpers shared across
+  specs (missing-flavor / duplicate-id / dangling-reference / emoji-symbol checks so far)
+  — add to it rather than re-deriving the same check inline in a new spec.
+- **`src/app/configs/game-config.spec.ts` is the config-integrity suite** — the generic
+  "did I forget to register X" safety net that should be extended for any new
+  resource/action/timed action/upgrade/objective: every id cross-references a real target
+  (resourceId, characterId, actionId, timedActionId, upgradeId...), every id has a
+  flavor-text.ts counterpart with non-empty fields, every symbol is checked against the
+  no-emoji rule (§1), a `requiresCollection` timed action has an explicit `readyLabel`,
+  and duration/cost/reward shapes are sane (positive amounts, `minMs < maxMs`, etc). This
+  is what catches a forgotten flavor-text entry before it ships as a blank button label,
+  or a typo'd cross-reference before it silently no-ops at runtime.
+- **`per-second-calculator.service.spec.ts`** guards "per-second rates are accounted
+  for" — every resource returns a finite rate, `activeResourceIds` matches `GENERATORS`
+  exactly, and a resource's rate is the sum of its generators (each bumped by
+  `getGeneratorRateBonus`). `GENERATORS` is still empty (§7), so the one test that needs a
+  real generator to mean anything calls `pending()` rather than faking an assertion —
+  replace that with a real test the moment the first generator is registered, don't leave
+  a placeholder passing for its own sake.
+- **`save.service.spec.ts`** guards "every registered component is reflected in the
+  save" — asserts the exported save has exactly `EXPECTED_SAVE_KEYS` (a hand-maintained
+  checklist mirroring `SaveData`) and that every currently-known service's
+  `getSnapshot()` round-trips through `exportBase64()` byte-for-byte.
+  **`EXPECTED_SAVE_KEYS` must be updated in the same change that adds a new persisted
+  field/service** — nothing can enforce that automatically (there's no service registry
+  to reflect over), so this list is deliberately the forcing function.
+- **"Statistic tracking is present" is guarded in two places, one per action family:**
+  `button-zone.component.spec.ts` loops every `CHARACTER_ACTIONS` entry (not hardcoded by
+  name) and asserts `onAction()` calls `StatisticsService.recordAction` with that exact
+  id; `timed-actions.service.spec.ts` asserts the same for `TIMED_ACTIONS`, but on
+  *completion/collection* (`TimedActionsService.payout()`), not on `start()` — a Guild
+  Contract or Bait Trap only counts toward an `action-count` objective like "Work 15
+  times" once it's actually paid out, the same way a primary-button press only counts
+  once it's actually clicked, not "queued." (This was a real gap until reported and fixed
+  during this suite's construction — `payout()` didn't call `recordAction` at all
+  originally, so timed-action completions silently didn't count.)
+
+### E2E suite (`e2e/`)
+
+- **`e2e/helpers.ts`** has the reusable page interactions (Dev Tools grants, claiming
+  objectives, selecting a character, tracking console errors, locating a timed-action
+  button) — extend it rather than re-deriving a Dev Tools dance inline in a new spec.
+- **Locate a timed-action button by `data-testid="timed-action-<id>"`
+  (`timedActionButton` in helpers.ts, `button-zone.component.html`), never by its current
+  label text.** A timed action's label is exactly what changes across its
+  idle/running/ready phases (e.g. Bait Trap: "Bait Trap" -> "Waiting..." -> "Collect
+  Prey") — a `hasText`-filtered locator stops matching the instant the very state a test
+  is asserting on changes the label. Same reasoning gave the primary button a
+  `primary-action-<id>` test id, for consistency, even though no primary label changes
+  dynamically today.
+- **Seed exact-amount scenarios via `seedRangerUnlockedSave`/`seedSave` (writes a save
+  straight to localStorage before boot), not Dev Tools' currency grant, whenever a test
+  asserts a specific small currency amount.** Dev Tools only grants a million of *every*
+  resource at once — fine for reaching an unlock threshold, but it also pollutes
+  Bait/Raw Meat/Pelt, and `formatAmount`'s 3-significant-digit rounding makes a later +1
+  invisible on top of 1,000,000 (both display as "1M"). `seedSave` writes only the fields
+  a scenario actually cares about — every field is optional from the reader's side per
+  the Save section's forward-compat rule (§9), verified by `save.service.spec.ts` — so
+  the rest defaults to a genuinely empty wallet.
+
+### A real bug this suite already caught
+
+**Any `*ngFor` over a live/computed array needs a `trackBy` if the array's items are
+freshly-constructed objects on every read** — `TimedActionsService.actions` maps to new
+`TimedActionState` objects on every call, so without `trackBy` Angular's default
+identity-based diffing sees a "new" object every change-detection cycle and
+destroys/recreates the DOM node instead of reusing it, including on the periodic
+`TIMED_ACTION_TICK_MS` refresh while a timed action is running. Found via e2e flakiness
+(Playwright's `boundingBox()` intermittently seeing a detached node mid-cycle), not by
+inspection — `ButtonZoneComponent.trackTimedAction` (keyed on `config.id`) is the
+reference fix. Apply the same pattern to any future `*ngFor` over a similarly-shaped live
+getter.
+
 ## Running the app
 - I will typically have the app running on localhost port 4200, try to use that if available. 

@@ -5,6 +5,7 @@
       <div class="action-wrap" *ngIf="action">
         <button
           class="primary-button"
+          [attr.data-testid]="'primary-action-' + action.id"
           appHoldToClick
           [holdToClickIntervalMs]="autoClickIntervalMs"
           (appHoldToClick)="onAction()"
@@ -14,9 +15,10 @@
         <div class="hold-hint" *ngIf="!hasHeld">hold to repeat</div>
       </div>
 
-      <div class="timed-action-wrap" *ngFor="let t of timedActionsForActiveCharacter">
+      <div class="timed-action-wrap" *ngFor="let t of timedActionsForActiveCharacter; trackBy: trackTimedAction">
         <button
           class="timed-button"
+          [attr.data-testid]="'timed-action-' + t.config.id"
           [style.min-width]="timedActionMinWidthPx(t)"
           [disabled]="t.running"
           (click)="onTimedAction(t)">

@@ -4,6 +4,7 @@ import { WalletService } from '../economy/wallet.service';
 import { UnlocksService } from '../shared/unlocks.service';
 import { UpgradesService } from '../upgrades/upgrades.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
+import { StatisticsService } from '../statistics/statistics.service';
 import { formatSigned } from '../shared/number-format';
 import { resolveExcessCount } from '../shared/chance';
 import { TIMED_ACTIONS, TimedActionConfig, TIMED_ACTION_TICK_MS } from '../configs/game-config';
@@ -73,6 +74,7 @@ export class TimedActionsService {
   private unlocks = inject(UnlocksService);
   private upgrades = inject(UpgradesService);
   private activityLog = inject(ActivityLogService);
+  private statistics = inject(StatisticsService);
 
   private instances = new Map<string, TimedActionInstance>();
   /** Ids currently sitting in the `ready` phase — just what lets `checkCompletions` push
@@ -111,11 +113,16 @@ export class TimedActionsService {
     if (config.cost && this.wallet.getAmount(config.cost.resourceId) < config.cost.amount) return;
 
     if (config.cost) this.wallet.add(config.cost.resourceId, -config.cost.amount);
-    const rolledMs =
+    // Built conditionally rather than always including `rolledMs: undefined` — an
+    // explicit-undefined key round-trips fine through the Map itself, but JSON.stringify
+    // (what the real save path does, see SaveService) silently drops it, which would
+    // make a snapshot taken here and one taken after a save/load look different for no
+    // real reason.
+    const instance: TimedActionInstance =
       config.duration.type === 'random'
-        ? config.duration.minMs + Math.random() * (config.duration.maxMs - config.duration.minMs)
-        : undefined;
-    this.instances.set(id, { startedAt: Date.now(), rolledMs });
+        ? { startedAt: Date.now(), rolledMs: config.duration.minMs + Math.random() * (config.duration.maxMs - config.duration.minMs) }
+        : { startedAt: Date.now() };
+    this.instances.set(id, instance);
     this.changesSource.next();
   }
 
@@ -157,6 +164,11 @@ export class TimedActionsService {
   }
 
   private payout(config: TimedActionConfig): void {
+    // Recorded here rather than in start() — an action-count objective ("Work 15
+    // times") should count a completed/collected timed action the same way it counts a
+    // primary-button press, not the moment the player merely starts waiting on one.
+    this.statistics.recordAction(config.id);
+
     const baseAmount = config.reward.amount + this.upgrades.getTimedActionYieldBonus(config.id);
     const doubled = Math.random() < this.upgrades.getPayoutDoubleChance(config.id);
     const amount = doubled ? baseAmount * 2 : baseAmount;

@@ -94,6 +94,19 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
     return !!this.action || this.timedActionsForActiveCharacter.length > 0;
   }
 
+  /** `timedActionsForActiveCharacter` returns a fresh array of fresh `TimedActionState`
+   *  objects on every read (see `TimedActionsService.actions`) — without a `trackBy`,
+   *  Angular's default identity-based diffing would see a "new" object every change
+   *  detection cycle and destroy/recreate each button's DOM node instead of reusing it,
+   *  including on the periodic TIMED_ACTION_TICK_MS refresh while one is running. That
+   *  churn is at best wasted work and at worst a visible flicker / a brief moment where
+   *  the element doesn't exist (caught by e2e: Playwright's boundingBox() intermittently
+   *  saw a detached node mid-cycle). Track by the one thing that's actually stable across
+   *  every phase of a given action: its config id. */
+  trackTimedAction(_: number, t: TimedActionState): string {
+    return t.config.id;
+  }
+
   ngOnInit(): void {
     this.sub.add(this.characterService.active$.subscribe(id => {
       this.activeCharacterId = id;
