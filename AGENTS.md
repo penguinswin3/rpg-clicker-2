@@ -260,10 +260,25 @@ Notes and open issues to keep in mind (Brad's words, paraphrased):
   entirely rather than disappearing — a persistent checklist, consistent with
   Statistics' milestone pattern (§11).
 - **"New objective available" shine:** seeded once for a brand-new save
-  (`SaveService.seedFreshGameAttention`) since every objective today has no prerequisite.
-  Once objectives can be locked behind a prerequisite, whichever system reveals a
-  newly-available one should call `attention.markUnseen('tab:objectives')` at that
-  moment instead of relying on the fresh-game seed.
+  (`SaveService.seedFreshGameAttention`) for the objectives with no prerequisite. A
+  prerequisite-gated objective (see below) instead gets its shine the moment it actually
+  becomes available — `ObjectivesService.applyReward`'s `'character'` case re-shines
+  `tab:objectives` right after unlocking a character, if any `OBJECTIVES` entry has that
+  character as its `prerequisiteCharacterId`.
+- **Prerequisite-gated objectives:** `ObjectiveConfig.prerequisiteCharacterId` (optional)
+  hides an objective from `.objectives` (and skips it in `evaluateAll`) until
+  `CharacterSelectService.isUnlocked(id)` is true for that character — same "invisible
+  until unlocked" treatment as a locked character/upgrade, not a dimmed placeholder row.
+  `unlock-blacksmith` (gated on `ranger`) is the reference example: it stays completely
+  absent from the Objectives panel until Ranger is unlocked, then appears and shines per
+  the bullet above. Extend this field (or add a sibling `prerequisiteObjectiveId`/similar
+  if a future case needs to gate on something other than a character) rather than
+  inventing a separate always-vs-conditionally-visible objective list.
+- **`specific-action-count`** is the third `ObjectiveConfig` type, alongside
+  `resource-threshold`/`action-count`: like `action-count` but scored off one exact
+  action id (`StatisticsService.getActionCount(actionId)`) instead of every recorded
+  action summed together — for a goal like "collect prey 25 times" that must count only
+  Bait Trap's own collections, not Hard Labor/Cut Bait/etc mixed in.
 
 ---
 
@@ -356,6 +371,53 @@ not just Guild Contract** — build new ones on `TimedActionsService`
   explicit collect click for 1 Raw Meat + a 10% chance at 1 Pelt
   (`TimedActionConfig.bonusReward`, cascading past 100% the same "excess percent" way as
   Better Offcuts, §4 above — see `shared/chance.ts`).
+
+---
+
+## 6a. Crafting Actions (Blacksmith's third+ buttons)
+
+A character's buttons beyond the primary (§ above) and timed-action ones: an
+interactive, multi-step action that needs *sustained active engagement* to complete,
+unlike a primary click (instant) or a timed action (passive real-time wait that keeps
+running unattended regardless of screen). Built on `CraftingService`
+(`src/app/crafting/`), config in `CraftingActionConfig`/`CRAFTING_ACTIONS`
+(`game-config.ts`), flavor in `CRAFTING_FLAVOR` (`flavor-text.ts`) — same config-vs-flavor
+split as everything else. Blacksmith's Forge Ingots/Smith Metal are the first two, and
+the reference implementation for any future button of this kind.
+
+- **Two mechanics so far**, a discriminated union on `CraftingActionConfig.mechanic.type`:
+  - **`'hold'`** (Forge Ingots) — charge a progress meter by holding the button down over
+    `holdMs`. Releasing before it fills drains it back down at `decayMultiplier`x the
+    charge rate rather than pausing in place — a skill/patience mechanic, not "start and
+    walk away." Progress is computed **live** from an anchor point
+    (`{ anchorProgressMs, anchorAt, holding }`) recomputed against `Date.now()` on every
+    read, the same "absolute anchor, compute forward" convention `TimedActionsService`
+    uses for its own start timestamps — the anchor only needs updating at the moments
+    `holding` actually flips (press/release), not on every tick. A separate interval
+    (`checkHoldCompletions`, on `TIMED_ACTION_TICK_MS`) exists purely to notice the two
+    edges that live computation alone would never act on: reaching full charge (pay out)
+    or fully decaying to 0 while released (abandon the attempt, so the next press
+    re-charges the cost).
+  - **`'clicks'`** (Smith Metal) — the button must be clicked `clicksRequired` times to
+    complete; progress is a plain step counter, never decays while idle.
+  - `holdMs` is meant to be shortenable by a future upgrade (not yet implemented) the
+    same way `timed-action-duration` shortens a `TimedActionConfig`'s duration — kept as
+    plain config data now so an upgrade slots in later without a reshape.
+- **Cost is charged once, the moment progress first leaves 0** — not per click/tick, and
+  not refunded by releasing/abandoning early. A `'hold'` attempt that fully decays back
+  to 0 forfeits the cost already spent; the next press starts a fresh (re-charged)
+  attempt. Reward pays out only once progress reaches its target. Unaffordable on that
+  first press/click logs the same insufficient-cost error as a `TimedActionConfig` (§6).
+- **Progress renders as the button's own background fill**, identical layered-fill-
+  behind-label shape as a timed action's `.timed-button-fill` (§6) — `.crafting-button-fill`,
+  growing (or, for a released `'hold'` action, shrinking) left-to-right behind
+  `.crafting-button-label`. Every crafting button also extends `%zone-button` (§6), same
+  "one shared button family" rule.
+- **Persisted** via the usual `getSnapshot()`/`restore()` pair (`SaveData.crafting`) — a
+  `'clicks'` counter round-trips as-is; a `'hold'` instance persists `{ progressMs,
+  savedAt }` and `restore()` applies whatever decay would have happened while the save
+  was closed (always restored as released — a page reload can't literally still be
+  holding — same real-elapsed-time convention as `TimedActionsService.restore`).
 
 ---
 
@@ -746,7 +808,7 @@ suite* meant to be extended alongside every feature, not a one-time exercise:
   — add to it rather than re-deriving the same check inline in a new spec.
 - **`src/app/configs/game-config.spec.ts` is the config-integrity suite** — the generic
   "did I forget to register X" safety net that should be extended for any new
-  resource/action/timed action/upgrade/objective: every id cross-references a real target
+  resource/action/timed action/crafting action/upgrade/objective: every id cross-references a real target
   (resourceId, characterId, actionId, timedActionId, upgradeId...), every id has a
   flavor-text.ts counterpart with non-empty fields, every symbol is checked against the
   no-emoji rule (§1), a `requiresCollection` timed action has an explicit `readyLabel`,

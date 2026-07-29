@@ -37,6 +37,7 @@ export interface CharacterConfig {
 export const CHARACTERS: CharacterConfig[] = [
     { id: 'fighter', unlocked: true },
     { id: 'ranger', unlocked: false },
+    { id: 'blacksmith', unlocked: false },
 ];
 
 // ── Resources ─────────────────────────────────────────────────
@@ -56,6 +57,9 @@ export const RESOURCES: ResourceConfig[] = [
     { id: 'bait', characterId: 'ranger' },
     { id: 'raw-meat', characterId: 'ranger' },
     { id: 'pelt', characterId: 'ranger' },
+    { id: 'ore', characterId: 'blacksmith' },
+    { id: 'ingot', characterId: 'blacksmith' },
+    { id: 'ironmongery', characterId: 'blacksmith' },
 ];
 
 // ── Generators ────────────────────────────────────────────────
@@ -87,6 +91,7 @@ export interface CharacterActionConfig {
 export const CHARACTER_ACTIONS: CharacterActionConfig[] = [
     { id: 'fighter-hard-labor', characterId: 'fighter', resourceId: 'gold', amountPerAction: 1 },
     { id: 'ranger-cut-bait', characterId: 'ranger', resourceId: 'bait', amountPerAction: 1 },
+    { id: 'blacksmith-mine-ore', characterId: 'blacksmith', resourceId: 'ore', amountPerAction: 1 },
 ];
 
 // ── Timed actions ─────────────────────────────────────────────
@@ -152,6 +157,50 @@ export const TIMED_ACTIONS: TimedActionConfig[] = [
         reward: { resourceId: 'raw-meat', amount: 1 },
         bonusReward: { resourceId: 'pelt', chance: 0.1 },
         requiresCollection: true,
+    },
+];
+
+// ── Crafting actions (Blacksmith's third+ buttons) ────────────
+// Unlike CHARACTER_ACTIONS (instant) or TIMED_ACTIONS (passive real-time wait that keeps
+// running unattended), a crafting action needs sustained, active player engagement to
+// complete — see CraftingService (src/app/crafting/). Two mechanics so far, a
+// discriminated union on `mechanic.type`:
+//  - 'hold': charge a progress meter by holding the button down over `holdMs`.
+//    Releasing before it fills drains it back down at `decayMultiplier`x the charge
+//    rate rather than pausing in place — a skill/patience mechanic, not "start and walk
+//    away." `holdMs` is meant to be shortenable by a future upgrade (not yet
+//    implemented) the same way `timed-action-duration` shortens a TimedActionConfig's
+//    duration — kept as plain config data now so that slots in later without a reshape.
+//  - 'clicks': the button must be clicked `clicksRequired` times to complete; progress
+//    is a plain step counter, not time-based, and never decays while idle.
+// `cost` is charged once, the moment progress first leaves 0 — not per click/tick — and
+// `reward` pays out only once progress reaches its target.
+export type CraftingMechanic =
+    | { type: 'hold'; holdMs: number; decayMultiplier: number }
+    | { type: 'clicks'; clicksRequired: number };
+
+export interface CraftingActionConfig {
+    id: string;
+    characterId: string;
+    mechanic: CraftingMechanic;
+    cost: { resourceId: string; amount: number };
+    reward: { resourceId: string; amount: number };
+}
+
+export const CRAFTING_ACTIONS: CraftingActionConfig[] = [
+    {
+        id: 'blacksmith-forge-ingots',
+        characterId: 'blacksmith',
+        mechanic: { type: 'hold', holdMs: 10_000, decayMultiplier: 3 },
+        cost: { resourceId: 'ore', amount: 10 },
+        reward: { resourceId: 'ingot', amount: 1 },
+    },
+    {
+        id: 'blacksmith-smith-metal',
+        characterId: 'blacksmith',
+        mechanic: { type: 'clicks', clicksRequired: 10 },
+        cost: { resourceId: 'ingot', amount: 10 },
+        reward: { resourceId: 'ironmongery', amount: 1 },
     },
 ];
 
@@ -317,9 +366,41 @@ export type ObjectiveReward =
     | { type: 'system'; systemId: keyof typeof UNLOCKS }
     | { type: 'upgrade'; upgradeId: string };
 
+// `prerequisiteCharacterId`, common to every variant, is what lets an objective stay
+// hidden until another one's character reward has actually been claimed — e.g.
+// "unlock-blacksmith" has no reason to appear before Ranger (and Bait Trap) even exist.
+// Undefined means always available, same "no gate" meaning omitting a field has
+// elsewhere in these configs (TimedActionConfig.unlockKey, etc). See ObjectivesService
+// for how this is enforced (filtered out of `.objectives` and skipped in `evaluateAll`,
+// same "invisible until unlocked" precedent as a locked character/upgrade) and
+// ObjectivesService.applyReward for the "just became available" attention re-shine.
 export type ObjectiveConfig =
-    | { id: string; type: 'resource-threshold'; resourceId: string; targetAmount: number; rewards?: ObjectiveReward[] }
-    | { id: string; type: 'action-count'; targetCount: number; rewards?: ObjectiveReward[] };
+    | {
+        id: string;
+        type: 'resource-threshold';
+        resourceId: string;
+        targetAmount: number;
+        rewards?: ObjectiveReward[];
+        prerequisiteCharacterId?: string;
+    }
+    | {
+        id: string;
+        type: 'action-count';
+        targetCount: number;
+        rewards?: ObjectiveReward[];
+        prerequisiteCharacterId?: string;
+    }
+    // Like 'action-count', but scoped to one specific action id rather than summed
+    // across every recorded action — e.g. "collect prey 25 times" must count only
+    // ranger-bait-trap's own completions, not Hard Labor/Cut Bait/etc mixed in.
+    | {
+        id: string;
+        type: 'specific-action-count';
+        actionId: string;
+        targetCount: number;
+        rewards?: ObjectiveReward[];
+        prerequisiteCharacterId?: string;
+    };
 
 // Order here is display order in the Objectives panel — "Work 15 times" is meant to be
 // the very first thing a new player sees and completes.
@@ -346,5 +427,21 @@ export const OBJECTIVES: ObjectiveConfig[] = [
             { type: 'upgrade', upgradeId: 'extra-baiting' },
             { type: 'upgrade', upgradeId: 'clean-traps' },
         ],
+    },
+    {
+        id: 'unlock-blacksmith',
+        type: 'specific-action-count',
+        actionId: 'ranger-bait-trap',
+        targetCount: 10,
+        prerequisiteCharacterId: 'ranger',
+        rewards: [{ type: 'character', characterId: 'blacksmith' }],
+    },
+    {
+        id: 'craft-10-ironmongery',
+        type: 'resource-threshold',
+        resourceId: 'ironmongery',
+        targetAmount: 1,
+        prerequisiteCharacterId: 'blacksmith',
+        rewards: [{ type: 'system', systemId: 'minigames' }],
     },
 ];

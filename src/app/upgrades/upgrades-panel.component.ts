@@ -2,11 +2,10 @@ import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDe
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { EmptyStateComponent } from '../shared/empty-state/empty-state.component';
-import { formatAmount, formatSigned } from '../shared/number-format';
+import { formatAmount } from '../shared/number-format';
 import { RESOURCE_FLAVOR, getUpgradeFlavor } from '../configs/flavor-text';
 import { UpgradesService, UpgradeState } from './upgrades.service';
 import { WalletService } from '../economy/wallet.service';
-import { ActivityLogService } from '../activity-log/activity-log.service';
 import { SettingsService } from '../options/settings.service';
 import { CharacterSelectService } from '../character-select/character-select.service';
 
@@ -25,7 +24,6 @@ import { CharacterSelectService } from '../character-select/character-select.ser
 export class UpgradesPanelComponent implements OnInit, OnDestroy {
   private upgradesService = inject(UpgradesService);
   private wallet = inject(WalletService);
-  private activityLog = inject(ActivityLogService);
   private settings = inject(SettingsService);
   private characterService = inject(CharacterSelectService);
   private cdr = inject(ChangeDetectorRef);
@@ -85,15 +83,6 @@ export class UpgradesPanelComponent implements OnInit, OnDestroy {
   }
 
   buy(upgradeId: string): void {
-    const cost = this.upgradesService.purchase(upgradeId);
-    if (cost === undefined) return;
-
-    const upgrade = this.upgradesService.upgrades.find(u => u.config.id === upgradeId);
-    if (!upgrade) return;
-
-    const { logMessage } = getUpgradeFlavor(upgradeId);
-    const resource = RESOURCE_FLAVOR[upgrade.config.resourceId];
-    const costToken = `{{${upgrade.config.resourceId}|${formatSigned(-cost)} ${resource.symbol}}}`;
-    this.activityLog.log(`${logMessage} (${costToken})`, 'default');
+    this.upgradesService.purchase(upgradeId);
   }
 }

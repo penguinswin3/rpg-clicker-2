@@ -46,6 +46,13 @@ export class StatisticsService {
     return [...this.actionCounts.entries()];
   }
 
+  /** Count for one specific action id — 0 if never recorded. Used by
+   *  `ObjectivesService` for a 'specific-action-count' objective, which (unlike
+   *  'action-count') must track exactly one action rather than every recorded one. */
+  getActionCount(actionId: string): number {
+    return this.actionCounts.get(actionId) ?? 0;
+  }
+
   getLifetimeGained(): [string, number][] {
     return [...this.lifetimeGained.entries()];
   }

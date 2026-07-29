@@ -5,10 +5,10 @@ import { UnlocksService } from '../shared/unlocks.service';
 import { UpgradesService } from '../upgrades/upgrades.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { StatisticsService } from '../statistics/statistics.service';
-import { formatSigned } from '../shared/number-format';
 import { resolveExcessCount } from '../shared/chance';
+import { resourceAmountToken, resourceNameToken } from '../shared/resource-token';
 import { TIMED_ACTIONS, TimedActionConfig, TIMED_ACTION_TICK_MS } from '../configs/game-config';
-import { getTimedActionFlavor, RESOURCE_FLAVOR } from '../configs/flavor-text';
+import { getTimedActionFlavor } from '../configs/flavor-text';
 
 export interface TimedActionState {
   config: TimedActionConfig;
@@ -103,14 +103,19 @@ export class TimedActionsService {
     return { config, unlocked, running, ready, progress };
   }
 
-  /** No-op if locked, already in progress, or unaffordable (`config.cost`) — safe to call
-   *  directly from a click handler without checking state first. */
+  /** No-op if locked or already in progress; logs an error to the activity log if
+   *  unaffordable (`config.cost`) instead of silently doing nothing, since that's the one
+   *  case the player might actually be confused by. Safe to call directly from a click
+   *  handler without checking state first. */
   start(id: string): void {
     const config = TIMED_ACTIONS.find(a => a.id === id);
     if (!config) return;
     if (config.unlockKey && !this.unlocks.isUnlocked(config.unlockKey)) return;
     if (this.instances.has(id)) return;
-    if (config.cost && this.wallet.getAmount(config.cost.resourceId) < config.cost.amount) return;
+    if (config.cost && this.wallet.getAmount(config.cost.resourceId) < config.cost.amount) {
+      this.logInsufficientCost(config);
+      return;
+    }
 
     if (config.cost) this.wallet.add(config.cost.resourceId, -config.cost.amount);
     // Built conditionally rather than always including `rolledMs: undefined` — an
@@ -184,15 +189,19 @@ export class TimedActionsService {
     this.logCompletion(config, amount, doubled, bonusAmount);
   }
 
+  private logInsufficientCost(config: TimedActionConfig): void {
+    if (!config.cost) return;
+    const { label } = getTimedActionFlavor(config.id);
+    this.activityLog.log(`Not enough ${resourceNameToken(config.cost.resourceId)} to start ${label}.`, 'error');
+  }
+
   private logCompletion(config: TimedActionConfig, amount: number, doubled: boolean, bonusAmount: number): void {
     const { logMessage } = getTimedActionFlavor(config.id);
-    const resource = RESOURCE_FLAVOR[config.reward.resourceId];
-    const gainToken = `{{${config.reward.resourceId}|${formatSigned(amount)} ${resource.symbol}}}`;
+    const gainToken = resourceAmountToken(config.reward.resourceId, amount);
 
     let message = `${logMessage} (${gainToken})`;
     if (bonusAmount > 0 && config.bonusReward) {
-      const bonusResource = RESOURCE_FLAVOR[config.bonusReward.resourceId];
-      const bonusToken = `{{${config.bonusReward.resourceId}|${formatSigned(bonusAmount)} ${bonusResource.symbol}}}`;
+      const bonusToken = resourceAmountToken(config.bonusReward.resourceId, bonusAmount);
       message = `${logMessage} (${gainToken}, ${bonusToken})`;
     }
     // A doubled payout (Bonus Payout upgrade) or a bonus reward (Clean Traps' Pelt) is a

@@ -49,8 +49,10 @@ export class SidePanelComponent implements OnInit, OnDestroy {
     this.sub.unsubscribe();
   }
 
+  /** No shine for the tab you're already looking at — only for a different one that
+   *  has something new. */
   hasAttention(id: SideTab): boolean {
-    return this.attention.isUnseen(`tab:${id}`);
+    return id !== this.activeTab && this.attention.isUnseen(`tab:${id}`);
   }
 
   selectTab(id: SideTab): void {

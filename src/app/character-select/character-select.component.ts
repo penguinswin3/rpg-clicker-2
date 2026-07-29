@@ -47,8 +47,10 @@ export class CharacterSelectComponent implements OnInit, OnDestroy {
     this.sub.unsubscribe();
   }
 
+  /** No shine for the character already selected/active — only for a different one
+   *  that's newly unlocked. */
   hasAttention(id: string): boolean {
-    return this.attention.isUnseen(`character:${id}`);
+    return id !== this.active && this.attention.isUnseen(`character:${id}`);
   }
 
   select(id: string): void {

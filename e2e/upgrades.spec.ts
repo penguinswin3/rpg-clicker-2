@@ -26,7 +26,8 @@ test.describe('Upgrades', () => {
     await card.locator('button.upgrade-buy').click();
 
     await expect(card.locator('.upgrade-level')).toHaveText('Level 1 / 100');
-    await expect(page.locator('.log-entry', { hasText: 'muscle' })).toBeVisible();
+    // Buying an upgrade is deliberately silent in the activity log — no per-purchase entry.
+    await expect(page.locator('.log-entry', { hasText: 'muscle' })).toHaveCount(0);
   });
 
   test('a maxed upgrade shows MAXED instead of a buy button', async ({ page }) => {

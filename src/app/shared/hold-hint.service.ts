@@ -19,6 +19,14 @@ export class HoldHintService {
     return this.heldSource.getValue().has(actionId);
   }
 
+  /** Whether the player has ever held down *any* hold-to-click action. The "hold to
+   *  repeat" hint is teaching a single mechanic, not a per-button one — once the player
+   *  has learned it anywhere, it should stop showing everywhere, including on a button
+   *  for an action/character they haven't personally held yet. */
+  hasHeldAny(): boolean {
+    return this.heldSource.getValue().size > 0;
+  }
+
   /** Idempotent — marking an already-held action is a no-op. */
   markHeld(actionId: string): void {
     if (this.hasHeld(actionId)) return;

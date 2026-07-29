@@ -3,6 +3,7 @@ import { TimedActionsService, TimedActionsSnapshot } from './timed-actions.servi
 import { WalletService } from '../economy/wallet.service';
 import { UnlocksService } from '../shared/unlocks.service';
 import { StatisticsService } from '../statistics/statistics.service';
+import { ActivityLogService } from '../activity-log/activity-log.service';
 import { TIMED_ACTION_TICK_MS, TIMED_ACTIONS } from '../configs/game-config';
 
 const GUILD_CONTRACT = 'fighter-guild-contract';
@@ -66,6 +67,26 @@ describe('TimedActionsService', () => {
       timedActions.start(BAIT_TRAP);
       expect(stateFor(BAIT_TRAP).running).toBeFalse();
       expect(wallet.getAmount('bait')).toBe(0);
+    });
+
+    it('logs an error to the activity log if the cost is unaffordable', () => {
+      const activityLog = TestBed.inject(ActivityLogService);
+      const log = spyOn(activityLog, 'log');
+
+      expect(wallet.getAmount('bait')).toBe(0);
+      timedActions.start(BAIT_TRAP);
+
+      expect(log).toHaveBeenCalledOnceWith(jasmine.stringMatching(/not enough/i), 'error');
+    });
+
+    it('does not log anything when starting a free action or an affordable one', () => {
+      const activityLog = TestBed.inject(ActivityLogService);
+      const log = spyOn(activityLog, 'log');
+
+      wallet.add('bait', 5);
+      timedActions.start(BAIT_TRAP);
+
+      expect(log).not.toHaveBeenCalled();
     });
 
     it('charges the exact cost up front', () => {

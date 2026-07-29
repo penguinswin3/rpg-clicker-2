@@ -7,7 +7,7 @@
   flex-direction: column;
   gap: 6px;
   font-family: 'Courier New', Courier, monospace;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .objective-row {
@@ -22,7 +22,7 @@
   transition: opacity 0.15s;
 
   &.completed {
-    font-size: 10px;
+    font-size: 12px;
     padding: 4px 6px;
     border-color: #1a1a1a;
 
@@ -41,6 +41,24 @@
     &:hover {
       background: #1a1a0a;
     }
+  }
+
+  // Plays once the moment an objective flips to completed (see
+  // ObjectivesPanelComponent.detectNewlyCompleted) — a brief highlight so a claim that
+  // just happened is obvious even if the player's attention was elsewhere.
+  &.flashing {
+    animation: objective-flash 1s ease-out;
+  }
+}
+
+@keyframes objective-flash {
+  0% {
+    background: #4a3f00;
+    box-shadow: 0 0 12px 2px #ffd700;
+  }
+  100% {
+    background: transparent;
+    box-shadow: none;
   }
 }
 

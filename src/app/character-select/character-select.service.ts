@@ -50,6 +50,14 @@ export class CharacterSelectService {
     }
   }
 
+  /** Whether a character has actually been unlocked (not just whether it's active) —
+   *  used by `ObjectivesService` to gate a prerequisite-locked objective (e.g.
+   *  "unlock-blacksmith" needs Ranger unlocked first) the same way a locked
+   *  character/upgrade renders no box/card at all until unlocked. */
+  isUnlocked(id: string): boolean {
+    return this.unlockedIds.has(id);
+  }
+
   /** Idempotent — unlocking an already-unlocked character is a no-op. */
   unlock(id: string): void {
     if (this.unlockedIds.has(id)) return;

@@ -5,6 +5,7 @@ import { CharacterSelectService } from '../character-select/character-select.ser
 import { UnlocksService } from '../shared/unlocks.service';
 import { UpgradesService } from '../upgrades/upgrades.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
+import { AttentionService } from '../shared/attention.service';
 import { getObjectiveFlavor } from '../configs/flavor-text';
 import { OBJECTIVES, ObjectiveConfig, ObjectiveReward } from '../configs/game-config';
 
@@ -44,6 +45,7 @@ export class ObjectivesService {
   private unlocks = inject(UnlocksService);
   private upgrades = inject(UpgradesService);
   private activityLog = inject(ActivityLogService);
+  private attention = inject(AttentionService);
 
   private reachedIds = new Set<string>();
   private completedIds = new Set<string>();
@@ -59,7 +61,7 @@ export class ObjectivesService {
   }
 
   get objectives(): ObjectiveState[] {
-    return OBJECTIVES.map(config => {
+    return OBJECTIVES.filter(config => this.isAvailable(config)).map(config => {
       const target = this.targetFor(config);
       return {
         config,
@@ -95,6 +97,7 @@ export class ObjectivesService {
   private evaluateAll(): void {
     let changed = false;
     for (const config of OBJECTIVES) {
+      if (!this.isAvailable(config)) continue;
       if (this.reachedIds.has(config.id) || this.completedIds.has(config.id)) continue;
       changed = true; // live progress moved — the panel needs to re-render even before the target is hit
       if (this.currentFor(config) >= this.targetFor(config)) {
@@ -104,10 +107,22 @@ export class ObjectivesService {
     if (changed) this.changesSource.next();
   }
 
+  /** Whether a prerequisite-gated objective should even be visible yet — undefined
+   *  `prerequisiteCharacterId` means always available. Same "invisible until unlocked"
+   *  treatment as a locked character/upgrade, rather than a dimmed/locked placeholder row. */
+  private isAvailable(config: ObjectiveConfig): boolean {
+    return !config.prerequisiteCharacterId || this.characterService.isUnlocked(config.prerequisiteCharacterId);
+  }
+
   private currentFor(config: ObjectiveConfig): number {
-    return config.type === 'resource-threshold'
-      ? this.statistics.getLifetimeGainedFor(config.resourceId)
-      : this.totalActionCount();
+    switch (config.type) {
+      case 'resource-threshold':
+        return this.statistics.getLifetimeGainedFor(config.resourceId);
+      case 'action-count':
+        return this.totalActionCount();
+      case 'specific-action-count':
+        return this.statistics.getActionCount(config.actionId);
+    }
   }
 
   private targetFor(config: ObjectiveConfig): number {
@@ -124,6 +139,14 @@ export class ObjectivesService {
     switch (reward.type) {
       case 'character':
         this.characterService.unlock(reward.characterId);
+        // Unlocking a character can reveal a previously-hidden prerequisite-gated
+        // objective (see ObjectiveConfig.prerequisiteCharacterId) — re-shine the
+        // Objectives tab at the exact transition, rather than relying on the fresh-game
+        // seed (SaveService.seedFreshGameAttention), which only covers objectives
+        // available from the very start.
+        if (OBJECTIVES.some(o => o.prerequisiteCharacterId === reward.characterId)) {
+          this.attention.markUnseen('tab:objectives');
+        }
         break;
       case 'system':
         this.unlocks.unlock(reward.systemId);

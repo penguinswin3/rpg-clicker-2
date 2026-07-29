@@ -3,6 +3,7 @@ import {
   CHARACTERS,
   CHARACTER_ACTIONS,
   TIMED_ACTIONS,
+  CRAFTING_ACTIONS,
   UPGRADES,
   OBJECTIVES,
   GENERATORS,
@@ -11,6 +12,7 @@ import {
   RESOURCE_FLAVOR,
   ACTION_FLAVOR,
   TIMED_ACTION_FLAVOR,
+  CRAFTING_FLAVOR,
   UPGRADE_FLAVOR,
 } from './flavor-text';
 import { idsMissingFlavor, duplicateIds, danglingReferences, emojiSymbols } from '../../testing/invariants';
@@ -30,6 +32,7 @@ describe('game-config integrity', () => {
   const resourceIds = RESOURCES.map(r => r.id);
   const characterActionIds = CHARACTER_ACTIONS.map(a => a.id);
   const timedActionIds = TIMED_ACTIONS.map(a => a.id);
+  const craftingActionIds = CRAFTING_ACTIONS.map(a => a.id);
   const upgradeIds = UPGRADES.map(u => u.id);
 
   describe('Characters', () => {
@@ -153,18 +156,61 @@ describe('game-config integrity', () => {
     });
   });
 
+  describe('Crafting actions (Blacksmith buttons)', () => {
+    it('has no duplicate ids', () => {
+      expect(duplicateIds(craftingActionIds)).toEqual([]);
+    });
+
+    it('every crafting action has a CRAFTING_FLAVOR entry with a non-empty label and logMessage', () => {
+      expect(idsMissingFlavor(craftingActionIds, CRAFTING_FLAVOR)).toEqual([]);
+      for (const action of CRAFTING_ACTIONS) {
+        const flavor = CRAFTING_FLAVOR[action.id];
+        expect(flavor.label).withContext(action.id).not.toBe('');
+        expect(flavor.logMessage).withContext(action.id).not.toBe('');
+      }
+    });
+
+    it('every crafting action targets a real character', () => {
+      expect(danglingReferences(CRAFTING_ACTIONS.map(a => a.characterId), characterIds)).toEqual([]);
+    });
+
+    it('every cost/reward resourceId is real', () => {
+      for (const action of CRAFTING_ACTIONS) {
+        expect(resourceIds).withContext(`${action.id}.cost`).toContain(action.cost.resourceId);
+        expect(resourceIds).withContext(`${action.id}.reward`).toContain(action.reward.resourceId);
+      }
+    });
+
+    it('cost and reward amounts are positive', () => {
+      for (const action of CRAFTING_ACTIONS) {
+        expect(action.cost.amount).withContext(`${action.id}.cost`).toBeGreaterThan(0);
+        expect(action.reward.amount).withContext(`${action.id}.reward`).toBeGreaterThan(0);
+      }
+    });
+
+    it("a 'hold' mechanic has a positive holdMs and decayMultiplier; a 'clicks' mechanic has a positive clicksRequired", () => {
+      for (const action of CRAFTING_ACTIONS) {
+        if (action.mechanic.type === 'hold') {
+          expect(action.mechanic.holdMs).withContext(action.id).toBeGreaterThan(0);
+          expect(action.mechanic.decayMultiplier).withContext(action.id).toBeGreaterThan(0);
+        } else {
+          expect(action.mechanic.clicksRequired).withContext(action.id).toBeGreaterThan(0);
+        }
+      }
+    });
+  });
+
   describe('Upgrades', () => {
     it('has no duplicate ids', () => {
       expect(duplicateIds(upgradeIds)).toEqual([]);
     });
 
-    it('every upgrade has an UPGRADE_FLAVOR entry with a non-empty label, description, and logMessage', () => {
+    it('every upgrade has an UPGRADE_FLAVOR entry with a non-empty label and description', () => {
       expect(idsMissingFlavor(upgradeIds, UPGRADE_FLAVOR)).toEqual([]);
       for (const upgrade of UPGRADES) {
         const flavor = UPGRADE_FLAVOR[upgrade.id];
         expect(flavor.label).withContext(upgrade.id).not.toBe('');
         expect(flavor.description).withContext(upgrade.id).not.toBe('');
-        expect(flavor.logMessage).withContext(upgrade.id).not.toBe('');
       }
     });
 
@@ -220,6 +266,21 @@ describe('game-config integrity', () => {
       for (const objective of OBJECTIVES) {
         if (objective.type !== 'resource-threshold') continue;
         expect(resourceIds).withContext(objective.id).toContain(objective.resourceId);
+      }
+    });
+
+    it('a specific-action-count objective targets a real action (character or timed)', () => {
+      const knownActionIds = new Set([...characterActionIds, ...timedActionIds, ...craftingActionIds]);
+      for (const objective of OBJECTIVES) {
+        if (objective.type !== 'specific-action-count') continue;
+        expect(knownActionIds.has(objective.actionId)).withContext(objective.id).toBeTrue();
+      }
+    });
+
+    it('prerequisiteCharacterId, if set, references a real character', () => {
+      for (const objective of OBJECTIVES) {
+        if (!objective.prerequisiteCharacterId) continue;
+        expect(characterIds).withContext(objective.id).toContain(objective.prerequisiteCharacterId);
       }
     });
 

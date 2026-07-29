@@ -5,6 +5,7 @@ import { SettingsState } from '../options/settings.service';
 import { ObjectivesSnapshot } from '../objectives/objectives.service';
 import { TimedActionsSnapshot } from '../timed-actions/timed-actions.service';
 import { UpgradesSnapshot } from '../upgrades/upgrades.service';
+import { CraftingSnapshot } from '../crafting/crafting.service';
 
 /**
  * The full persisted shape. `schemaVersion` is ours to bump for migrations;
@@ -42,6 +43,9 @@ export interface SaveData {
   /** Action ids whose "hold to repeat" hint the player has already dismissed by
    *  actually holding the button. See HoldHintService.getSnapshot/restore. */
   holdHints: string[];
+  /** Blacksmith crafting progress (Forge Ingots hold-charge, Smith Metal click count).
+   *  See CraftingService.getSnapshot/restore. */
+  crafting: CraftingSnapshot;
 }
 
 export const SCHEMA_VERSION = 1;

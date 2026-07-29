@@ -12,11 +12,18 @@
 }
 
 .half {
-  flex: 1 1 50%;
   min-height: 0;
 
+  // Buttons (top) get a quarter of the column, minigames (bottom) the rest — minigames
+  // are the deeper, more involved content once unlocked (§15 AGENTS.md), so they get
+  // the majority of the space rather than an even 50/50 split.
   &.top {
+    flex: 1 1 25%;
     border-bottom: 1px solid #333;
+  }
+
+  &.bottom {
+    flex: 1 1 75%;
   }
 }
 

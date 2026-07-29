@@ -36,6 +36,14 @@ test.describe('Ranger', () => {
       await expect(page.locator('.vault-row', { hasText: 'BAIT' }).locator('.vault-amount')).toHaveText('1');
     });
 
+    test('Bait Trap with no Bait in the wallet logs an error instead of starting', async ({ page }) => {
+      const trap = timedActionButton(page, 'ranger-bait-trap');
+      await trap.click();
+
+      await expect(trap).toBeEnabled(); // never started — button stays in its idle state
+      await expect(page.locator('.log-entry', { hasText: 'Not enough' })).toBeVisible();
+    });
+
     test('Bait Trap costs exactly 1 Bait to start, disables while waiting, and shows no progress fill', async ({
       page,
     }) => {

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Subscription, interval } from 'rxjs';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { HoldToClickDirective } from '../../shared/hold-to-click.directive';
-import { formatSigned } from '../../shared/number-format';
+import { resourceAmountToken } from '../../shared/resource-token';
 import { CharacterSelectService } from '../../character-select/character-select.service';
 import { WalletService } from '../../economy/wallet.service';
 import { ActivityLogService } from '../../activity-log/activity-log.service';
@@ -11,13 +11,14 @@ import { UnlocksService } from '../../shared/unlocks.service';
 import { HoldHintService } from '../../shared/hold-hint.service';
 import { resolveExcessCount } from '../../shared/chance';
 import { TimedActionsService, TimedActionState } from '../../timed-actions/timed-actions.service';
+import { CraftingService, CraftingActionState } from '../../crafting/crafting.service';
 import {
   CHARACTER_ACTIONS,
   CharacterActionConfig,
   AUTOCLICK_INTERVAL_MS,
   TIMED_ACTION_TICK_MS,
 } from '../../configs/game-config';
-import { getActionFlavor, getTimedActionFlavor, RESOURCE_FLAVOR } from '../../configs/flavor-text';
+import { getActionFlavor, getTimedActionFlavor, getCraftingFlavor } from '../../configs/flavor-text';
 import { StatisticsService } from '../../statistics/statistics.service';
 import { UpgradesService } from '../../upgrades/upgrades.service';
 
@@ -61,6 +62,7 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
   private upgrades = inject(UpgradesService);
   private unlocks = inject(UnlocksService);
   private timedActions = inject(TimedActionsService);
+  private crafting = inject(CraftingService);
   private holdHint = inject(HoldHintService);
   private cdr = inject(ChangeDetectorRef);
   private sub = new Subscription();
@@ -68,11 +70,13 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
   readonly autoClickIntervalMs = AUTOCLICK_INTERVAL_MS;
   activeCharacterId = this.characterService.active;
 
-  /** Once the player has actually held the primary button (not just tapped it), the
-   *  "hold to repeat" hint has done its job — persisted per action id via
-   *  `HoldHintService` so it stays gone across a reload, not just for the session. */
+  /** Once the player has actually held down any hold-to-click button (not just tapped
+   *  it), the "hold to repeat" hint has done its job everywhere — checked across all
+   *  action ids, not just the active character's, so switching characters doesn't bring
+   *  the hint back. Persisted via `HoldHintService` so it stays gone across a reload,
+   *  not just for the session. */
   get hasHeld(): boolean {
-    return this.action ? this.holdHint.hasHeld(this.action.id) : false;
+    return this.holdHint.hasHeldAny();
   }
 
   get action(): CharacterActionConfig | undefined {
@@ -90,8 +94,24 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
     );
   }
 
+  get craftingActionsForActiveCharacter(): CraftingActionState[] {
+    return this.crafting.actions.filter(c => c.config.characterId === this.activeCharacterId);
+  }
+
+  get holdCraftingActions(): CraftingActionState[] {
+    return this.craftingActionsForActiveCharacter.filter(c => c.config.mechanic.type === 'hold');
+  }
+
+  get clickCraftingActions(): CraftingActionState[] {
+    return this.craftingActionsForActiveCharacter.filter(c => c.config.mechanic.type === 'clicks');
+  }
+
   get hasAnyButtons(): boolean {
-    return !!this.action || this.timedActionsForActiveCharacter.length > 0;
+    return (
+      !!this.action ||
+      this.timedActionsForActiveCharacter.length > 0 ||
+      this.craftingActionsForActiveCharacter.length > 0
+    );
   }
 
   /** `timedActionsForActiveCharacter` returns a fresh array of fresh `TimedActionState`
@@ -107,20 +127,29 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
     return t.config.id;
   }
 
+  trackCraftingAction(_: number, c: CraftingActionState): string {
+    return c.config.id;
+  }
+
   ngOnInit(): void {
     this.sub.add(this.characterService.active$.subscribe(id => {
       this.activeCharacterId = id;
       this.cdr.markForCheck();
     }));
     this.sub.add(this.timedActions.changes$.subscribe(() => this.cdr.markForCheck()));
+    this.sub.add(this.crafting.changes$.subscribe(() => this.cdr.markForCheck()));
     this.sub.add(this.unlocks.state$.subscribe(() => this.cdr.markForCheck()));
     this.sub.add(this.holdHint.changes$.subscribe(() => this.cdr.markForCheck()));
-    // Re-renders the progress fill on the same cadence TimedActionsService checks
-    // completion on (TIMED_ACTION_TICK_MS) — purely visual, the running/complete state
-    // itself never depends on this timer, this just keeps the bar from looking stale
-    // between ticks.
+    // Re-renders the progress fill on the same cadence TimedActionsService/CraftingService
+    // check completion on (TIMED_ACTION_TICK_MS) — purely visual, the running/complete
+    // state itself never depends on this timer, this just keeps the bar from looking
+    // stale between ticks. A 'hold' crafting action's progress is a live computation
+    // (CraftingService.progressFor), not something that emits `changes$` on every tick,
+    // so it needs the same nudge a running timed action does.
     this.sub.add(interval(TIMED_ACTION_TICK_MS).subscribe(() => {
-      if (this.timedActionsForActiveCharacter.some(a => a.running)) this.cdr.markForCheck();
+      const timedRunning = this.timedActionsForActiveCharacter.some(a => a.running);
+      const holdCrafting = this.holdCraftingActions.some(c => c.progress > 0 && c.progress < 1);
+      if (timedRunning || holdCrafting) this.cdr.markForCheck();
     }));
   }
 
@@ -152,6 +181,22 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
 
   onHoldRepeat(): void {
     if (this.action) this.holdHint.markHeld(this.action.id);
+  }
+
+  craftingLabel(c: CraftingActionState): string {
+    return getCraftingFlavor(c.config.id).label;
+  }
+
+  onCraftHoldStart(c: CraftingActionState): void {
+    this.crafting.startHold(c.config.id);
+  }
+
+  onCraftHoldEnd(c: CraftingActionState): void {
+    this.crafting.releaseHold(c.config.id);
+  }
+
+  onCraftClick(c: CraftingActionState): void {
+    this.crafting.click(c.config.id);
   }
 
   /** `min-width` (as a CSS `calc()` string) sized for the widest label this action can
@@ -194,8 +239,7 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
 
   private logAction(action: CharacterActionConfig, amount: number, doubled: boolean): void {
     const { logMessage } = getActionFlavor(action.id);
-    const resource = RESOURCE_FLAVOR[action.resourceId];
-    const gainToken = `{{${action.resourceId}|${formatSigned(amount)} ${resource.symbol}}}`;
+    const gainToken = resourceAmountToken(action.resourceId, amount);
     // A doubled payout (Bonus Payout / Better Offcuts) is a noteworthy lucky break, not
     // routine play — 'success' instead of 'default', same convention TimedActionsService
     // follows.

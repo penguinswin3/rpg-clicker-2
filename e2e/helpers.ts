@@ -78,7 +78,19 @@ export async function seedRangerUnlockedSave(page: Page): Promise<void> {
   });
 }
 
-export async function selectCharacter(page: Page, label: 'Fighter' | 'Ranger'): Promise<void> {
+/** Blacksmith unlocked and active, with the Ranger unlock chain (and its 3 upgrades)
+ *  already in place too, since "unlock-blacksmith" requires Ranger unlocked first — as
+ *  if both objectives had just been claimed — with an otherwise completely fresh, empty
+ *  wallet. */
+export async function seedBlacksmithUnlockedSave(page: Page): Promise<void> {
+  await seedSave(page, {
+    characters: { unlockedIds: ['fighter', 'ranger', 'blacksmith'], activeId: 'blacksmith' },
+    objectives: { reachedIds: [], completedIds: ['unlock-ranger', 'unlock-blacksmith'] },
+    upgrades: { levels: {}, unlockedIds: ['hard-work', 'better-offcuts', 'extra-baiting', 'clean-traps'] },
+  });
+}
+
+export async function selectCharacter(page: Page, label: 'Fighter' | 'Ranger' | 'Blacksmith'): Promise<void> {
   await page.click(`.character-box:has-text("${label}")`);
   await expect(page.locator('.character-box.active')).toHaveText(label);
 }
@@ -91,6 +103,13 @@ export async function selectCharacter(page: Page, label: 'Fighter' | 'Ranger'): 
  *  changes the label. */
 export function timedActionButton(page: Page, actionId: string) {
   return page.locator(`[data-testid="timed-action-${actionId}"]`);
+}
+
+/** Locates a crafting-action button by its stable `CraftingActionConfig.id`
+ *  (`data-testid="crafting-action-<id>"`, button-zone.component.html), same reasoning as
+ *  `timedActionButton` above. */
+export function craftingActionButton(page: Page, actionId: string) {
+  return page.locator(`[data-testid="crafting-action-${actionId}"]`);
 }
 
 /** Collects every console/page error seen during the callback's lifetime, for a final

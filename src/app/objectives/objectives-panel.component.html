@@ -6,6 +6,7 @@
     *ngFor="let o of objectives"
     [class.completed]="o.completed"
     [class.claimable]="o.claimable"
+    [class.flashing]="isFlashing(o)"
     (click)="claim(o)">
     <div
       class="objective-fill"

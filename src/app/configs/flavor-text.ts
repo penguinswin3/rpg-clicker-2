@@ -9,6 +9,7 @@ export interface CharacterFlavor {
 export const CHARACTER_FLAVOR: Record<string, CharacterFlavor> = {
   fighter: { label: 'Fighter', color: 'rgb(204, 119, 21)' },
   ranger: { label: 'Ranger', color: '#0f0' },
+  blacksmith: { label: 'Blacksmith', color: '#7d94a8' },
 };
 
 const DEFAULT_CHARACTER_FLAVOR: CharacterFlavor = { label: '', color: '#444' };
@@ -38,6 +39,10 @@ export const ACTION_FLAVOR: Record<string, ActionFlavor> = {
     label: 'Cut Bait',
     logMessage: 'You slice up scraps into fresh bait.',
   },
+  'blacksmith-mine-ore': {
+    label: 'Mine Ore',
+    logMessage: 'You swing your pick and chip loose a chunk of ore.',
+  },
 };
 
 const DEFAULT_ACTION_FLAVOR: ActionFlavor = { label: '', logMessage: '' };
@@ -49,9 +54,6 @@ export function getActionFlavor(actionId: string): ActionFlavor {
 export interface UpgradeFlavor {
   label: string;
   description: string;
-  /** Flavor sentence logged (INFO level) each time the upgrade is purchased — same
-   *  convention as ActionFlavor.logMessage, see ButtonZoneComponent/UpgradesPanelComponent. */
-  logMessage: string;
 }
 
 // Keyed by UpgradeConfig.id (game-config.ts).
@@ -59,46 +61,66 @@ export const UPGRADE_FLAVOR: Record<string, UpgradeFlavor> = {
   'hard-work': {
     label: 'Hard Work',
     description: '+1 Gold per Hard Labor click.',
-    logMessage: 'You toughen up, putting more muscle behind every swing of Hard Labor.',
   },
   'high-quality-contracts': {
     label: 'High Quality Contracts',
     description: '+5 Gold per Guild Contract payout, per level.',
-    logMessage: 'You negotiate better terms with the guild, padding out every contract payout.',
   },
   'faster-contracts': {
     label: 'Faster Contracts',
     description: 'Shortens Guild Contract duration per level, with diminishing returns.',
-    logMessage: 'You streamline your paperwork with the guild, shaving time off every contract.',
   },
   'bonus-payout': {
     label: 'Bonus Payout',
     description: '+10% chance per level to double the gold from Hard Labor or a Guild Contract.',
-    logMessage: "You've built a reputation that occasionally earns you a little extra.",
   },
   'better-offcuts': {
     label: 'Better Offcuts',
     description:
       "+5% chance per level to double Cut Bait's yield — over 100% guarantees a double and rolls the remainder for another.",
-    logMessage: 'You learn to carve bait more efficiently, stretching every cut further.',
   },
   'extra-baiting': {
     label: 'Extra Baiting',
     description: '+1 Raw Meat per Bait Trap collection, per level.',
-    logMessage: 'You rig your traps with richer bait, luring in bigger catches.',
   },
   'clean-traps': {
     label: 'Clean Traps',
     description:
       '+5% chance per level of a Pelt from Bait Trap — over 100% guarantees one and rolls the remainder for another.',
-    logMessage: 'You keep your traps meticulously clean, preserving hides that would otherwise be ruined.',
   },
 };
 
-const DEFAULT_UPGRADE_FLAVOR: UpgradeFlavor = { label: '', description: '', logMessage: '' };
+const DEFAULT_UPGRADE_FLAVOR: UpgradeFlavor = { label: '', description: '' };
 
 export function getUpgradeFlavor(id: string): UpgradeFlavor {
   return UPGRADE_FLAVOR[id] ?? DEFAULT_UPGRADE_FLAVOR;
+}
+
+export interface CraftingFlavor {
+  /** Title shown on the button — constant throughout, same "fixed duration keeps its
+   *  name the whole time" convention as Guild Contract (TimedActionFlavor) since a
+   *  crafting action's progress is always visible via its fill, never hidden. */
+  label: string;
+  /** Flavor sentence logged (INFO level) once progress reaches its target. */
+  logMessage: string;
+}
+
+// Keyed by CraftingActionConfig.id (game-config.ts).
+export const CRAFTING_FLAVOR: Record<string, CraftingFlavor> = {
+  'blacksmith-forge-ingots': {
+    label: 'Forge Ingots',
+    logMessage: 'You hold the ore against the heat until it slumps into a fresh ingot.',
+  },
+  'blacksmith-smith-metal': {
+    label: 'Smith Metal',
+    logMessage: 'You hammer the ingots into shape, finishing a piece of ironmongery.',
+  },
+};
+
+const DEFAULT_CRAFTING_FLAVOR: CraftingFlavor = { label: '', logMessage: '' };
+
+export function getCraftingFlavor(id: string): CraftingFlavor {
+  return CRAFTING_FLAVOR[id] ?? DEFAULT_CRAFTING_FLAVOR;
 }
 
 export interface ObjectiveFlavor {
@@ -118,6 +140,13 @@ export const OBJECTIVE_FLAVOR: Record<string, ObjectiveFlavor> = {
   },
   'unlock-ranger': {
     logMessage: 'Word of your gold spreads, and a wandering Ranger offers to join you.',
+  },
+  'unlock-blacksmith': {
+    verb: 'Collect Prey',
+    logMessage: 'Word of your trapping skill reaches a wandering Blacksmith, who offers to join you.',
+  },
+  'craft-10-ironmongery': {
+    logMessage: 'Your growing stockpile of ironmongery makes new contraptions possible.',
   },
 };
 
@@ -178,6 +207,9 @@ export const RESOURCE_FLAVOR: Record<string, ResourceFlavor> = {
   'bait': { name: 'BAIT', color: '#c9974a', symbol: '~' },
   'raw-meat': { name: 'RAW MEAT', color: '#e0654c', symbol: '¤' },
   'pelt': { name: 'PELT', color: '#9b8267', symbol: '‡' },
+  'ore': { name: 'ORE', color: '#9a9a9a', symbol: '°' },
+  'ingot': { name: 'INGOT', color: '#cd7f32', symbol: '¶' },
+  'ironmongery': { name: 'IRONMONGERY', color: '#5599cc', symbol: '†' },
 };
 
 export const GAME_TITLE_ASCII =

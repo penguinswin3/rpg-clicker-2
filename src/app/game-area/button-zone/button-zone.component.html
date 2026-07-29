@@ -29,6 +29,29 @@
           <span class="timed-button-label">{{ timedActionLabel(t) }}</span>
         </button>
       </div>
+
+      <div class="crafting-action-wrap" *ngFor="let c of holdCraftingActions; trackBy: trackCraftingAction">
+        <button
+          class="crafting-button hold-craft-button"
+          [attr.data-testid]="'crafting-action-' + c.config.id"
+          (pointerdown)="onCraftHoldStart(c)"
+          (pointerup)="onCraftHoldEnd(c)"
+          (pointerleave)="onCraftHoldEnd(c)"
+          (pointercancel)="onCraftHoldEnd(c)">
+          <div class="crafting-button-fill" [style.width.%]="c.progress * 100"></div>
+          <span class="crafting-button-label">{{ craftingLabel(c) }}</span>
+        </button>
+      </div>
+
+      <div class="crafting-action-wrap" *ngFor="let c of clickCraftingActions; trackBy: trackCraftingAction">
+        <button
+          class="crafting-button click-craft-button"
+          [attr.data-testid]="'crafting-action-' + c.config.id"
+          (click)="onCraftClick(c)">
+          <div class="crafting-button-fill" [style.width.%]="c.progress * 100"></div>
+          <span class="crafting-button-label">{{ craftingLabel(c) }}</span>
+        </button>
+      </div>
     </ng-container>
     <ng-template #noButton>
       <app-empty-state message="No buttons unlocked"></app-empty-state>

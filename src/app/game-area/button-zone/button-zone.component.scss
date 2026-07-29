@@ -118,3 +118,41 @@
   position: relative;
   z-index: 1;
 }
+
+.crafting-action-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.crafting-button {
+  @extend %zone-button;
+  position: relative;
+  overflow: hidden;
+
+  &:hover { background: #1a1a1a; }
+  &:active { background: #222; }
+}
+
+// Needs continuous pointerdown/up tracking while charging, same reasoning as the
+// primary button's own touch-action: none (button-zone.component.ts's HoldToClickDirective).
+.hold-craft-button {
+  touch-action: none;
+}
+
+// Same layered-fill-behind-text shape as .timed-button-fill/.objective-fill — grows
+// (or, for a 'hold' action released early, shrinks) left-to-right behind the label.
+.crafting-button-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: #fff;
+  opacity: 0.18;
+  transition: width 0.1s linear;
+  z-index: 0;
+}
+
+.crafting-button-label {
+  position: relative;
+  z-index: 1;
+}

@@ -8,6 +8,7 @@ import { UpgradesService } from '../upgrades/upgrades.service';
 import { UnlocksService } from '../shared/unlocks.service';
 import { TimedActionsService } from '../timed-actions/timed-actions.service';
 import { HoldHintService } from '../shared/hold-hint.service';
+import { CraftingService } from '../crafting/crafting.service';
 import { SaveData } from './save-data';
 
 /**
@@ -37,6 +38,7 @@ const EXPECTED_SAVE_KEYS: (keyof SaveData)[] = [
   'unlocks',
   'timedActions',
   'holdHints',
+  'crafting',
 ];
 
 function decode(base64: string): Record<string, unknown> {
@@ -70,12 +72,15 @@ describe('SaveService', () => {
     const unlocks = TestBed.inject(UnlocksService);
     const timedActions = TestBed.inject(TimedActionsService);
     const holdHint = TestBed.inject(HoldHintService);
+    const crafting = TestBed.inject(CraftingService);
 
     wallet.add('gold', 123);
     unlocks.unlock('guildContract');
     timedActions.start('fighter-guild-contract');
     statistics.recordAction('fighter-hard-labor');
     holdHint.markHeld('fighter-hard-labor');
+    wallet.add('ingot', 10);
+    crafting.click('blacksmith-smith-metal');
 
     const decoded = decode(saveService.exportBase64()) as unknown as SaveData;
 
@@ -87,6 +92,7 @@ describe('SaveService', () => {
     expect(decoded.unlocks).toEqual(unlocks.getSnapshot());
     expect(decoded.timedActions).toEqual(timedActions.getSnapshot());
     expect(decoded.holdHints).toEqual(holdHint.getSnapshot());
+    expect(decoded.crafting).toEqual(crafting.getSnapshot());
   });
 
   it('parse() rejects garbage without throwing', () => {
