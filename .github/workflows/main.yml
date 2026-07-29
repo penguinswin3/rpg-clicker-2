@@ -1,0 +1,107 @@
+# Production Deployment
+#
+# Builds the Angular app and deploys it to the root of the gh-pages branch
+# whenever a commit is pushed to master.
+#
+# Production URL:
+#   https://penguinswin3.github.io/rpg-clicker/
+#
+# The pr-preview/ subdirectory of the gh-pages branch is intentionally
+# preserved during every production deploy so that PR preview deployments
+# (managed by pr-preview.yml) are never overwritten.
+#
+# IMPORTANT – GitHub Pages source setting:
+#   In repository Settings → Pages, set the source to
+#   "Deploy from a branch" and choose the gh-pages branch / (root).
+#   This is required for the branch-based approach used here.
+
+name: Deploy Production
+
+on:
+  push:
+    branches:
+      - master
+
+# Only one production deploy at a time; queue rather than cancel so that
+# the latest commit is always what ends up live.
+concurrency:
+  group: gh-pages-production
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: https://penguinswin3.github.io/rpg-clicker-2/
+
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Angular app for production
+        # --base-href must match the GitHub Pages repo subpath so that
+        # Angular's asset paths and router resolve correctly.
+        run: npx ng build --configuration production --base-href "/rpg-clicker/"
+
+      - name: Deploy production build to gh-pages branch
+        run: |
+          BUILD_DIR="dist/rpg-clicker/browser"
+
+          # Copy the build output before switching branches.
+          cp -r "${BUILD_DIR}" /tmp/prod-build
+
+          # A .nojekyll file tells GitHub Pages not to run Jekyll,
+          # which is required so that Angular's hashed JS/CSS filenames
+          # (which may start with underscores) are served correctly.
+          touch /tmp/prod-build/.nojekyll
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Switch to (or create) the gh-pages branch.
+          if git fetch origin gh-pages; then
+            git checkout gh-pages
+          else
+            git checkout --orphan gh-pages
+            git rm -rf .
+            git commit --allow-empty -m "Initialize gh-pages branch [skip ci]"
+            git push origin gh-pages
+          fi
+
+          # Preserve any PR preview deployments that live under pr-preview/.
+          if [ -d "pr-preview" ]; then
+            cp -r pr-preview /tmp/pr-preview-backup
+          fi
+
+          # Remove the previous production files tracked by git.
+          # Files inside pr-preview/ are excluded so they are not deleted.
+          git ls-files | grep -v '^pr-preview/' | xargs -r git rm -f --
+
+          # Copy the new production build into the branch root.
+          cp -r /tmp/prod-build/. .
+
+          # Restore the PR preview directory.
+          if [ -d /tmp/pr-preview-backup ]; then
+            cp -r /tmp/pr-preview-backup pr-preview
+          fi
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit – production is already up to date."
+          else
+            git commit -m "Deploy production to GitHub Pages [skip ci]"
+            git push origin gh-pages
+          fi
