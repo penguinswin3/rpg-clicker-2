@@ -1,0 +1,205 @@
+# PR Preview Deployment
+#
+# This workflow deploys a preview of every pull request that targets master.
+# Previews are served from a subdirectory of the gh-pages branch so they are
+# completely isolated from the production site that is deployed from master.
+#
+# Preview URL format:
+#   https://penguinswin3.github.io/rpg-clicker-2/pr-preview/pr-<number>/
+#
+# Production URL (unchanged):
+#   https://penguinswin3.github.io/rpg-clicker-2/
+#
+# The preview directory is removed from gh-pages automatically when the PR is closed.
+
+name: Deploy PR Preview
+
+on:
+  pull_request:
+    branches:
+      - master
+    types: [opened, synchronize, reopened, closed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# Only one preview deployment per PR at a time; cancel in-progress builds on
+# new pushes so the branch always reflects the latest commit.
+concurrency:
+  group: pr-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Deploy a fresh preview whenever commits are pushed to the PR branch.
+  # ---------------------------------------------------------------------------
+  deploy-preview:
+    name: Build & Deploy Preview
+    runs-on: ubuntu-latest
+    if: github.event.action != 'closed'
+
+    environment:
+      name: pr-preview-${{ github.event.pull_request.number }}
+      url: https://penguinswin3.github.io/rpg-clicker/pr-preview/pr-${{ github.event.pull_request.number }}/
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Angular app for preview
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        # The --base-href must match the subdirectory where the preview is
+        # served so that Angular's router and asset paths resolve correctly.
+        run: |
+          npx ng build --base-href "/rpg-clicker-2/pr-preview/pr-${PR_NUMBER}/"
+
+      - name: Deploy preview to gh-pages branch
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          PREVIEW_DIR="pr-preview/pr-${PR_NUMBER}"
+          BUILD_DIR="dist/rpg-clicker-2/browser"
+
+          # Save the build output before switching branches.
+          cp -r "${BUILD_DIR}" /tmp/preview-build
+
+          # Configure git.
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Fetch and switch to the gh-pages branch.
+          # If the branch doesn't exist yet, create it as an empty orphan branch.
+          if git fetch origin gh-pages; then
+            git checkout gh-pages
+          else
+            git checkout --orphan gh-pages
+            git rm -rf .
+            # Add .nojekyll immediately so GitHub Pages never runs Jekyll on
+            # this branch.  Jekyll silently drops files whose names start with
+            # an underscore, which would break Angular's hashed asset filenames.
+            touch .nojekyll
+            git add .nojekyll
+            git commit -m "Initialize gh-pages branch [skip ci]"
+            git push origin gh-pages
+          fi
+
+          # Ensure .nojekyll is present at the root so GitHub Pages does not run
+          # Jekyll on this branch.  Jekyll would silently drop Angular's hashed
+          # asset files (e.g. main-XXXXXX.js), causing the preview to 404.
+          if [ ! -f .nojekyll ]; then
+            touch .nojekyll
+          fi
+
+          # Replace the previous preview for this PR (if any) with the new build.
+          rm -rf "${PREVIEW_DIR}"
+          mkdir -p "${PREVIEW_DIR}"
+          cp -r /tmp/preview-build/. "${PREVIEW_DIR}/"
+
+          # Commit and push only when there are actual changes.
+          git add .nojekyll "${PREVIEW_DIR}"
+          if git diff --cached --quiet; then
+            echo "No changes to commit – preview is already up to date."
+          else
+            git commit -m "Deploy PR #${PR_NUMBER} preview [skip ci]"
+            git push origin gh-pages
+          fi
+
+      - name: Post preview URL as PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const previewUrl =
+              `https://penguinswin3.github.io/rpg-clicker/pr-preview/pr-${prNumber}/`;
+
+            // Use a hidden marker so we can find and update the comment on
+            // subsequent pushes instead of creating a new one each time.
+            const marker = '<!-- pr-preview-comment -->';
+            const body =
+              `${marker}\n` +
+              `## 🚀 Preview Deployment Ready\n\n` +
+              `Your preview is live at: **[${previewUrl}](${previewUrl})**\n\n` +
+              `> The preview updates automatically on every new commit to this PR.\n` +
+              `> It will be removed automatically when the PR is closed or merged.`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+
+            const existing = comments.find(c => c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+            }
+
+  # ---------------------------------------------------------------------------
+  # Remove the preview directory from gh-pages when the PR is closed/merged.
+  # ---------------------------------------------------------------------------
+  cleanup-preview:
+    name: Clean Up Preview
+    runs-on: ubuntu-latest
+    if: github.event.action == 'closed'
+
+    steps:
+      # Checkout the default branch first so that 'origin' is configured and
+      # git ls-remote can query the remote for branch existence.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check whether gh-pages branch exists
+        id: check-branch
+        run: |
+          if git ls-remote --exit-code --heads origin gh-pages; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "gh-pages branch does not exist – nothing to clean up."
+          fi
+
+      - name: Checkout gh-pages branch
+        if: steps.check-branch.outputs.exists == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+
+      - name: Remove preview directory
+        if: steps.check-branch.outputs.exists == 'true'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          PREVIEW_DIR="pr-preview/pr-${PR_NUMBER}"
+
+          if [ -d "${PREVIEW_DIR}" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            rm -rf "${PREVIEW_DIR}"
+            git add -A
+            git commit -m "Remove PR #${PR_NUMBER} preview [skip ci]"
+            git push origin gh-pages
+          else
+            echo "No preview directory found for PR #${PR_NUMBER} – nothing to clean up."
+          fi
