@@ -1,0 +1,58 @@
+// Positioned by TooltipDirective (inline top/left, in viewport coordinates) — `position:
+// fixed` here is what makes that positioning meaningful regardless of where in the DOM
+// tree this component actually got inserted (ViewContainerRef.createComponent puts it
+// wherever the trigger element lives, not at the document root).
+:host {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 3000;
+  // Never intercepts hover/click — a tooltip that could itself be hovered (blocking the
+  // button underneath, or re-triggering pointer events) is exactly the "obtrusive"
+  // failure mode to avoid. Purely an informational overlay.
+  pointer-events: none;
+}
+
+.tooltip-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+  max-width: 300px;
+  padding: 8px 10px;
+  background: #0a0a0a;
+  border: 1px solid #444;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  animation: tooltip-fade-in 0.1s ease-out;
+}
+
+@keyframes tooltip-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.tooltip-title {
+  color: #fff;
+  font-size: 14px;
+  letter-spacing: 0.05em;
+  padding-bottom: 4px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid #333;
+}
+
+.tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  color: #888;
+}
+
+.tooltip-value {
+  color: #bbb;
+  text-align: right;
+  white-space: nowrap;
+}

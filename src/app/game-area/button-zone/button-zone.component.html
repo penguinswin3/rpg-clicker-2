@@ -6,6 +6,7 @@
         <button
           class="primary-button"
           [attr.data-testid]="'primary-action-' + action.id"
+          [appTooltip]="primaryActionTooltip(action)"
           appHoldToClick
           [holdToClickIntervalMs]="autoClickIntervalMs"
           (appHoldToClick)="onAction()"
@@ -20,6 +21,7 @@
           class="timed-button"
           [attr.data-testid]="'timed-action-' + t.config.id"
           [style.min-width]="timedActionMinWidthPx(t)"
+          [appTooltip]="timedActionTooltip(t.config)"
           [disabled]="t.running"
           (click)="onTimedAction(t)">
           <div
@@ -34,6 +36,7 @@
         <button
           class="crafting-button hold-craft-button"
           [attr.data-testid]="'crafting-action-' + c.config.id"
+          [appTooltip]="craftingTooltip(c.config)"
           (pointerdown)="onCraftHoldStart(c)"
           (pointerup)="onCraftHoldEnd(c)"
           (pointerleave)="onCraftHoldEnd(c)"
@@ -47,6 +50,7 @@
         <button
           class="crafting-button click-craft-button"
           [attr.data-testid]="'crafting-action-' + c.config.id"
+          [appTooltip]="craftingTooltip(c.config)"
           (click)="onCraftClick(c)">
           <div class="crafting-button-fill" [style.width.%]="c.progress * 100"></div>
           <span class="crafting-button-label">{{ craftingLabel(c) }}</span>

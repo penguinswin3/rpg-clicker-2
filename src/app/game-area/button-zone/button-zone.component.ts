@@ -3,7 +3,10 @@ import { CommonModule } from '@angular/common';
 import { Subscription, interval } from 'rxjs';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { HoldToClickDirective } from '../../shared/hold-to-click.directive';
+import { TooltipDirective } from '../../shared/tooltip/tooltip.directive';
+import { TooltipContent, TooltipRow } from '../../shared/tooltip/tooltip-content';
 import { resourceAmountToken } from '../../shared/resource-token';
+import { formatAmount, formatDurationMs } from '../../shared/number-format';
 import { CharacterSelectService } from '../../character-select/character-select.service';
 import { WalletService } from '../../economy/wallet.service';
 import { ActivityLogService } from '../../activity-log/activity-log.service';
@@ -15,10 +18,12 @@ import { CraftingService, CraftingActionState } from '../../crafting/crafting.se
 import {
   CHARACTER_ACTIONS,
   CharacterActionConfig,
+  TimedActionConfig,
+  CraftingActionConfig,
   AUTOCLICK_INTERVAL_MS,
   TIMED_ACTION_TICK_MS,
 } from '../../configs/game-config';
-import { getActionFlavor, getTimedActionFlavor, getCraftingFlavor } from '../../configs/flavor-text';
+import { getActionFlavor, getTimedActionFlavor, getCraftingFlavor, RESOURCE_FLAVOR } from '../../configs/flavor-text';
 import { StatisticsService } from '../../statistics/statistics.service';
 import { UpgradesService } from '../../upgrades/upgrades.service';
 
@@ -49,7 +54,7 @@ const BUTTON_LETTER_SPACING_EM = 0.05;
 @Component({
   selector: 'app-button-zone',
   standalone: true,
-  imports: [CommonModule, EmptyStateComponent, HoldToClickDirective],
+  imports: [CommonModule, EmptyStateComponent, HoldToClickDirective, TooltipDirective],
   templateUrl: './button-zone.component.html',
   styleUrl: './button-zone.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -197,6 +202,106 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
 
   onCraftClick(c: CraftingActionState): void {
     this.crafting.click(c.config.id);
+  }
+
+  /** Detail tooltip for the primary action button — yield (incorporating any
+   *  action-amount upgrade bonus), the two double/bonus-yield chances if either is
+   *  actually active, and the hold-to-repeat cadence. Numbers here must stay in sync
+   *  with `onAction`'s own math — both read the same UpgradesService methods, so an
+   *  upgrade purchase changes both identically. */
+  primaryActionTooltip(action: CharacterActionConfig): TooltipContent {
+    const resource = RESOURCE_FLAVOR[action.resourceId];
+    const amount = action.amountPerAction + this.upgrades.getActionAmountBonus(action.id);
+    const rows: TooltipRow[] = [
+      { label: 'Yield', value: `+${formatAmount(amount)} ${resource.symbol}`, color: resource.color },
+    ];
+
+    const doubleChance = this.upgrades.getPayoutDoubleChance(action.id);
+    if (doubleChance > 0) rows.push({ label: 'Double Chance', value: `${Math.round(doubleChance * 100)}%` });
+
+    const cascadeChance = this.upgrades.getCascadingDoubleChance(action.id);
+    if (cascadeChance > 0) rows.push({ label: 'Bonus Yield Chance', value: `${Math.round(cascadeChance * 100)}%` });
+
+    rows.push({ label: 'Repeats', value: `every ${formatDurationMs(this.autoClickIntervalMs)} held` });
+
+    return { title: getActionFlavor(action.id).label, rows };
+  }
+
+  /** Detail tooltip for a timed-action button — cost (if any), effective duration (a
+   *  single value for 'fixed', a min-max range for 'random' — both computed live via
+   *  `UpgradesService.getTimedActionDurationMs` so a duration-shortening upgrade shows
+   *  up here immediately), yield, and the bonus-reward/double-payout chances if either
+   *  is active. */
+  timedActionTooltip(config: TimedActionConfig): TooltipContent {
+    const rows: TooltipRow[] = [];
+
+    if (config.cost) {
+      const costResource = RESOURCE_FLAVOR[config.cost.resourceId];
+      rows.push({
+        label: 'Cost',
+        value: `${formatAmount(config.cost.amount)} ${costResource.symbol}`,
+        color: costResource.color,
+      });
+    }
+
+    if (config.duration.type === 'fixed') {
+      rows.push({ label: 'Duration', value: formatDurationMs(this.upgrades.getTimedActionDurationMs(config)) });
+    } else {
+      const minMs = this.upgrades.getTimedActionDurationMs(config, config.duration.minMs);
+      const maxMs = this.upgrades.getTimedActionDurationMs(config, config.duration.maxMs);
+      rows.push({ label: 'Duration', value: `${formatDurationMs(minMs)} - ${formatDurationMs(maxMs)}` });
+    }
+
+    const rewardResource = RESOURCE_FLAVOR[config.reward.resourceId];
+    const rewardAmount = config.reward.amount + this.upgrades.getTimedActionYieldBonus(config.id);
+    rows.push({
+      label: 'Yield',
+      value: `+${formatAmount(rewardAmount)} ${rewardResource.symbol}`,
+      color: rewardResource.color,
+    });
+
+    if (config.bonusReward) {
+      const bonusResource = RESOURCE_FLAVOR[config.bonusReward.resourceId];
+      const chance = config.bonusReward.chance + this.upgrades.getBonusRewardChance(config.id);
+      rows.push({
+        label: 'Bonus Chance',
+        value: `${Math.round(chance * 100)}% ${bonusResource.symbol}`,
+        color: bonusResource.color,
+      });
+    }
+
+    const doubleChance = this.upgrades.getPayoutDoubleChance(config.id);
+    if (doubleChance > 0) rows.push({ label: 'Double Chance', value: `${Math.round(doubleChance * 100)}%` });
+
+    if (config.requiresCollection) rows.push({ label: 'Collection', value: 'Manual (click when ready)' });
+
+    return { title: getTimedActionFlavor(config.id).label, rows };
+  }
+
+  /** Detail tooltip for a crafting-action button — cost, yield, and the
+   *  mechanic-specific requirement (hold duration or click count). No upgrade bonuses
+   *  apply to a crafting action yet (Forge Ingots' hold duration is meant to be
+   *  shortenable by a future upgrade — see CraftingActionConfig in game-config.ts), so
+   *  this reads config values directly rather than through UpgradesService. */
+  craftingTooltip(config: CraftingActionConfig): TooltipContent {
+    const costResource = RESOURCE_FLAVOR[config.cost.resourceId];
+    const rewardResource = RESOURCE_FLAVOR[config.reward.resourceId];
+    const rows: TooltipRow[] = [
+      { label: 'Cost', value: `${formatAmount(config.cost.amount)} ${costResource.symbol}`, color: costResource.color },
+      {
+        label: 'Yield',
+        value: `+${formatAmount(config.reward.amount)} ${rewardResource.symbol}`,
+        color: rewardResource.color,
+      },
+    ];
+
+    if (config.mechanic.type === 'hold') {
+      rows.push({ label: 'Hold Time', value: formatDurationMs(config.mechanic.holdMs) });
+    } else {
+      rows.push({ label: 'Clicks Required', value: `${config.mechanic.clicksRequired}` });
+    }
+
+    return { title: getCraftingFlavor(config.id).label, rows };
   }
 
   /** `min-width` (as a CSS `calc()` string) sized for the widest label this action can

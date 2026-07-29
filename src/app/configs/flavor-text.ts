@@ -9,7 +9,20 @@ export interface CharacterFlavor {
 export const CHARACTER_FLAVOR: Record<string, CharacterFlavor> = {
   fighter: { label: 'Fighter', color: 'rgb(204, 119, 21)' },
   ranger: { label: 'Ranger', color: '#0f0' },
-  blacksmith: { label: 'Blacksmith', color: '#7d94a8' },
+  blacksmith: { label: 'Blacksmith', color: '#7790a7' },
+};
+
+// Symbols are plain Unicode text glyphs, never emoji — see AGENTS.md's "No emojis, ever" rule.
+export const RESOURCE_FLAVOR: Record<string, ResourceFlavor> = {
+  'gold': { name: 'GOLD', color: '#ffd700', symbol: '$' },
+  'herbs': { name: 'HERBS', color: '#0f0', symbol: '§' },
+  'kobold-ears': { name: 'KOBOLD EARS', color: '#f44', symbol: '<' },
+  'bait': { name: 'BAIT', color: '#ce6584', symbol: '÷' },
+  'raw-meat': { name: 'RAW MEAT', color: '#e98bca', symbol: 'Ꮻ' },
+  'pelt': { name: 'PELT', color: '#967048', symbol: '‡' },
+  'ore': { name: 'ORE', color: '#af5b46', symbol: '⎐' },
+  'ingot': { name: 'INGOT', color: '#4e4f55', symbol: '=' },
+  'ironmongery': { name: 'IRONMONGERY', color: '#6699cc', symbol: '⛭' },
 };
 
 const DEFAULT_CHARACTER_FLAVOR: CharacterFlavor = { label: '', color: '#444' };
@@ -199,18 +212,7 @@ export interface ResourceFlavor {
   symbol: string;
 }
 
-// Symbols are plain Unicode text glyphs, never emoji — see AGENTS.md's "No emojis, ever" rule.
-export const RESOURCE_FLAVOR: Record<string, ResourceFlavor> = {
-  'gold': { name: 'GOLD', color: '#ffd700', symbol: 'ᱛ' },
-  'herbs': { name: 'HERBS', color: '#0f0', symbol: '§' },
-  'kobold-ears': { name: 'KOBOLD EARS', color: '#f44', symbol: '<' },
-  'bait': { name: 'BAIT', color: '#c9974a', symbol: '~' },
-  'raw-meat': { name: 'RAW MEAT', color: '#e0654c', symbol: '¤' },
-  'pelt': { name: 'PELT', color: '#9b8267', symbol: '‡' },
-  'ore': { name: 'ORE', color: '#9a9a9a', symbol: '°' },
-  'ingot': { name: 'INGOT', color: '#cd7f32', symbol: '¶' },
-  'ironmongery': { name: 'IRONMONGERY', color: '#5599cc', symbol: '†' },
-};
+
 
 export const GAME_TITLE_ASCII =
   `  ___ ___  ___    ___ _    ___ ___ _  _____ ___   ___

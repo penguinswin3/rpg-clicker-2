@@ -752,6 +752,67 @@ background regardless of what screen the player is looking at:
   `unseenAttention`) — an unseen indicator survives a reload; once cleared, it stays
   cleared. See §5 Objectives for how a fresh game seeds its initial shine, since there's
   no real "just unlocked" event for something available from the start.
+- **No shine for the thing you're already looking at.** `SidePanelComponent.hasAttention`
+  and `CharacterSelectComponent.hasAttention` both suppress the glow for the
+  currently-active tab/character (`id !== this.activeTab` / `id !== this.active`, checked
+  before `attention.isUnseen(...)`) — a tab or character that becomes newly-unseen *while
+  already selected* shouldn't flash at something the player is already looking straight
+  at. The underlying unseen flag isn't cleared by this (only an explicit
+  `selectTab`/`select` click does that, via `markSeen`), so switching away and back can
+  still show the shine once it's no longer the active one. Apply the same "suppress
+  while active, don't just always clear" pattern to any future attention-shined element
+  that can be "currently selected."
+
+### Tooltips (hover detail system)
+
+`TooltipDirective` + `TooltipComponent` (`src/app/shared/tooltip/`) — `[appTooltip]="content"`
+on any element shows a small styled detail box after a short hover delay. Built for the
+Button Zone's three button families (primary/timed/crafting) so a player can see a
+button's real numbers — cost, yield, duration (or a min-max range), click count — without
+having to guess or dig through Statistics, but the directive itself is generic and reuses
+freely for any other hover-detail case later.
+
+- **Content is a plain data object, not markup** — `TooltipContent { title?: string; rows:
+  TooltipRow[] }`, each `TooltipRow` a `{ label, value, color? }`. The *directive* only
+  owns show/hide/positioning; building the actual numbers is the consuming component's
+  job (see `ButtonZoneComponent.primaryActionTooltip`/`timedActionTooltip`/
+  `craftingTooltip`) — same "config/behavior vs. presentation" split as everywhere else.
+  `color` (optional) tints a row's value the resource's own accent color (§3/§7), the
+  same colored-token idiom the Activity Log and `resourceAmountToken`/`resourceNameToken`
+  (`shared/resource-token.ts`) already use elsewhere — reuse those two builders for any
+  resource-amount/resource-name row rather than hand-formatting one.
+- **Numbers must be live, not the bare config value.** A button's real yield/duration
+  depends on whatever upgrades are currently leveled — `ButtonZoneComponent`'s tooltip
+  builders call the exact same `UpgradesService` methods (`getActionAmountBonus`,
+  `getTimedActionDurationMs`, `getTimedActionYieldBonus`, `getBonusRewardChance`,
+  `getPayoutDoubleChance`, `getCascadingDoubleChance`) that `onAction()`/
+  `TimedActionsService` themselves use to resolve the real payout — so a tooltip's yield
+  always matches what actually happens on the next click, and an upgrade purchase updates
+  it immediately (content is recomputed every change-detection cycle and pushed into an
+  already-open tooltip via `TooltipDirective.ngOnChanges`, not just read once on hover).
+  A row that's only sometimes relevant (a nonzero double-payout chance, a bonus-reward
+  chance, `requiresCollection`'s "manual collection" note) is omitted entirely rather than
+  shown as "0%" — don't clutter a tooltip with a detail that doesn't currently apply.
+  A `'random'`-duration timed action (Bait Trap) shows a min-max range (each end run
+  through `getTimedActionDurationMs` independently so a duration-shortening upgrade
+  scales both), not the single hidden roll `TimedActionsService` uses internally — see §6
+  on why the roll itself must stay hidden; the *range* is not the roll and is fine to show.
+- **Unobtrusive by construction:**
+  - A ~350ms show delay (`TOOLTIP_SHOW_DELAY_MS`) so sweeping the pointer across several
+    buttons doesn't spam a tooltip after each one.
+  - `pointer-events: none` on the tooltip's own host — it can never itself be hovered,
+    block the button underneath, or intercept a click.
+  - Torn down immediately on `pointerdown`, not just `pointerleave` — a tooltip lingering
+    over an actively-held button (Forge Ingots, the primary hold-to-click button) would
+    be the exact "obtrusive" failure this system exists to avoid.
+  - Positioned above the trigger by default, flipping below if there's no room, and
+    clamped to the viewport on both axes — never rendered partly off-screen.
+  - Content with an empty `rows` array shows nothing at all rather than an empty box.
+- **Not a shared singleton/overlay-service tooltip** — each `[appTooltip]` host gets its
+  own directive instance, and `TooltipComponent` is created fresh via
+  `ViewContainerRef.createComponent` on show and destroyed on hide, rather than a pooled
+  instance moved around. This game only ever has a handful of buttons on screen at once,
+  so the simplicity is worth more than the reuse.
 
 ### Game action log messages
 

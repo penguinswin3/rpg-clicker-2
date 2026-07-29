@@ -25,3 +25,12 @@ export function formatRate(value: number): string {
 export function formatSigned(value: number): string {
   return (value < 0 ? '' : '+') + formatAmount(value);
 }
+
+/** Formats a millisecond duration compactly for display, e.g. 10000 -> "10s",
+ *  9500 -> "9.5s" — rounds to one decimal place and drops a redundant trailing ".0"
+ *  rather than always showing one. Used by tooltips to show a timed/crafting action's
+ *  effective duration (see TooltipDirective consumers). */
+export function formatDurationMs(ms: number): string {
+  const rounded = Math.round(ms / 100) / 10;
+  return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(1)}s`;
+}
