@@ -1,0 +1,16 @@
+<!-- src/app/fighter-combat/equipment-panel/equipment-panel.component.html -->
+<div class="equipment-panel" [class.disabled]="disabled">
+  <div class="zone-header">[ EQUIPMENT ]</div>
+  <div class="equipment-slot" *ngFor="let slot of slots" (click)="unequip(slot.id)">
+    <div class="equipment-slot-label">{{ slot.label }}</div>
+    <div
+      class="equipment-slot-item"
+      *ngIf="equippedItemId(slot.id) as itemId; else emptySlot"
+      [style.color]="rarityColor(itemId)">
+      {{ label(itemId) }}
+    </div>
+    <ng-template #emptySlot>
+      <div class="equipment-slot-empty">-- empty --</div>
+    </ng-template>
+  </div>
+</div>

@@ -1,0 +1,40 @@
+.equipment-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: 'Courier New', Courier, monospace;
+  padding: 6px;
+  border: 1px solid #222;
+
+  &.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+}
+
+.zone-header {
+  font-size: 11px;
+  color: #bbb;
+  text-transform: uppercase;
+}
+
+.equipment-slot {
+  border: 1px solid #333;
+  padding: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.equipment-slot-label {
+  font-size: 10px;
+  color: #888;
+}
+
+.equipment-slot-item {
+  font-size: 12px;
+}
+
+.equipment-slot-empty {
+  font-size: 12px;
+  color: #666;
+}

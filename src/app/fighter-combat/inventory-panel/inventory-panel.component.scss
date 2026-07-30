@@ -1,0 +1,40 @@
+.inventory-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: 'Courier New', Courier, monospace;
+  padding: 6px;
+  border: 1px solid #222;
+
+  &.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+}
+
+.zone-header {
+  font-size: 11px;
+  color: #bbb;
+  text-transform: uppercase;
+}
+
+.inventory-item {
+  border: 1px solid #333;
+  padding: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.inventory-item-name {
+  font-size: 12px;
+}
+
+.inventory-item-count {
+  font-size: 11px;
+  color: #bbb;
+}
+
+.inventory-item-desc {
+  font-size: 10px;
+  color: #888;
+}
