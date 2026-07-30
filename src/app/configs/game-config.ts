@@ -445,3 +445,82 @@ export const OBJECTIVES: ObjectiveConfig[] = [
         rewards: [{ type: 'system', systemId: 'minigames' }],
     },
 ];
+
+// ── Fighter Combat: shared stats ──────────────────────────────
+// SixStats is defined in shared/six-stats.ts (reused by a future Jacks system, which
+// specs the identical six-stat model — see AGENTS.md).
+
+import { SixStat, SixStats } from '../shared/six-stats';
+
+export const FIGHTER_BASE_STATS: SixStats = {
+  strength: 15,
+  dexterity: 13,
+  constitution: 14,
+  intelligence: 8,
+  wisdom: 10,
+  charisma: 12,
+};
+
+// ── Fighter Combat: equipment slots ───────────────────────────
+// Slots are a list of instances, not just types, because 'ring' needs two concurrent
+// equip positions (ring-1/ring-2) — an item's `slotType` says which category it
+// belongs to; equipping picks a specific free instance of that type.
+
+export type EquipmentSlotType =
+  | 'helmet'
+  | 'armor'
+  | 'boots'
+  | 'gauntlets'
+  | 'ring'
+  | 'necklace';
+
+export interface EquipmentSlotInstance {
+  id: string;
+  slotType: EquipmentSlotType;
+  label: string;
+}
+
+export const EQUIPMENT_SLOTS: EquipmentSlotInstance[] = [
+  { id: 'helmet', slotType: 'helmet', label: 'Helmet' },
+  { id: 'armor', slotType: 'armor', label: 'Armor' },
+  { id: 'boots', slotType: 'boots', label: 'Boots' },
+  { id: 'gauntlets', slotType: 'gauntlets', label: 'Gauntlets' },
+  { id: 'ring-1', slotType: 'ring', label: 'Ring' },
+  { id: 'ring-2', slotType: 'ring', label: 'Ring' },
+  { id: 'necklace', slotType: 'necklace', label: 'Necklace' },
+];
+
+// ── Fighter Combat: equipment items ───────────────────────────
+// Items are fungible by id (like a second, typed wallet) — the player holds copies as a
+// count, not individually-rolled instances. `rarity` is a real classification (a
+// relation, like ResourceConfig.characterId), so it lives here; the rarity ladder's
+// display color lives in flavor-text.ts (RARITY_FLAVOR), since it's shared taxonomy,
+// not per-item cosmetic data.
+
+export type EquipmentRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'unique';
+
+export type EquipmentEffect =
+  | { type: 'stat-bonus'; stat: SixStat; amount: number }
+  | { type: 'bonus-damage'; amount: number }
+  /** 0..1 fraction of incoming damage absorbed. */
+  | { type: 'damage-reduction'; reduction: number }
+  /** 0..1+ chance to attack again immediately after landing a hit — cascades past 100%
+   *  via resolveExcessCount (shared/chance.ts), same as any other upgrade-style chance
+   *  that can exceed 1.0. See CombatService for resolution. */
+  | { type: 'extra-attack-chance'; chance: number };
+
+export interface EquipmentConfig {
+  id: string;
+  slotType: EquipmentSlotType;
+  rarity: EquipmentRarity;
+  effects: EquipmentEffect[];
+}
+
+export const EQUIPMENT_ITEMS: EquipmentConfig[] = [
+  {
+    id: 'ring-swift-strike',
+    slotType: 'ring',
+    rarity: 'uncommon',
+    effects: [{ type: 'extra-attack-chance', chance: 0.05 }],
+  },
+];

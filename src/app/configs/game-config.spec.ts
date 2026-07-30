@@ -7,6 +7,9 @@ import {
   UPGRADES,
   OBJECTIVES,
   GENERATORS,
+  EQUIPMENT_SLOTS,
+  EQUIPMENT_ITEMS,
+  EquipmentRarity,
 } from './game-config';
 import {
   RESOURCE_FLAVOR,
@@ -14,6 +17,8 @@ import {
   TIMED_ACTION_FLAVOR,
   CRAFTING_FLAVOR,
   UPGRADE_FLAVOR,
+  EQUIPMENT_FLAVOR,
+  RARITY_FLAVOR,
 } from './flavor-text';
 import { idsMissingFlavor, duplicateIds, danglingReferences, emojiSymbols } from '../../testing/invariants';
 
@@ -34,6 +39,8 @@ describe('game-config integrity', () => {
   const timedActionIds = TIMED_ACTIONS.map(a => a.id);
   const craftingActionIds = CRAFTING_ACTIONS.map(a => a.id);
   const upgradeIds = UPGRADES.map(u => u.id);
+  const equipmentSlotIds = EQUIPMENT_SLOTS.map(s => s.id);
+  const equipmentIds = EQUIPMENT_ITEMS.map(e => e.id);
 
   describe('Characters', () => {
     it('has no duplicate ids', () => {
@@ -298,6 +305,68 @@ describe('game-config integrity', () => {
               // systemId is typed as `keyof typeof UNLOCKS` already, so any value here
               // is statically guaranteed real — nothing further to check at runtime.
               break;
+          }
+        }
+      }
+    });
+  });
+
+  describe('Fighter Combat: equipment', () => {
+    const slotTypes = new Set(EQUIPMENT_SLOTS.map(s => s.slotType));
+    const rarities: EquipmentRarity[] = ['common', 'uncommon', 'rare', 'epic', 'unique'];
+
+    it('EQUIPMENT_SLOTS has no duplicate ids', () => {
+      expect(duplicateIds(equipmentSlotIds)).toEqual([]);
+    });
+
+    it('has no duplicate equipment item ids', () => {
+      expect(duplicateIds(equipmentIds)).toEqual([]);
+    });
+
+    it('every equipment item has an EQUIPMENT_FLAVOR entry with a non-empty label and description', () => {
+      expect(idsMissingFlavor(equipmentIds, EQUIPMENT_FLAVOR)).toEqual([]);
+      for (const item of EQUIPMENT_ITEMS) {
+        const flavor = EQUIPMENT_FLAVOR[item.id];
+        expect(flavor.label).withContext(item.id).not.toBe('');
+        expect(flavor.description).withContext(item.id).not.toBe('');
+      }
+    });
+
+    it("every equipment item's slotType is a real slot type in EQUIPMENT_SLOTS", () => {
+      for (const item of EQUIPMENT_ITEMS) {
+        expect(slotTypes.has(item.slotType)).withContext(item.id).toBeTrue();
+      }
+    });
+
+    it('every rarity tier has a RARITY_FLAVOR entry with a non-empty label and color', () => {
+      for (const rarity of rarities) {
+        const flavor = RARITY_FLAVOR[rarity];
+        expect(flavor).withContext(rarity).toBeDefined();
+        expect(flavor.label).withContext(rarity).not.toBe('');
+        expect(flavor.color).withContext(rarity).not.toBe('');
+      }
+    });
+
+    it('every stat-bonus effect targets a real SixStat', () => {
+      const validStats = new Set(['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma']);
+      for (const item of EQUIPMENT_ITEMS) {
+        for (const effect of item.effects) {
+          if (effect.type === 'stat-bonus') {
+            expect(validStats.has(effect.stat)).withContext(item.id).toBeTrue();
+          }
+        }
+      }
+    });
+
+    it('every damage-reduction effect is a fraction between 0 and 1, and every chance-based effect is positive', () => {
+      for (const item of EQUIPMENT_ITEMS) {
+        for (const effect of item.effects) {
+          if (effect.type === 'damage-reduction') {
+            expect(effect.reduction).withContext(item.id).toBeGreaterThan(0);
+            expect(effect.reduction).withContext(item.id).toBeLessThanOrEqual(1);
+          }
+          if (effect.type === 'extra-attack-chance') {
+            expect(effect.chance).withContext(item.id).toBeGreaterThan(0);
           }
         }
       }

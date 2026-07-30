@@ -219,3 +219,46 @@ export const GAME_TITLE_ASCII =
  | _ \\ _ \\/ __|  / __| |  |_ _/ __| |/ / __| _ \\ |_  )
  |   /  _/ (_ | | (__| |__ | | (__| ' <| _||   /  / /
  |_|_\\_|  \\___|  \\___|____|___\\___|_|\\_\\___|_|\\_\\ /___|`;
+
+// ── Fighter Combat: equipment ──────────────────────────────────
+import { EquipmentRarity } from './game-config';
+
+export interface EquipmentFlavor {
+  label: string;
+  description: string;
+}
+
+// Keyed by EquipmentConfig.id (game-config.ts).
+export const EQUIPMENT_FLAVOR: Record<string, EquipmentFlavor> = {
+  'ring-swift-strike': {
+    label: 'Ring of Swift Strikes',
+    description: '5% chance to attack again immediately after landing a hit.',
+  },
+};
+
+const DEFAULT_EQUIPMENT_FLAVOR: EquipmentFlavor = { label: '', description: '' };
+
+export function getEquipmentFlavor(id: string): EquipmentFlavor {
+  return EQUIPMENT_FLAVOR[id] ?? DEFAULT_EQUIPMENT_FLAVOR;
+}
+
+export interface RarityFlavor {
+  label: string;
+  color: string;
+}
+
+// Configurable rarity -> color mapping, positional match to this game's own
+// gray/white/cyan/gold/purple color-hierarchy ladder (see AGENTS.md §3). Purple had no
+// concrete value anywhere in the codebase before this — first realization of the
+// reserved "Relic-tier" color.
+export const RARITY_FLAVOR: Record<EquipmentRarity, RarityFlavor> = {
+  common: { label: 'Common', color: '#aaa' },
+  uncommon: { label: 'Uncommon', color: '#fff' },
+  rare: { label: 'Rare', color: '#0ff' },
+  epic: { label: 'Epic', color: '#ffd700' },
+  unique: { label: 'Unique', color: '#b266ff' },
+};
+
+export function getRarityFlavor(rarity: EquipmentRarity): RarityFlavor {
+  return RARITY_FLAVOR[rarity];
+}
