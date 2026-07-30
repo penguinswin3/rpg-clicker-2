@@ -142,21 +142,97 @@ export class CombatService {
   }
 
   private checkTurn(): void {
-    // Populated in the next step.
+    const encounter = this.encounter;
+    if (!encounter) return;
+    if (Date.now() < this.nextTurnAt) return;
+
+    const enemyConfig = FIGHTER_ENEMIES.find(e => e.id === encounter.enemyId);
+    if (!enemyConfig) return;
+
+    const fighter = this.fighterCombatant();
+    const enemy = this.enemyCombatant(enemyConfig, encounter.enemyHp);
+
+    const actor = encounter.actorTurn;
+    const [attacker, defender] = actor === 'fighter' ? [fighter, enemy] : [enemy, fighter];
+    const results = resolveTurn(actor, attacker, defender);
+
+    encounter.enemyHp = enemy.hp;
+    this.fighterHp = fighter.hp;
+    this.appendTurns(encounter, results);
+
+    if (fighter.hp <= 0) {
+      this.resolveDefeat(encounter);
+      return;
+    }
+    if (enemy.hp <= 0) {
+      this.resolveVictory(encounter, enemyConfig);
+      return;
+    }
+
+    encounter.actorTurn = actor === 'fighter' ? 'enemy' : 'fighter';
+    this.nextTurnAt = Date.now() + COMBAT_TURN_MS;
+    this.changesSource.next();
+  }
+
+  private appendTurns(encounter: ActiveEncounter, results: CombatTurnResult[]): void {
+    encounter.turns.push(...results);
+    const excess = encounter.turns.length - MAX_TRANSCRIPT_TURNS;
+    if (excess > 0) encounter.turns.splice(0, excess);
+  }
+
+  private resolveVictory(encounter: ActiveEncounter, enemyConfig: EnemyConfig): void {
+    this.encounter = null;
+    this.statistics.recordAction(`fighter-defeat-${enemyConfig.id}`);
+
+    const grants: string[] = [];
+    for (const drop of enemyConfig.loot) {
+      if (Math.random() >= drop.chance) continue;
+      if (drop.type === 'resource') {
+        const amount = drop.min + Math.floor(Math.random() * (drop.max - drop.min + 1));
+        this.wallet.add(drop.resourceId, amount);
+        grants.push(resourceAmountToken(drop.resourceId, amount));
+      } else {
+        this.equipment.addToInventory(drop.equipmentId);
+        grants.push(getEquipmentFlavor(drop.equipmentId).label);
+      }
+    }
+
+    const enemyLabel = getFighterEnemyFlavor(enemyConfig.id).label;
+    const lootText = grants.length > 0 ? ` (${grants.join(', ')})` : '';
+    this.activityLog.log(`You defeat a ${enemyLabel}!${lootText}`, 'success');
+    this.changesSource.next();
+  }
+
+  private resolveDefeat(encounter: ActiveEncounter): void {
+    const enemyLabel = getFighterEnemyFlavor(encounter.enemyId).label;
+    this.encounter = null;
+    this.fighterHp = this.fighterMaxHp;
+    this.lockedOutUntil = Date.now() + FIGHTER_DEFEAT_LOCKOUT_MS;
+    this.activityLog.log(`You are defeated by a ${enemyLabel} and stumble back to recover.`, 'warn');
+    this.changesSource.next();
   }
 
   getSnapshot(): CombatSnapshot {
     return {
       fighterHp: this.fighterHp,
       lockedOutUntil: this.lockedOutUntil,
-      activeEncounter: this.encounter,
+      // Copied, not aliased — unlike TimedActionsService's instances (which are
+      // replaced wholesale, never mutated in place), an ActiveEncounter's enemyHp/
+      // actorTurn/turns are mutated in place turn by turn (see checkTurn below). A
+      // snapshot that shared the live object by reference would silently drift if the
+      // encounter kept ticking after the snapshot was taken.
+      activeEncounter: this.encounter ? { ...this.encounter, turns: [...this.encounter.turns] } : null,
     };
   }
 
   restore(snapshot: CombatSnapshot | undefined): void {
     this.fighterHp = snapshot?.fighterHp ?? getMaxHp(FIGHTER_BASE_STATS);
     this.lockedOutUntil = snapshot?.lockedOutUntil ?? null;
-    this.encounter = snapshot?.activeEncounter ?? null;
+    // Copied on the way in too, for the same reason as getSnapshot() above — never
+    // alias the caller's snapshot object as this service's live, mutate-in-place state.
+    this.encounter = snapshot?.activeEncounter
+      ? { ...snapshot.activeEncounter, turns: [...snapshot.activeEncounter.turns] }
+      : null;
     this.nextTurnAt = this.encounter ? Date.now() + COMBAT_TURN_MS : 0;
     this.changesSource.next();
   }

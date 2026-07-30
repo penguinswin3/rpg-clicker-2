@@ -71,4 +71,93 @@ describe('CombatService', () => {
       expect(service.activeEncounter).toBeNull();
     });
   });
+
+  describe('turn resolution', () => {
+    it('a won fight grants gold, records the kill, and leaves Fight! immediately available', () => {
+      spyOn(statistics, 'recordAction');
+      service.restore({
+        fighterHp: service.fighterMaxHp,
+        lockedOutUntil: null,
+        activeEncounter: { areaId: KOBOLD_DEN, enemyId: 'kobold', enemyHp: 1, actorTurn: 'fighter', turns: [] },
+      });
+      // The Fighter's base Strength (15) beats the Kobold's base Dexterity (10) even on
+      // an equal max roll, so a single constant stub is enough to guarantee a hit.
+      spyOn(Math, 'random').and.returnValue(0.9999);
+      jasmine.clock().tick(COMBAT_TURN_MS);
+
+      expect(service.activeEncounter).toBeNull();
+      expect(wallet.getAmount('gold')).toBeGreaterThan(0);
+      expect(statistics.recordAction).toHaveBeenCalledWith('fighter-defeat-kobold');
+      expect(service.canFight).toBeTrue();
+    });
+
+    it('a lost fight revives the Fighter to full HP and starts the defeat lockout', () => {
+      service.restore({
+        fighterHp: 1,
+        lockedOutUntil: null,
+        activeEncounter: { areaId: KOBOLD_DEN, enemyId: 'kobold', enemyHp: 60, actorTurn: 'enemy', turns: [] },
+      });
+      // The Kobold's base Strength (8) is below the Fighter's base Dexterity (13), so a
+      // hit needs an explicit high attack roll / low defense roll rather than one
+      // constant stub.
+      spyOn(Math, 'random').and.returnValues(0.9999, 0, 0.9999);
+      jasmine.clock().tick(COMBAT_TURN_MS);
+
+      expect(service.activeEncounter).toBeNull();
+      expect(service.currentFighterHp).toBe(service.fighterMaxHp);
+      expect(service.canFight).toBeFalse();
+      expect(service.lockedOutRemainingMs).toBeGreaterThan(0);
+    });
+
+    it('Fight! re-enables once the defeat lockout fully elapses', () => {
+      service.restore({
+        fighterHp: 1,
+        lockedOutUntil: null,
+        activeEncounter: { areaId: KOBOLD_DEN, enemyId: 'kobold', enemyHp: 60, actorTurn: 'enemy', turns: [] },
+      });
+      spyOn(Math, 'random').and.returnValues(0.9999, 0, 0.9999);
+      jasmine.clock().tick(COMBAT_TURN_MS);
+      expect(service.canFight).toBeFalse();
+
+      jasmine.clock().tick(FIGHTER_DEFEAT_LOCKOUT_MS);
+      expect(service.canFight).toBeTrue();
+    });
+
+    it('does nothing while it is not yet time for the next turn', () => {
+      service.start(KOBOLD_DEN);
+      const enemyHpBefore = service.activeEncounter!.enemyHp;
+      jasmine.clock().tick(COMBAT_TURN_MS - 1);
+      expect(service.activeEncounter?.enemyHp).toBe(enemyHpBefore);
+    });
+  });
+
+  describe('snapshot / restore', () => {
+    it('round-trips HP, lockout, and an in-progress encounter', () => {
+      service.start(KOBOLD_DEN);
+      const snapshot = service.getSnapshot();
+
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({});
+      const restored = TestBed.inject(CombatService);
+      restored.restore(snapshot);
+
+      expect(restored.activeEncounter).toEqual(snapshot.activeEncounter);
+      expect(restored.currentFighterHp).toBe(snapshot.fighterHp);
+    });
+
+    it('does not replay any turns for time that passed before restore() is called', () => {
+      service.start(KOBOLD_DEN);
+      const snapshot = service.getSnapshot();
+      const enemyHpBefore = snapshot.activeEncounter!.enemyHp;
+
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({});
+      const restored = TestBed.inject(CombatService);
+      jasmine.clock().tick(60 * 60 * 1000); // an hour passes on the fresh instance's own clock
+      restored.restore(snapshot);
+
+      // restore() just re-anchored nextTurnAt to "now" - no turn has resolved yet.
+      expect(restored.activeEncounter?.enemyHp).toBe(enemyHpBefore);
+    });
+  });
 });
