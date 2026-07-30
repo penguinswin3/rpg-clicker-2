@@ -6,6 +6,8 @@ import { ObjectivesSnapshot } from '../objectives/objectives.service';
 import { TimedActionsSnapshot } from '../timed-actions/timed-actions.service';
 import { UpgradesSnapshot } from '../upgrades/upgrades.service';
 import { CraftingSnapshot } from '../crafting/crafting.service';
+import { EquipmentSnapshot } from '../fighter-combat/equipment.service';
+import { CombatSnapshot } from '../fighter-combat/combat.service';
 
 /**
  * The full persisted shape. `schemaVersion` is ours to bump for migrations;
@@ -46,6 +48,11 @@ export interface SaveData {
   /** Blacksmith crafting progress (Forge Ingots hold-charge, Smith Metal click count).
    *  See CraftingService.getSnapshot/restore. */
   crafting: CraftingSnapshot;
+  /** Fighter's equipped items + inventory. See EquipmentService.getSnapshot/restore. */
+  equipment: EquipmentSnapshot;
+  /** Fighter's combat HP, defeat lockout, and any in-progress encounter. See
+   *  CombatService.getSnapshot/restore. */
+  combat: CombatSnapshot;
 }
 
 export const SCHEMA_VERSION = 1;

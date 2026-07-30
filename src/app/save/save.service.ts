@@ -11,6 +11,8 @@ import { UpgradesService } from '../upgrades/upgrades.service';
 import { TimedActionsService } from '../timed-actions/timed-actions.service';
 import { HoldHintService } from '../shared/hold-hint.service';
 import { CraftingService } from '../crafting/crafting.service';
+import { EquipmentService } from '../fighter-combat/equipment.service';
+import { CombatService } from '../fighter-combat/combat.service';
 import { VERSION, OBJECTIVES, UPGRADES } from '../configs/game-config';
 import { SaveData, SCHEMA_VERSION } from './save-data';
 
@@ -38,6 +40,8 @@ export class SaveService {
   private timedActions = inject(TimedActionsService);
   private holdHint = inject(HoldHintService);
   private crafting = inject(CraftingService);
+  private equipment = inject(EquipmentService);
+  private combat = inject(CombatService);
 
   private createdAt = Date.now();
 
@@ -92,6 +96,8 @@ export class SaveService {
       timedActions: this.timedActions.getSnapshot(),
       holdHints: this.holdHint.getSnapshot(),
       crafting: this.crafting.getSnapshot(),
+      equipment: this.equipment.getSnapshot(),
+      combat: this.combat.getSnapshot(),
     };
     return btoa(JSON.stringify(data));
   }
@@ -190,6 +196,8 @@ export class SaveService {
       this.timedActions.restore(data.timedActions);
       this.holdHint.restore(data.holdHints);
       this.crafting.restore(data.crafting);
+      this.equipment.restore(data.equipment);
+      this.combat.restore(data.combat);
     }
     return true;
   }
