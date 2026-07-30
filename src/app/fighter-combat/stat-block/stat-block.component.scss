@@ -1,0 +1,21 @@
+.stat-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 1px 4px;
+}
+
+.stat-label {
+  color: #bbb;
+}
+
+.stat-value {
+  color: #fff;
+}

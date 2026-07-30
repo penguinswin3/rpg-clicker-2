@@ -1,0 +1,8 @@
+<div class="combatant-display">
+  <div class="combatant-name">{{ name }}</div>
+  <pre class="combatant-ascii">{{ ascii }}</pre>
+  <div class="combatant-hp-bar">
+    <div class="combatant-hp-fill" [style.width.%]="hpPercent"></div>
+    <div class="combatant-hp-label">{{ hp }} / {{ maxHp }}</div>
+  </div>
+</div>
