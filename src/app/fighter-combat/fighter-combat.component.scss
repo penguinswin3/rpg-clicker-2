@@ -1,0 +1,30 @@
+// src/app/fighter-combat/fighter-combat.component.scss
+.fighter-combat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: 'Courier New', Courier, monospace;
+  height: 100%;
+}
+
+.fighter-combat-zones {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  flex: 1;
+}
+
+.jacks-slot,
+.enemy-stats,
+.fighter-side,
+.enemy-side-empty {
+  border: 1px solid #222;
+  padding: 6px;
+}
+
+.zone-header {
+  font-size: 11px;
+  color: #bbb;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
