@@ -10,6 +10,8 @@ import {
   EQUIPMENT_SLOTS,
   EQUIPMENT_ITEMS,
   EquipmentRarity,
+  FIGHTER_ENEMIES,
+  FIGHTER_AREAS,
 } from './game-config';
 import {
   RESOURCE_FLAVOR,
@@ -19,6 +21,8 @@ import {
   UPGRADE_FLAVOR,
   EQUIPMENT_FLAVOR,
   RARITY_FLAVOR,
+  FIGHTER_ENEMY_FLAVOR,
+  FIGHTER_AREA_FLAVOR,
 } from './flavor-text';
 import { idsMissingFlavor, duplicateIds, danglingReferences, emojiSymbols } from '../../testing/invariants';
 
@@ -41,6 +45,8 @@ describe('game-config integrity', () => {
   const upgradeIds = UPGRADES.map(u => u.id);
   const equipmentSlotIds = EQUIPMENT_SLOTS.map(s => s.id);
   const equipmentIds = EQUIPMENT_ITEMS.map(e => e.id);
+  const fighterEnemyIds = FIGHTER_ENEMIES.map(e => e.id);
+  const fighterAreaIds = FIGHTER_AREAS.map(a => a.id);
 
   describe('Characters', () => {
     it('has no duplicate ids', () => {
@@ -368,6 +374,60 @@ describe('game-config integrity', () => {
           if (effect.type === 'extra-attack-chance') {
             expect(effect.chance).withContext(item.id).toBeGreaterThan(0);
           }
+        }
+      }
+    });
+  });
+
+  describe('Fighter Combat: enemies & areas', () => {
+    it('has no duplicate enemy or area ids', () => {
+      expect(duplicateIds(fighterEnemyIds)).toEqual([]);
+      expect(duplicateIds(fighterAreaIds)).toEqual([]);
+    });
+
+    it('every enemy has a FIGHTER_ENEMY_FLAVOR entry with a non-empty label and ascii', () => {
+      expect(idsMissingFlavor(fighterEnemyIds, FIGHTER_ENEMY_FLAVOR)).toEqual([]);
+      for (const enemy of FIGHTER_ENEMIES) {
+        const flavor = FIGHTER_ENEMY_FLAVOR[enemy.id];
+        expect(flavor.label).withContext(enemy.id).not.toBe('');
+        expect(flavor.ascii).withContext(enemy.id).not.toBe('');
+      }
+    });
+
+    it('every area has a FIGHTER_AREA_FLAVOR entry with a non-empty label', () => {
+      expect(idsMissingFlavor(fighterAreaIds, FIGHTER_AREA_FLAVOR)).toEqual([]);
+      for (const area of FIGHTER_AREAS) {
+        expect(FIGHTER_AREA_FLAVOR[area.id].label).withContext(area.id).not.toBe('');
+      }
+    });
+
+    it('every area references at least one real enemy', () => {
+      for (const area of FIGHTER_AREAS) {
+        expect(area.enemyIds.length).withContext(area.id).toBeGreaterThan(0);
+        expect(danglingReferences(area.enemyIds, fighterEnemyIds)).withContext(area.id).toEqual([]);
+      }
+    });
+
+    it('every enemy loot entry references a real resource or equipment item, with a sane chance', () => {
+      for (const enemy of FIGHTER_ENEMIES) {
+        for (const drop of enemy.loot) {
+          expect(drop.chance).withContext(enemy.id).toBeGreaterThan(0);
+          expect(drop.chance).withContext(enemy.id).toBeLessThanOrEqual(1);
+          if (drop.type === 'resource') {
+            expect(resourceIds).withContext(`${enemy.id} -> ${drop.resourceId}`).toContain(drop.resourceId);
+            expect(drop.min).withContext(enemy.id).toBeGreaterThan(0);
+            expect(drop.max).withContext(enemy.id).toBeGreaterThanOrEqual(drop.min);
+          } else {
+            expect(equipmentIds).withContext(`${enemy.id} -> ${drop.equipmentId}`).toContain(drop.equipmentId);
+          }
+        }
+      }
+    });
+
+    it('every enemy stat block has non-negative stats', () => {
+      for (const enemy of FIGHTER_ENEMIES) {
+        for (const [stat, value] of Object.entries(enemy.stats)) {
+          expect(value).withContext(`${enemy.id}.${stat}`).toBeGreaterThanOrEqual(0);
         }
       }
     });

@@ -262,3 +262,43 @@ export const RARITY_FLAVOR: Record<EquipmentRarity, RarityFlavor> = {
 export function getRarityFlavor(rarity: EquipmentRarity): RarityFlavor {
   return RARITY_FLAVOR[rarity];
 }
+
+// ── Fighter Combat: enemies & areas ────────────────────────────
+
+export interface FighterEnemyFlavor {
+  label: string;
+  ascii: string;
+}
+
+// Keyed by EnemyConfig.id (game-config.ts).
+export const FIGHTER_ENEMY_FLAVOR: Record<string, FighterEnemyFlavor> = {
+  kobold: {
+    label: 'Kobold',
+    ascii: '  /\\_/\\\n ( o.o )\n  > ^ <',
+  },
+};
+
+const DEFAULT_FIGHTER_ENEMY_FLAVOR: FighterEnemyFlavor = { label: '', ascii: '' };
+
+export function getFighterEnemyFlavor(id: string): FighterEnemyFlavor {
+  return FIGHTER_ENEMY_FLAVOR[id] ?? DEFAULT_FIGHTER_ENEMY_FLAVOR;
+}
+
+export interface FighterAreaFlavor {
+  label: string;
+}
+
+// Keyed by FighterAreaConfig.id (game-config.ts).
+export const FIGHTER_AREA_FLAVOR: Record<string, FighterAreaFlavor> = {
+  'kobold-den': { label: 'Kobold Den' },
+};
+
+const DEFAULT_FIGHTER_AREA_FLAVOR: FighterAreaFlavor = { label: '' };
+
+export function getFighterAreaFlavor(id: string): FighterAreaFlavor {
+  return FIGHTER_AREA_FLAVOR[id] ?? DEFAULT_FIGHTER_AREA_FLAVOR;
+}
+
+// The Fighter's own combat-display art (only one Fighter, so a bare constant rather than
+// a Record).
+export const FIGHTER_COMBAT_ASCII = '  _O_\n //|\\\\\n  / \\';

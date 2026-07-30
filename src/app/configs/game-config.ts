@@ -524,3 +524,57 @@ export const EQUIPMENT_ITEMS: EquipmentConfig[] = [
     effects: [{ type: 'extra-attack-chance', chance: 0.05 }],
   },
 ];
+
+// ── Fighter Combat: enemies & areas ────────────────────────────
+// Areas and enemies are decoupled so either can be extended independently — an area is
+// just a named pool of enemy ids.
+
+export interface EnemyConfig {
+  id: string;
+  stats: SixStats;
+  loot: LootDrop[];
+}
+
+export type LootDrop =
+  | { type: 'resource'; resourceId: string; chance: number; min: number; max: number }
+  | { type: 'equipment'; equipmentId: string; chance: number };
+
+export interface FighterAreaConfig {
+  id: string;
+  enemyIds: string[];
+}
+
+export const FIGHTER_ENEMIES: EnemyConfig[] = [
+  {
+    id: 'kobold',
+    stats: {
+      strength: 8,
+      dexterity: 10,
+      constitution: 6,
+      intelligence: 6,
+      wisdom: 10,
+      charisma: 6,
+    },
+    loot: [
+      { type: 'resource', resourceId: 'gold', chance: 1.0, min: 5, max: 15 },
+      { type: 'resource', resourceId: 'kobold-ears', chance: 0.6, min: 1, max: 1 },
+      { type: 'equipment', equipmentId: 'ring-swift-strike', chance: 0.05 },
+    ],
+  },
+];
+
+export const FIGHTER_AREAS: FighterAreaConfig[] = [
+  { id: 'kobold-den', enemyIds: ['kobold'] },
+];
+
+// ── Fighter Combat: timing & lockout ───────────────────────────
+
+/** How often CombatService checks whether the next turn is due — its own constant,
+ *  independently tunable from TIMED_ACTION_TICK_MS. */
+export const COMBAT_CHECK_MS = 100;
+
+/** Pacing between resolved turns once a fight is active. */
+export const COMBAT_TURN_MS = 1_000;
+
+/** How long Fight! stays disabled after a loss. */
+export const FIGHTER_DEFEAT_LOCKOUT_MS = 30_000;
