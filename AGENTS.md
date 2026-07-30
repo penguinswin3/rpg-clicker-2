@@ -653,14 +653,20 @@ background regardless of what screen the player is looking at:
 
 - Live in the bottom half of the game screen; the top half is reserved for the primary
   button(s) and timed-action buttons (§1 Layout anchor points, §6).
-- Currently under construction — no established visual pattern yet. When designed, they
-  should still follow §1's terminal/monospace baseline rather than introducing a
-  visually distinct "minigame skin."
+- Fighter Combat (§17) is the first one built, and establishes the visual pattern: §1's
+  terminal/monospace baseline throughout, no visually distinct "minigame skin."
 - **Gated like Jacks/Crown:** hidden until `UnlocksService.isUnlocked('minigames')` is
   true — when locked, the button zone simply fills the whole center column instead of
   splitting 50/50, rather than showing a locked placeholder in the bottom half.
   `GameAreaComponent` subscribes to `UnlocksService.state$` (not a one-time read) so
   unlocking at runtime reveals the minigame zone without a reload.
+- **`MinigameZoneComponent` hosts exactly one minigame directly** — no registry or
+  tab-switcher (see `SidePanelComponent`'s Upgrades/Objectives tabs for what that would
+  look like). It also gates on the active character (Fighter Combat only shows while
+  Fighter is selected, mirroring how Upgrades/Actions already filter to the active
+  character), so a second minigame doesn't need a "which one to show" decision — it just
+  shows whenever its own character is active. A real switcher is only worth building the
+  day a single character needs more than one minigame at once, not before.
 
 ---
 
@@ -700,6 +706,87 @@ background regardless of what screen the player is looking at:
      destructive action goes through `ConfirmService`" — Dev Tools exists specifically
      to blow away state quickly while iterating, so adding a confirm step here would
      fight the panel's own purpose.
+
+---
+
+## 17. Fighter Combat
+
+The first minigame (§15): a turn-based fight against a single enemy today (the Kobold),
+built to extend as pure config (`src/app/configs/game-config.ts`'s `FIGHTER_ENEMIES`/
+`FIGHTER_AREAS`, `EQUIPMENT_ITEMS`) rather than code changes.
+
+- **Six stats — Strength/Dexterity/Constitution/Intelligence/Wisdom/Charisma —
+  live in `shared/six-stats.ts` (`SixStats`), not `fighter-combat/`.** Deliberately
+  shared: Jacks (§13) specs the identical six-stat model, so Fighter Combat is the first
+  consumer of this shape, not the only intended one.
+- **Rolls use the raw stat value added directly to `1d20`** (`shared/dice.ts`'s
+  `rollD20()`), not a converted D&D-style ability modifier — a deliberate simplification,
+  not an oversight. It also makes equipment stat bonuses feel impactful (a flat +2
+  visibly shifts a 1-20 roll), which suits this game's numbers-should-visibly-matter feel
+  better than a real tabletop's small modifiers would.
+- **Max HP = Constitution × 10** (`getMaxHp()`, `shared/six-stats.ts`). The Fighter's
+  current HP is a persistent value (`CombatService`), not reset between fights — only
+  combat damage changes it, so entering a fight already wounded from a previous one is a
+  real, deliberate risk/reward tension. **Defeat is the one exception:** it revives the
+  Fighter to full HP immediately, in exchange for a 30-second Fight!-disabled lockout
+  (`FIGHTER_DEFEAT_LOCKOUT_MS`) — losing costs time, never progress, and never leaves a
+  soft-lock. A future "heal" button (not yet built) would let the player top off HP
+  proactively, without needing to lose on purpose first.
+- **Combat does not fast-forward on reload — this is the sharpest decision in the
+  system and the one most likely to look like a bug to a future contributor.**
+  `CombatService` is modeled on `TimedActionsService`'s absolute-timestamp-anchor pattern
+  (§6) in every other respect, but a `TimedActionConfig`'s completion is a single
+  deterministic threshold — safe to evaluate against however much real time has passed,
+  including with the tab closed. A turn's outcome is a dice roll. Bulk-resolving "however
+  many turns would have happened" while the tab was closed would mean silently
+  auto-battling a potentially unbounded number of them (and several full encounters) the
+  instant the page reopens. So: combat only advances while the app is open. `restore()`
+  brings back the exact state (HP, whose turn, the transcript so far) and gives a fresh
+  `COMBAT_TURN_MS` countdown to the next turn from the moment of load — it never
+  retroactively resolves turns for elapsed offline time. `lockedOutUntil`, being a plain
+  threshold like a timed action's duration, is the opposite case and correctly *does*
+  honor real elapsed time across a closed tab. **Do not "fix" combat to fast-forward like
+  a timed action — that was considered and rejected for the reason above.**
+- **Equipment items are fungible by id, like a second, typed wallet** (`EquipmentService`)
+  — a given item is always identical, held as a bag count, never an individually-rolled
+  instance. Slots are a list of *instances*, not just types
+  (`EquipmentSlotInstance`/`EQUIPMENT_SLOTS`), because Ring needs two concurrent equip
+  positions — an item's `slotType` says which category it belongs to; equipping picks a
+  specific free instance of that type. Adding a new slot later (a Cloak, say) is one new
+  slot type plus one new instance entry.
+- **Rarity (Common/Uncommon/Rare/Epic/Unique) is display-only** — a color/label lookup
+  (`RARITY_FLAVOR`, `flavor-text.ts`), not a mechanical multiplier on anything. It maps
+  positionally onto this game's own gray/white/cyan/gold/purple color ladder (§3) in
+  that exact order — Purple had no concrete value anywhere in the codebase before this;
+  it's the first realization of §3's reserved "Relic-tier" color.
+- **The gear-locked-during-combat invariant is enforced by the UI layer, not
+  `EquipmentService`.** The two panel components disable themselves
+  (`[disabled]="inEncounter"`) while a fight is active; `equip()`/`unequip()` themselves
+  don't check combat state. This is what makes computing effective stats live (not
+  snapshotted at combat start) safe — gear genuinely can't change mid-fight, but that
+  guarantee lives in the components, not the service. A future direct caller of
+  `equip()`/`unequip()` that bypasses those components would silently break it.
+- **A chance-to-attack-again effect (the shipping Ring of Swift Strikes,
+  `extra-attack-chance`) resolves through the same "excess percent" cascade
+  (`resolveExcessCount`, `shared/chance.ts`) that upgrade effects already use for a
+  chance that can exceed 100%** — not a bespoke bare `Math.random()` check. Stacking two
+  such rings sums their chance and can cascade into a guaranteed extra attack plus a
+  further roll for a second, the same way a stacked upgrade chance already does
+  elsewhere. A follow-up attack is checked again after it lands, so a chain of them falls
+  out for free with no special-case code.
+- **Loot entries roll independently** (`EnemyConfig.loot`, each its own `chance`) — a
+  kill can yield gold *and* a monster part *and*, rarely, an item, all in one fight. Not
+  a single weighted pick off a table.
+- **Round-by-round attack detail stays in a local combat feed inside the panel
+  (`CombatFeedComponent`), not the global Activity Log** — only an encounter's outcome
+  (win + loot / flee / defeat) logs one milestone-level line globally. A single fight's
+  10-30+ individual turns would otherwise bury unrelated game activity in the shared log,
+  cutting against §1's own "reserve rare/noteworthy, not routine play" log convention.
+- **The Jacks slot and the two consumable slots in the layout are reserved, inert
+  placeholders** (`EmptyStateComponent`, no backing data), not stubs of something
+  half-built — there's no `JacksService` to assign from yet (§13 is still a design spec)
+  and no consumable item type exists yet. Both are real spots in the seven-zone layout,
+  wired for whenever those systems actually arrive.
 
 ---
 
