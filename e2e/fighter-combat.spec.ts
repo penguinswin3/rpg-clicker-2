@@ -50,7 +50,13 @@ test.describe('Fighter Combat minigame', () => {
       combat: {
         fighterHp: 1,
         lockedOutUntil: null,
-        activeEncounter: { areaId: 'kobold-den', enemyId: 'kobold', enemyHp: 60, actorTurn: 'enemy', turns: [] },
+        // enemyHp is deliberately high (not the Kobold's real 60 max) so the fight
+        // lasts long enough to make the Kobold landing its one lethal hit against the
+        // Fighter a near-certainty rather than a coin flip — verified by simulation: an
+        // enemyHp of 60 (~8-10 turns) carried a real ~3% chance of the Fighter
+        // finishing the Kobold off first and winning by accident; 200 drives that down
+        // to ~0.001% with no cost to how fast the intended (losing) path resolves.
+        activeEncounter: { areaId: 'kobold-den', enemyId: 'kobold', enemyHp: 200, actorTurn: 'enemy', turns: [] },
       },
     });
     await gotoFreshGame(page);
