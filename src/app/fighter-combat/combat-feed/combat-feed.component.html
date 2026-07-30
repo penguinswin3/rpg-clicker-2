@@ -1,6 +1,6 @@
 <div class="combat-feed">
   <div class="zone-header">[ COMBAT LOG ]</div>
-  <div class="combat-feed-body">
+  <div class="combat-feed-body" #feedBody>
     <div class="combat-feed-line" *ngFor="let turn of turns">{{ describe(turn) }}</div>
   </div>
 </div>

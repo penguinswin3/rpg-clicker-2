@@ -259,8 +259,10 @@ export const RARITY_FLAVOR: Record<EquipmentRarity, RarityFlavor> = {
   unique: { label: 'Unique', color: '#b266ff' },
 };
 
+const DEFAULT_RARITY_FLAVOR: RarityFlavor = { label: '', color: '#444' };
+
 export function getRarityFlavor(rarity: EquipmentRarity): RarityFlavor {
-  return RARITY_FLAVOR[rarity];
+  return RARITY_FLAVOR[rarity] ?? DEFAULT_RARITY_FLAVOR;
 }
 
 // ── Fighter Combat: enemies & areas ────────────────────────────

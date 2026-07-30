@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { CombatService } from './combat.service';
 import { WalletService } from '../economy/wallet.service';
 import { StatisticsService } from '../statistics/statistics.service';
+import { EquipmentService } from './equipment.service';
 import { COMBAT_TURN_MS, FIGHTER_DEFEAT_LOCKOUT_MS } from '../configs/game-config';
 
 const KOBOLD_DEN = 'kobold-den';
@@ -128,6 +129,60 @@ describe('CombatService', () => {
       const enemyHpBefore = service.activeEncounter!.enemyHp;
       jasmine.clock().tick(COMBAT_TURN_MS - 1);
       expect(service.activeEncounter?.enemyHp).toBe(enemyHpBefore);
+    });
+  });
+
+  describe('swift-strike ring', () => {
+    it('lands a follow-up attack when the equipped ring procs mid-fight', () => {
+      const equipment = TestBed.inject(EquipmentService);
+      equipment.addToInventory('ring-swift-strike');
+      equipment.equip('ring-swift-strike', 'ring-1');
+
+      service.restore({
+        fighterHp: service.fighterMaxHp,
+        lockedOutUntil: null,
+        activeEncounter: { areaId: KOBOLD_DEN, enemyId: 'kobold', enemyHp: 60, actorTurn: 'fighter', turns: [] },
+      });
+      // Fighter (STR 15) vs Kobold (DEX 10): attack 1 rolls d20=19 (0.9) vs d20=1 (0),
+      // hits for 8 damage (str-15 damage roll of 0.5 -> floor(0.5*15)+1), then the
+      // ring's 5% extra-attack-chance check succeeds (0.01 < 0.05) via
+      // resolveExcessCount. Attack 2 (the follow-up itself) resolves the exact same
+      // way for another 8 damage (52 -> 44hp, nowhere near lethal), then the
+      // extra-attack-chance check fails this time (0.9 >= 0.05), so resolveTurn's loop
+      // stops at exactly 2 attacks. See combat-resolution.spec.ts's "chains a
+      // follow-up attack" test for the same 8-value hand-traced shape.
+      spyOn(Math, 'random').and.returnValues(
+        0.9, 0, 0.5, 0.01, // attack 1: hit, damage, follow-up proc succeeds
+        0.9, 0, 0.5, 0.9   // attack 2 (follow-up): hit, damage, follow-up proc fails -> stop
+      );
+      jasmine.clock().tick(COMBAT_TURN_MS);
+
+      const turns = service.activeEncounter?.turns ?? [];
+      expect(turns.length).toBe(2);
+      expect(turns[0].followUp).toBeFalse();
+      expect(turns[1].followUp).toBeTrue();
+    });
+
+    it('sends a loot-dropped ring straight to the equipment inventory on a won fight', () => {
+      const equipment = TestBed.inject(EquipmentService);
+      service.restore({
+        fighterHp: service.fighterMaxHp,
+        lockedOutUntil: null,
+        activeEncounter: { areaId: KOBOLD_DEN, enemyId: 'kobold', enemyHp: 1, actorTurn: 'fighter', turns: [] },
+      });
+      // Attack hits (d20=19 vs d20=1) for lethal damage against the Kobold's 1 hp;
+      // resolveTurn's loop breaks as soon as defender.hp <= 0, so no follow-up-chance
+      // roll is ever consumed. Then resolveVictory walks the Kobold's loot table in
+      // order:
+      //  - gold (chance 1.0): 0.5 < 1.0 -> always drops, consumes a 2nd roll for amount
+      //  - kobold-ears (chance 0.6): 0.9 >= 0.6 -> skipped, no amount roll
+      //  - ring-swift-strike (chance 0.05): 0.01 < 0.05 -> drops (equipment branch,
+      //    no amount roll — addToInventory() just adds 1 copy)
+      spyOn(Math, 'random').and.returnValues(0.9, 0, 0.5, 0.5, 0.5, 0.9, 0.01);
+      jasmine.clock().tick(COMBAT_TURN_MS);
+
+      expect(service.activeEncounter).toBeNull();
+      expect(equipment.getInventoryCount('ring-swift-strike')).toBe(1);
     });
   });
 

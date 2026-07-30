@@ -89,6 +89,7 @@ describe('SaveService', () => {
     crafting.click('blacksmith-smith-metal');
     equipment.addToInventory('ring-swift-strike');
     equipment.equip('ring-swift-strike', 'ring-1');
+    combat.start('kobold-den');
 
     const decoded = decode(saveService.exportBase64()) as unknown as SaveData;
 

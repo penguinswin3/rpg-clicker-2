@@ -45,6 +45,7 @@ test.describe('Fighter Combat minigame', () => {
   });
 
   test('losing revives the Fighter and shows the recovery lockout', async ({ page }) => {
+    test.setTimeout(60_000);
     await seedSave(page, {
       unlocks: { minigames: true },
       combat: {

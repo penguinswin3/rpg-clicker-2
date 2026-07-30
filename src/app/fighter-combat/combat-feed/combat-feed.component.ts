@@ -1,4 +1,14 @@
-import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  AfterViewChecked,
+  ViewChild,
+  ElementRef,
+  inject,
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { CombatService } from '../combat.service';
@@ -13,10 +23,13 @@ import { getFighterEnemyFlavor } from '../../configs/flavor-text';
   styleUrl: './combat-feed.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class CombatFeedComponent implements OnInit, OnDestroy {
+export class CombatFeedComponent implements OnInit, OnDestroy, AfterViewChecked {
+  @ViewChild('feedBody') feedBody?: ElementRef<HTMLDivElement>;
+
   private combat = inject(CombatService);
   private cdr = inject(ChangeDetectorRef);
   private sub = new Subscription();
+  private shouldScroll = false;
 
   get turns(): CombatTurnResult[] {
     return this.combat.activeEncounter?.turns ?? [];
@@ -39,7 +52,18 @@ export class CombatFeedComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.sub.add(this.combat.changes$.subscribe(() => this.cdr.markForCheck()));
+    this.sub.add(this.combat.changes$.subscribe(() => {
+      this.shouldScroll = true;
+      this.cdr.markForCheck();
+    }));
+  }
+
+  ngAfterViewChecked(): void {
+    if (this.shouldScroll && this.feedBody?.nativeElement) {
+      const el = this.feedBody.nativeElement;
+      el.scrollTop = el.scrollHeight;
+      this.shouldScroll = false;
+    }
   }
 
   ngOnDestroy(): void {
