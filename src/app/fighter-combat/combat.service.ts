@@ -18,7 +18,7 @@ import {
 import { getEquipmentFlavor, getFighterEnemyFlavor } from '../configs/flavor-text';
 import { resourceAmountToken } from '../shared/resource-token';
 
-interface ActiveEncounter {
+export interface ActiveEncounter {
   areaId: string;
   enemyId: string;
   enemyHp: number;
@@ -147,7 +147,17 @@ export class CombatService {
     if (Date.now() < this.nextTurnAt) return;
 
     const enemyConfig = FIGHTER_ENEMIES.find(e => e.id === encounter.enemyId);
-    if (!enemyConfig) return;
+    if (!enemyConfig) {
+      // Defensive second line: not reachable today (an encounter's enemyId can only
+      // come from start(), which already validates against FIGHTER_ENEMIES, or from
+      // restore(), which now drops a stale reference before it ever reaches here) —
+      // but if FIGHTER_ENEMIES ever changed while an encounter was already active in
+      // memory, silently returning every tick forever would freeze the fight rather
+      // than surfacing anything. Clear it instead, same as the restore() case below.
+      this.encounter = null;
+      this.changesSource.next();
+      return;
+    }
 
     const fighter = this.fighterCombatant();
     const enemy = this.enemyCombatant(enemyConfig, encounter.enemyHp);
@@ -165,7 +175,7 @@ export class CombatService {
       return;
     }
     if (enemy.hp <= 0) {
-      this.resolveVictory(encounter, enemyConfig);
+      this.resolveVictory(enemyConfig);
       return;
     }
 
@@ -180,7 +190,7 @@ export class CombatService {
     if (excess > 0) encounter.turns.splice(0, excess);
   }
 
-  private resolveVictory(encounter: ActiveEncounter, enemyConfig: EnemyConfig): void {
+  private resolveVictory(enemyConfig: EnemyConfig): void {
     this.encounter = null;
     this.statistics.recordAction(`fighter-defeat-${enemyConfig.id}`);
 
@@ -230,8 +240,14 @@ export class CombatService {
     this.lockedOutUntil = snapshot?.lockedOutUntil ?? null;
     // Copied on the way in too, for the same reason as getSnapshot() above — never
     // alias the caller's snapshot object as this service's live, mutate-in-place state.
-    this.encounter = snapshot?.activeEncounter
-      ? { ...snapshot.activeEncounter, turns: [...snapshot.activeEncounter.turns] }
+    // A restored encounter whose enemyId no longer resolves in FIGHTER_ENEMIES (e.g. a
+    // removed/renamed enemy) is dropped rather than restored frozen — checkTurn() would
+    // otherwise silently no-op forever, every tick, with no way for the player to ever
+    // fight again. Same stale-reference handling as CraftingService.restore().
+    const restored = snapshot?.activeEncounter;
+    const enemyStillExists = !!restored && FIGHTER_ENEMIES.some(e => e.id === restored.enemyId);
+    this.encounter = restored && enemyStillExists
+      ? { ...restored, turns: [...restored.turns] }
       : null;
     this.nextTurnAt = this.encounter ? Date.now() + COMBAT_TURN_MS : 0;
     this.changesSource.next();

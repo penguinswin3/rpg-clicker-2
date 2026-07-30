@@ -13,6 +13,15 @@ export interface EquipmentSnapshot {
  * equip/unequip is one atomic move between "in bag" and "worn," not two services reaching
  * into each other. Items are fungible by id (like a second, typed wallet): a given item
  * is always identical, held as a count, never an individually-rolled instance.
+ *
+ * equip()/unequip() below don't themselves check whether a fight is active. "Gear can't
+ * change mid-fight" — the assumption that makes getEffectiveStats()/getBonusDamage()/
+ * getDamageReduction()/getExtraAttackChance() safe to recompute live rather than
+ * snapshot per-turn (see CombatService) — is enforced by the UI layer instead: the
+ * `disabled` input on InventoryPanelComponent/EquipmentPanelComponent, gated on whether
+ * CombatService has an active encounter. A future caller of equip()/unequip() that
+ * bypasses those components would silently break that assumption — this service isn't
+ * where the real guarantee lives.
  */
 @Injectable({ providedIn: 'root' })
 export class EquipmentService {
@@ -131,7 +140,21 @@ export class EquipmentService {
 
   restore(snapshot: EquipmentSnapshot | undefined): void {
     this.inventory = new Map(Object.entries(snapshot?.inventory ?? {}));
-    this.equipped = new Map(Object.entries(snapshot?.equipped ?? {}));
+    // A persisted slot instance id that no longer exists in EQUIPMENT_SLOTS (removed or
+    // renamed) can't just be kept — it would go on contributing its effects forever via
+    // equippedConfigs() while being unreachable/unequippable through the UI, which only
+    // ever iterates the real EQUIPMENT_SLOTS list. Same stale-reference handling as
+    // CombatService.restore(); here the item is returned to the bag rather than simply
+    // discarded, same as a normal unequip().
+    const equipped = new Map<string, string>();
+    for (const [slotInstanceId, itemId] of Object.entries(snapshot?.equipped ?? {})) {
+      if (EQUIPMENT_SLOTS.some(s => s.id === slotInstanceId)) {
+        equipped.set(slotInstanceId, itemId);
+      } else {
+        this.inventory.set(itemId, this.getInventoryCount(itemId) + 1);
+      }
+    }
+    this.equipped = equipped;
     this.changesSource.next();
   }
 }
