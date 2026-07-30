@@ -1,0 +1,73 @@
+.combat-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: 'Courier New', Courier, monospace;
+  padding: 6px;
+  border: 1px solid #222;
+}
+
+.zone-header {
+  font-size: 11px;
+  color: #bbb;
+  text-transform: uppercase;
+}
+
+.area-select {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.area-button {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border: 1px solid #444;
+  background: #0a0a0a;
+  color: #bbb;
+  cursor: pointer;
+
+  &.active {
+    border-color: #0ff;
+    color: #0ff;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+
+.fight-button,
+.flee-button {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  padding: 8px;
+  border: 1px solid #fff;
+  background: #0a0a0a;
+  color: #fff;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+    border-color: #444;
+    color: #666;
+  }
+}
+
+.consumable-slots {
+  display: flex;
+  gap: 4px;
+}
+
+.consumable-slot {
+  flex: 1;
+  border: 1px dashed #333;
+  padding: 6px;
+  text-align: center;
+  font-size: 10px;
+  color: #444;
+}

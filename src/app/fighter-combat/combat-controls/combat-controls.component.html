@@ -1,0 +1,25 @@
+<div class="combat-controls">
+  <div class="zone-header">[ COMBAT ]</div>
+
+  <div class="area-select">
+    <button
+      *ngFor="let area of areas"
+      class="area-button"
+      [class.active]="selectedAreaId === area.id"
+      [disabled]="inEncounter"
+      (click)="selectArea(area.id)">
+      {{ areaLabel(area.id) }}
+    </button>
+  </div>
+
+  <button class="fight-button" *ngIf="!inEncounter" [disabled]="!canFight" (click)="fight()">
+    <ng-container *ngIf="canFight; else lockedOut">Fight!</ng-container>
+    <ng-template #lockedOut>Recovering... {{ lockedOutSecondsRemaining }}s</ng-template>
+  </button>
+
+  <button class="flee-button" *ngIf="inEncounter" (click)="flee()">Flee</button>
+
+  <div class="consumable-slots">
+    <div class="consumable-slot" *ngFor="let i of [0, 1]">-- empty --</div>
+  </div>
+</div>
