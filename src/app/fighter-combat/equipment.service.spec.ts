@@ -61,6 +61,36 @@ describe('EquipmentService', () => {
     expect(service.getInventoryCount('ring-swift-strike')).toBe(0);
   });
 
+  describe('replaceInventoryItem', () => {
+    it('swaps an equipped item in place, in the same slot instance', () => {
+      service.addToInventory('basic-sword');
+      service.equip('basic-sword', 'weapon');
+
+      service.replaceInventoryItem('basic-sword', 'forged-sword');
+
+      expect(service.getEquippedItemId('weapon')).toBe('forged-sword');
+      expect(service.getInventoryCount('basic-sword')).toBe(0);
+      expect(service.getInventoryCount('forged-sword')).toBe(0); // went straight into the slot, not the bag
+    });
+
+    it('swaps an unequipped item in inventory, without equipping the new one', () => {
+      service.addToInventory('basic-sword');
+
+      service.replaceInventoryItem('basic-sword', 'forged-sword');
+
+      expect(service.getInventoryCount('basic-sword')).toBe(0);
+      expect(service.getInventoryCount('forged-sword')).toBe(1);
+      expect(service.getEquippedItemId('weapon')).toBeUndefined();
+    });
+
+    it('is a no-op if the old item is not held at all', () => {
+      service.replaceInventoryItem('basic-sword', 'forged-sword');
+
+      expect(service.getInventoryCount('forged-sword')).toBe(0);
+      expect(service.getInventoryCount('basic-sword')).toBe(0);
+    });
+  });
+
   it('getEffectiveStats returns base stats when nothing is equipped', () => {
     const stats = service.getEffectiveStats();
     expect(stats.strength).toBe(15);

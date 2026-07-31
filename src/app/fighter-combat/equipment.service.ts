@@ -81,6 +81,24 @@ export class EquipmentService {
     this.addToInventory(itemId);
   }
 
+  /** Rarity-tier upgrade primitive: removes one copy of oldItemId — unequipping it and
+   *  re-equipping newItemId into the exact same slot instance if oldItemId was worn
+   *  there, otherwise just swapping the copy in inventory — and adds one copy of
+   *  newItemId. No-op if oldItemId isn't held at all (neither equipped nor in the bag). */
+  replaceInventoryItem(oldItemId: string, newItemId: string): void {
+    const equippedSlot = [...this.equipped.entries()].find(([, itemId]) => itemId === oldItemId)?.[0];
+    if (equippedSlot) {
+      this.equipped.set(equippedSlot, newItemId);
+      this.changesSource.next();
+      return;
+    }
+
+    const count = this.getInventoryCount(oldItemId);
+    if (count <= 0) return;
+    this.inventory.set(oldItemId, count - 1);
+    this.addToInventory(newItemId); // emits changesSource.next() itself
+  }
+
   private equippedConfigs(): EquipmentConfig[] {
     return [...this.equipped.values()]
       .map(itemId => EQUIPMENT_ITEMS.find(i => i.id === itemId))
