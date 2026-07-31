@@ -5,6 +5,7 @@ import { EmptyStateComponent } from '../../shared/empty-state/empty-state.compon
 import { UnlocksService } from '../../shared/unlocks.service';
 import { CharacterSelectService } from '../../character-select/character-select.service';
 import { FighterCombatComponent } from '../../fighter-combat/fighter-combat.component';
+import { BlacksmithForgeComponent } from '../../blacksmith-forge/blacksmith-forge.component';
 
 /** Bottom half of the game screen — hosts minigame content. The Fighter Combat minigame
  *  is the first (and, today, only) occupant, shown while minigames are unlocked and the
@@ -15,7 +16,7 @@ import { FighterCombatComponent } from '../../fighter-combat/fighter-combat.comp
 @Component({
   selector: 'app-minigame-zone',
   standalone: true,
-  imports: [CommonModule, EmptyStateComponent, FighterCombatComponent],
+  imports: [CommonModule, EmptyStateComponent, FighterCombatComponent, BlacksmithForgeComponent],
   templateUrl: './minigame-zone.component.html',
   styleUrl: './minigame-zone.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -31,6 +32,14 @@ export class MinigameZoneComponent implements OnInit, OnDestroy {
 
   get showFighterCombat(): boolean {
     return this.minigamesUnlocked && this.activeCharacterId === 'fighter';
+  }
+
+  get showBlacksmithForge(): boolean {
+    return this.minigamesUnlocked && this.activeCharacterId === 'blacksmith';
+  }
+
+  get showEmptyState(): boolean {
+    return !this.showFighterCombat && !this.showBlacksmithForge;
   }
 
   ngOnInit(): void {

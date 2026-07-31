@@ -2,6 +2,7 @@
   <div class="zone-header">[ MINIGAMES ]</div>
   <div class="zone-body">
     <app-fighter-combat *ngIf="showFighterCombat"></app-fighter-combat>
-    <app-empty-state *ngIf="!showFighterCombat" message="Under construction"></app-empty-state>
+    <app-blacksmith-forge *ngIf="showBlacksmithForge"></app-blacksmith-forge>
+    <app-empty-state *ngIf="showEmptyState" message="Under construction"></app-empty-state>
   </div>
 </div>

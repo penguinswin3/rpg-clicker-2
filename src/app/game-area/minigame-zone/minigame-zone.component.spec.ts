@@ -26,6 +26,15 @@ describe('MinigameZoneComponent', () => {
     expect(fixture.nativeElement.querySelector('app-fighter-combat')).toBeTruthy();
   });
 
+  it('shows Blacksmith Forge once minigames are unlocked and Blacksmith is active', () => {
+    characters.unlock('blacksmith');
+    characters.select('blacksmith');
+    unlocks.unlock('minigames');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-blacksmith-forge')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('app-fighter-combat')).toBeFalsy();
+  });
+
   it('keeps showing the empty state for a different active character even once unlocked', () => {
     characters.unlock('ranger');
     characters.select('ranger');
