@@ -1,0 +1,21 @@
+<div class="blacksmith-forge">
+  <div class="zone-header">[ BLACKSMITH FORGE ]</div>
+  <div class="pattern-row" *ngFor="let p of visiblePatterns; trackBy: trackPattern">
+    <div class="pattern-slot-label">{{ slotLabel(p) }}</div>
+    <div class="pattern-owned" *ngIf="p.owned; else notForged" [style.color]="rarityColor(p)">
+      {{ rarityLabel(p) }}
+    </div>
+    <ng-template #notForged>
+      <div class="pattern-owned pattern-none">-- not forged --</div>
+    </ng-template>
+    <button
+      class="craft-button"
+      [attr.data-testid]="'pattern-craft-' + p.config.id"
+      [appTooltip]="tooltip(p.config)"
+      [disabled]="craftDisabled(p)"
+      (click)="craft(p)">
+      <div class="craft-button-fill" *ngIf="p.active" [style.width.%]="p.progress * 100"></div>
+      <span class="craft-button-label">{{ statusLabel(p) }}</span>
+    </button>
+  </div>
+</div>
