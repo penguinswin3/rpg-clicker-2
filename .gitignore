@@ -46,3 +46,6 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+
+# Local git worktrees used for isolated agent work
+.worktrees/
