@@ -13,6 +13,7 @@ import { HoldHintService } from '../shared/hold-hint.service';
 import { CraftingService } from '../crafting/crafting.service';
 import { EquipmentService } from '../fighter-combat/equipment.service';
 import { CombatService } from '../fighter-combat/combat.service';
+import { PatternCraftingService } from '../blacksmith-forge/pattern-crafting.service';
 import { VERSION, OBJECTIVES, UPGRADES } from '../configs/game-config';
 import { SaveData, SCHEMA_VERSION } from './save-data';
 
@@ -42,6 +43,7 @@ export class SaveService {
   private crafting = inject(CraftingService);
   private equipment = inject(EquipmentService);
   private combat = inject(CombatService);
+  private patternCrafting = inject(PatternCraftingService);
 
   private createdAt = Date.now();
 
@@ -98,6 +100,7 @@ export class SaveService {
       crafting: this.crafting.getSnapshot(),
       equipment: this.equipment.getSnapshot(),
       combat: this.combat.getSnapshot(),
+      patternCrafting: this.patternCrafting.getSnapshot(),
     };
     return btoa(JSON.stringify(data));
   }
@@ -198,6 +201,7 @@ export class SaveService {
       this.crafting.restore(data.crafting);
       this.equipment.restore(data.equipment);
       this.combat.restore(data.combat);
+      this.patternCrafting.restore(data.patternCrafting);
     }
     return true;
   }

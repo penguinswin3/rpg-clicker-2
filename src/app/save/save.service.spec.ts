@@ -11,6 +11,7 @@ import { HoldHintService } from '../shared/hold-hint.service';
 import { CraftingService } from '../crafting/crafting.service';
 import { EquipmentService } from '../fighter-combat/equipment.service';
 import { CombatService } from '../fighter-combat/combat.service';
+import { PatternCraftingService } from '../blacksmith-forge/pattern-crafting.service';
 import { SaveData } from './save-data';
 
 /**
@@ -43,6 +44,7 @@ const EXPECTED_SAVE_KEYS: (keyof SaveData)[] = [
   'crafting',
   'equipment',
   'combat',
+  'patternCrafting',
 ];
 
 function decode(base64: string): Record<string, unknown> {
@@ -79,6 +81,7 @@ describe('SaveService', () => {
     const crafting = TestBed.inject(CraftingService);
     const equipment = TestBed.inject(EquipmentService);
     const combat = TestBed.inject(CombatService);
+    const patternCrafting = TestBed.inject(PatternCraftingService);
 
     wallet.add('gold', 123);
     unlocks.unlock('guildContract');
@@ -90,6 +93,9 @@ describe('SaveService', () => {
     equipment.addToInventory('ring-swift-strike');
     equipment.equip('ring-swift-strike', 'ring-1');
     combat.start('kobold-den');
+    wallet.add('ironmongery', 5);
+    wallet.add('ingot', 5);
+    patternCrafting.start('pattern-common-weapon');
 
     const decoded = decode(saveService.exportBase64()) as unknown as SaveData;
 
@@ -104,6 +110,7 @@ describe('SaveService', () => {
     expect(decoded.crafting).toEqual(crafting.getSnapshot());
     expect(decoded.equipment).toEqual(equipment.getSnapshot());
     expect(decoded.combat).toEqual(combat.getSnapshot());
+    expect(decoded.patternCrafting).toEqual(patternCrafting.getSnapshot());
   });
 
   it('parse() rejects garbage without throwing', () => {

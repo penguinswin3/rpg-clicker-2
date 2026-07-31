@@ -8,6 +8,7 @@ import { UpgradesSnapshot } from '../upgrades/upgrades.service';
 import { CraftingSnapshot } from '../crafting/crafting.service';
 import { EquipmentSnapshot } from '../fighter-combat/equipment.service';
 import { CombatSnapshot } from '../fighter-combat/combat.service';
+import { PatternCraftingSnapshot } from '../blacksmith-forge/pattern-crafting.service';
 
 /**
  * The full persisted shape. `schemaVersion` is ours to bump for migrations;
@@ -53,6 +54,9 @@ export interface SaveData {
   /** Fighter's combat HP, defeat lockout, and any in-progress encounter. See
    *  CombatService.getSnapshot/restore. */
   combat: CombatSnapshot;
+  /** Blacksmith's known patterns and any in-progress craft. See
+   *  PatternCraftingService.getSnapshot/restore. */
+  patternCrafting: PatternCraftingSnapshot;
 }
 
 export const SCHEMA_VERSION = 1;
