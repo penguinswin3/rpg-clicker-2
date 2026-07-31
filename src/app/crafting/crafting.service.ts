@@ -43,8 +43,12 @@ export interface CraftingSnapshot {
  * sustained player engagement to complete, unlike CHARACTER_ACTIONS (instant) or
  * TIMED_ACTIONS (passive real-time wait that runs unattended regardless of screen). See
  * CraftingActionConfig (game-config.ts) for the discriminated 'hold'/'clicks' mechanic
- * shape. Cost is charged once, the moment progress first leaves 0, not per click/tick;
- * the reward pays out only once progress reaches its target.
+ * shape. Cost is charged once, the moment progress first leaves 0, not per click/tick.
+ * For a 'hold' action, that payment is "staged" — it survives progress fully decaying
+ * back to 0 on release, so resuming an abandoned attempt never re-charges. Only a
+ * successful completion (the reward actually paying out) consumes the staged payment,
+ * requiring a fresh charge for the next attempt. A 'clicks' action has no decay to stage
+ * against (its step counter never regresses while idle), so this only matters for 'hold'.
  */
 @Injectable({ providedIn: 'root' })
 export class CraftingService {
@@ -78,11 +82,12 @@ export class CraftingService {
     return instance ? this.holdProgressMs(instance, config.mechanic) / config.mechanic.holdMs : 0;
   }
 
-  /** Pointer-down on a 'hold' action's button — charges the cost on a fresh attempt (no
-   *  existing progress) and starts charging; resuming a partially-decayed attempt just
-   *  flips the direction, it doesn't re-charge. No-ops (logging an insufficient-cost
-   *  error) if unaffordable on a fresh attempt; no-ops silently for an unknown id or one
-   *  that isn't 'hold'. */
+  /** Pointer-down on a 'hold' action's button — charges the cost only when there's truly
+   *  no existing instance (a fresh game, or right after a successful payout) and starts
+   *  charging; resuming any existing instance — even one fully decayed back to 0 — just
+   *  flips the direction, it never re-charges (the payment stays staged until the reward
+   *  actually pays out). No-ops (logging an insufficient-cost error) if unaffordable on a
+   *  fresh attempt; no-ops silently for an unknown id or one that isn't 'hold'. */
   startHold(id: string): void {
     const config = CRAFTING_ACTIONS.find(a => a.id === id);
     if (!config || config.mechanic.type !== 'hold') return;
@@ -158,10 +163,11 @@ export class CraftingService {
     return Math.min(mechanic.holdMs, Math.max(0, raw));
   }
 
-  /** Detects a 'hold' action crossing either end since the last tick — full charge
-   *  (pays out) or fully decayed back to 0 while released (abandons the attempt, so the
-   *  next press charges the cost again) — neither of which the live `progressFor`
-   *  getter alone would ever act on by itself. */
+  /** Detects a 'hold' action reaching full charge and pays out — the live `progressFor`
+   *  getter alone would never act on this by itself. Decaying back to 0 after release no
+   *  longer forfeits the staged payment (see the class doc), so there's nothing else to
+   *  detect here: the instance just sits at 0 progress, still paid-for, until the player
+   *  resumes it or it's consumed by a completion. */
   private checkHoldCompletions(): void {
     let changed = false;
     for (const config of CRAFTING_ACTIONS) {
@@ -180,9 +186,6 @@ export class CraftingService {
         // as long as it's still affordable (beginFreshHold logs the same
         // insufficient-cost error and just stops the chain otherwise).
         if (stillHolding) this.beginFreshHold(config);
-      } else if (progressMs <= 0 && !instance.holding) {
-        this.holdInstances.delete(config.id);
-        changed = true;
       }
     }
     if (changed) this.changesSource.next();
@@ -227,10 +230,13 @@ export class CraftingService {
       if (!config || config.mechanic.type !== 'hold') continue;
       // Can't literally still be holding right after a reload — apply whatever decay
       // would have happened while the save was closed instead of pretending no time
-      // passed, same real-elapsed-time convention TimedActionsService uses.
+      // passed, same real-elapsed-time convention TimedActionsService uses. Kept even at
+      // a fully-decayed 0 progress, not dropped — the entry existing at all means its
+      // cost was already paid, and that staged payment must survive a reload just like
+      // it survives an in-session release/decay cycle (see class doc).
       const elapsedSinceSave = now - saved.savedAt;
       const progressMs = Math.max(0, saved.progressMs - elapsedSinceSave * config.mechanic.decayMultiplier);
-      if (progressMs > 0) holds.set(id, { anchorProgressMs: progressMs, anchorAt: now, holding: false });
+      holds.set(id, { anchorProgressMs: progressMs, anchorAt: now, holding: false });
     }
     this.holdInstances = holds;
     this.clickCounts = new Map(Object.entries(snapshot?.clicks ?? {}));

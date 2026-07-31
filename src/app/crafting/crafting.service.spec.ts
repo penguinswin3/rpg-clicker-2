@@ -94,7 +94,7 @@ describe('CraftingService', () => {
       expect(progressFor(FORGE_INGOTS)).toBe(0);
     });
 
-    it('fully decaying back to 0 after release abandons the attempt — a later hold re-charges the cost', () => {
+    it('fully decaying back to 0 after release keeps the cost staged — a later hold does not re-charge', () => {
       wallet.add('ore', 20);
       crafting.startHold(FORGE_INGOTS);
       jasmine.clock().tick(2_000); // -> 0.2
@@ -105,7 +105,28 @@ describe('CraftingService', () => {
       expect(wallet.getAmount('ore')).toBe(10); // only the first attempt's cost was ever charged
 
       crafting.startHold(FORGE_INGOTS);
-      expect(wallet.getAmount('ore')).toBe(0); // fresh attempt, charged again
+      expect(wallet.getAmount('ore')).toBe(10); // still just the one charge — payment stayed staged
+    });
+
+    it('only a successful completion consumes the staged payment — a later attempt after that recharges', () => {
+      wallet.add('ore', 10); // exactly enough for one charge, not two
+      crafting.startHold(FORGE_INGOTS);
+      jasmine.clock().tick(2_000); // -> 0.2
+      crafting.releaseHold(FORGE_INGOTS);
+      jasmine.clock().tick(2_000 + TIMED_ACTION_TICK_MS); // fully decays, payment stays staged
+
+      crafting.startHold(FORGE_INGOTS); // resumes the staged attempt for free
+      expect(wallet.getAmount('ore')).toBe(0); // still not re-charged — this was the only charge
+
+      // Still held straight through to completion, so this would normally auto-chain —
+      // but there's no ore left for a second attempt, so it just logs an error and stops
+      // rather than charging anything further.
+      jasmine.clock().tick(10_000 + TIMED_ACTION_TICK_MS);
+      expect(wallet.getAmount('ingot')).toBe(1);
+
+      wallet.add('ore', 10); // fund exactly one more attempt
+      crafting.startHold(FORGE_INGOTS); // a genuinely new attempt, after completion
+      expect(wallet.getAmount('ore')).toBe(0); // charged again — the prior payment was truly consumed
     });
 
     it('auto-chains into a fresh attempt if still held the instant one completes', () => {
@@ -253,7 +274,7 @@ describe('CraftingService', () => {
       expect(restored.actions.find(a => a.config.id === FORGE_INGOTS)!.progress).toBeCloseTo(0.3, 1);
     });
 
-    it('drops a hold instance whose decay-since-save already fully drained it', () => {
+    it('a hold instance whose decay-since-save already fully drained it survives restore at 0 progress, still staged', () => {
       wallet.add('ore', 10);
       crafting.startHold(FORGE_INGOTS);
       jasmine.clock().tick(2_000); // -> 0.2
@@ -264,9 +285,14 @@ describe('CraftingService', () => {
       TestBed.resetTestingModule();
       TestBed.configureTestingModule({});
       const restored = TestBed.inject(CraftingService);
+      const restoredWallet = TestBed.inject(WalletService);
+      restoredWallet.add('ore', 10); // same balance the original instance would have left
       restored.restore(snapshot);
 
       expect(restored.actions.find(a => a.config.id === FORGE_INGOTS)!.progress).toBe(0);
+
+      restored.startHold(FORGE_INGOTS); // resuming after reload must not re-charge
+      expect(restoredWallet.getAmount('ore')).toBe(10);
     });
   });
 

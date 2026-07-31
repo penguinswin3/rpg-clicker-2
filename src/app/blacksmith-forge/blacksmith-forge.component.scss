@@ -42,6 +42,26 @@
   color: #666;
 }
 
+// Fixed-width column, not auto-sized to content — a pattern with a longer/shorter cost
+// list would otherwise shift the whole block left or right per row (since it sits
+// between .pattern-owned's flex-grow and the fixed-width button), leaving the cost
+// entries unaligned from row to row instead of forming a clean column.
+.pattern-cost {
+  flex: 0 0 110px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+// Color comes from the resource's own accent (RESOURCE_FLAVOR), bound inline per entry —
+// same "colored token" idiom the Activity Log / tooltips use, just without the {{}} parser
+// since this is a plain template binding, not log text.
+.cost-entry {
+  font-weight: bold;
+}
+
 .craft-button {
   position: relative;
   overflow: hidden;

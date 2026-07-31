@@ -8,6 +8,9 @@
     <ng-template #notForged>
       <div class="pattern-owned pattern-none">-- not forged --</div>
     </ng-template>
+    <div class="pattern-cost" *ngIf="!p.owned">
+      <span class="cost-entry" *ngFor="let c of costEntries(p.config)" [style.color]="c.color">{{ c.text }}</span>
+    </div>
     <button
       class="craft-button"
       [attr.data-testid]="'pattern-craft-' + p.config.id"

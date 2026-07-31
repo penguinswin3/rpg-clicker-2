@@ -404,9 +404,14 @@ the reference implementation for any future button of this kind.
     same way `timed-action-duration` shortens a `TimedActionConfig`'s duration — kept as
     plain config data now so an upgrade slots in later without a reshape.
 - **Cost is charged once, the moment progress first leaves 0** — not per click/tick, and
-  not refunded by releasing/abandoning early. A `'hold'` attempt that fully decays back
-  to 0 forfeits the cost already spent; the next press starts a fresh (re-charged)
-  attempt. Reward pays out only once progress reaches its target. Unaffordable on that
+  not refunded by releasing/abandoning early. For a `'hold'` action that payment is
+  **staged**, not forfeited: fully decaying back to 0 after release does *not* re-charge
+  on the next press — the player already paid, and that payment survives indefinitely
+  across as many release/decay cycles as they like. Only a successful completion (the
+  reward actually paying out) consumes the staged payment, so the *next* attempt after
+  that needs a fresh charge. (A `'clicks'` action has no decay to stage against — its
+  step counter never regresses while idle — so this distinction only matters for
+  `'hold'`.) Reward pays out only once progress reaches its target. Unaffordable on that
   first press/click logs the same insufficient-cost error as a `TimedActionConfig` (§6).
 - **Progress renders as the button's own background fill**, identical layered-fill-
   behind-label shape as a timed action's `.timed-button-fill` (§6) — `.crafting-button-fill`,
@@ -417,7 +422,9 @@ the reference implementation for any future button of this kind.
   `'clicks'` counter round-trips as-is; a `'hold'` instance persists `{ progressMs,
   savedAt }` and `restore()` applies whatever decay would have happened while the save
   was closed (always restored as released — a page reload can't literally still be
-  holding — same real-elapsed-time convention as `TimedActionsService.restore`).
+  holding — same real-elapsed-time convention as `TimedActionsService.restore`). Kept
+  even if that decay fully drains it to 0, not dropped — the staged payment (above)
+  survives a reload the same way it survives an in-session release/decay cycle.
 
 ---
 

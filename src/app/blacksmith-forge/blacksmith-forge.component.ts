@@ -8,6 +8,13 @@ import { EQUIPMENT_SLOTS, PatternConfig, TIMED_ACTION_TICK_MS } from '../configs
 import { getPatternFlavor, getRarityFlavor, RESOURCE_FLAVOR } from '../configs/flavor-text';
 import { formatAmount, formatDurationMs } from '../shared/number-format';
 
+/** One cost entry rendered inline — pre-colored via the resource's own accent color, the
+ *  same "colored token" idiom used everywhere else a resource amount is shown. */
+export interface CostDisplayEntry {
+  text: string;
+  color: string;
+}
+
 /** The Blacksmith's second minigame-zone occupant (see MinigameZoneComponent) — a fixed
  *  list of equipment slot-lines, each craftable once known and not yet owned. Only one
  *  craft can be active across the whole list; see PatternCraftingService. */
@@ -89,11 +96,17 @@ export class BlacksmithForgeComponent implements OnInit, OnDestroy {
     this.patternCrafting.start(p.config.id);
   }
 
-  tooltip(config: PatternConfig): TooltipContent {
-    const rows: TooltipRow[] = config.cost.map(entry => {
+  /** Shared by the inline on-row cost display and the tooltip below, so both surfaces
+   *  always agree — one resource lookup, not two hand-rolled copies. */
+  costEntries(config: PatternConfig): CostDisplayEntry[] {
+    return config.cost.map(entry => {
       const resource = RESOURCE_FLAVOR[entry.resourceId];
-      return { label: 'Cost', value: `${formatAmount(entry.amount)} ${resource.symbol}`, color: resource.color };
+      return { text: `${formatAmount(entry.amount)} ${resource.symbol}`, color: resource.color };
     });
+  }
+
+  tooltip(config: PatternConfig): TooltipContent {
+    const rows: TooltipRow[] = this.costEntries(config).map(c => ({ label: 'Cost', value: c.text, color: c.color }));
     rows.push({ label: 'Duration', value: formatDurationMs(config.durationMs) });
     return { title: getPatternFlavor(config.id).label, rows };
   }
