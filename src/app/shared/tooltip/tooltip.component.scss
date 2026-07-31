@@ -56,3 +56,14 @@
   text-align: right;
   white-space: nowrap;
 }
+
+.tooltip-row.wrap {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+
+  .tooltip-value {
+    white-space: normal;
+    text-align: left;
+  }
+}

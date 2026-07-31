@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { gotoFreshGame, openDevTools } from './helpers';
+import { gotoFreshGame, openDevTools, seedSave } from './helpers';
 
 test.describe('Dev Tools', () => {
   test('grants the chosen amount of every currency', async ({ page }) => {
@@ -23,6 +23,20 @@ test.describe('Dev Tools', () => {
 
     await expect(page.locator('.nav-btn', { hasText: 'Jacks' })).toBeVisible();
     await expect(page.locator('.nav-btn', { hasText: 'Crown' })).toBeVisible();
+  });
+
+  test('Give Sword adds a Basic Sword to the Fighter\'s inventory', async ({ page }) => {
+    await seedSave(page, { unlocks: { minigames: true } });
+    await gotoFreshGame(page);
+    await openDevTools(page);
+
+    await page.click('button:has-text("Give Sword")');
+    await page.keyboard.press('Escape');
+
+    const slot = page.locator('app-inventory-panel .inventory-slot');
+    await expect(slot).toBeVisible();
+    await slot.hover();
+    await expect(page.locator('.tooltip-box')).toContainText('Basic Sword');
   });
 
   test('Delete Save resets to a fresh game with no confirmation prompt', async ({ page }) => {

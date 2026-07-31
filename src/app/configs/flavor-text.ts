@@ -226,6 +226,9 @@ import { EquipmentRarity } from './game-config';
 export interface EquipmentFlavor {
   label: string;
   description: string;
+  /** Plain Unicode glyph shown on the item's inventory icon box — see AGENTS.md's "No
+   *  emojis, ever" rule (same convention as RESOURCE_FLAVOR's symbol). */
+  symbol: string;
 }
 
 // Keyed by EquipmentConfig.id (game-config.ts).
@@ -233,10 +236,16 @@ export const EQUIPMENT_FLAVOR: Record<string, EquipmentFlavor> = {
   'ring-swift-strike': {
     label: 'Ring of Swift Strikes',
     description: '5% chance to attack again immediately after landing a hit.',
+    symbol: '○',
+  },
+  'basic-sword': {
+    label: 'Basic Sword',
+    description: '+1 Strength while equipped.',
+    symbol: '†',
   },
 };
 
-const DEFAULT_EQUIPMENT_FLAVOR: EquipmentFlavor = { label: '', description: '' };
+const DEFAULT_EQUIPMENT_FLAVOR: EquipmentFlavor = { label: '', description: '', symbol: '' };
 
 export function getEquipmentFlavor(id: string): EquipmentFlavor {
   return EQUIPMENT_FLAVOR[id] ?? DEFAULT_EQUIPMENT_FLAVOR;

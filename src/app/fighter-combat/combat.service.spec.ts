@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { CombatService } from './combat.service';
 import { WalletService } from '../economy/wallet.service';
 import { StatisticsService } from '../statistics/statistics.service';
+import { ActivityLogService } from '../activity-log/activity-log.service';
 import { EquipmentService } from './equipment.service';
 import { COMBAT_TURN_MS, FIGHTER_DEFEAT_LOCKOUT_MS } from '../configs/game-config';
 
@@ -79,7 +80,7 @@ describe('CombatService', () => {
       service.restore({
         fighterHp: service.fighterMaxHp,
         lockedOutUntil: null,
-        activeEncounter: { areaId: KOBOLD_DEN, enemyId: 'kobold', enemyHp: 1, actorTurn: 'fighter', turns: [] },
+        activeEncounter: { areaId: KOBOLD_DEN, enemyId: 'kobold', enemyHp: 1, actorTurn: 'fighter' },
       });
       // The Fighter's base Strength (15) beats the Kobold's base Dexterity (10) even on
       // an equal max roll, so a single constant stub is enough to guarantee a hit.
@@ -96,7 +97,7 @@ describe('CombatService', () => {
       service.restore({
         fighterHp: 1,
         lockedOutUntil: null,
-        activeEncounter: { areaId: KOBOLD_DEN, enemyId: 'kobold', enemyHp: 60, actorTurn: 'enemy', turns: [] },
+        activeEncounter: { areaId: KOBOLD_DEN, enemyId: 'kobold', enemyHp: 60, actorTurn: 'enemy' },
       });
       // The Kobold's base Strength (8) is below the Fighter's base Dexterity (13), so a
       // hit needs an explicit high attack roll / low defense roll rather than one
@@ -114,7 +115,7 @@ describe('CombatService', () => {
       service.restore({
         fighterHp: 1,
         lockedOutUntil: null,
-        activeEncounter: { areaId: KOBOLD_DEN, enemyId: 'kobold', enemyHp: 60, actorTurn: 'enemy', turns: [] },
+        activeEncounter: { areaId: KOBOLD_DEN, enemyId: 'kobold', enemyHp: 60, actorTurn: 'enemy' },
       });
       spyOn(Math, 'random').and.returnValues(0.9999, 0, 0.9999);
       jasmine.clock().tick(COMBAT_TURN_MS);
@@ -135,13 +136,15 @@ describe('CombatService', () => {
   describe('swift-strike ring', () => {
     it('lands a follow-up attack when the equipped ring procs mid-fight', () => {
       const equipment = TestBed.inject(EquipmentService);
+      const activityLog = TestBed.inject(ActivityLogService);
+      const log = spyOn(activityLog, 'log');
       equipment.addToInventory('ring-swift-strike');
       equipment.equip('ring-swift-strike', 'ring-1');
 
       service.restore({
         fighterHp: service.fighterMaxHp,
         lockedOutUntil: null,
-        activeEncounter: { areaId: KOBOLD_DEN, enemyId: 'kobold', enemyHp: 60, actorTurn: 'fighter', turns: [] },
+        activeEncounter: { areaId: KOBOLD_DEN, enemyId: 'kobold', enemyHp: 60, actorTurn: 'fighter' },
       });
       // Fighter (STR 15) vs Kobold (DEX 10): attack 1 rolls d20=19 (0.9) vs d20=1 (0),
       // hits for 8 damage (str-15 damage roll of 0.5 -> floor(0.5*15)+1), then the
@@ -157,10 +160,11 @@ describe('CombatService', () => {
       );
       jasmine.clock().tick(COMBAT_TURN_MS);
 
-      const turns = service.activeEncounter?.turns ?? [];
-      expect(turns.length).toBe(2);
-      expect(turns[0].followUp).toBeFalse();
-      expect(turns[1].followUp).toBeTrue();
+      // Both turns log to the shared Activity Log at 'default' (INFO) level — there's
+      // no separate local combat feed to check instead.
+      expect(log).toHaveBeenCalledTimes(2);
+      expect(log.calls.argsFor(0)).toEqual([jasmine.stringMatching(/^You hit! \d+ damage\./), 'default']);
+      expect(log.calls.argsFor(1)).toEqual([jasmine.stringMatching(/^You strike again! \d+ damage\./), 'default']);
     });
 
     it('sends a loot-dropped ring straight to the equipment inventory on a won fight', () => {
@@ -168,7 +172,7 @@ describe('CombatService', () => {
       service.restore({
         fighterHp: service.fighterMaxHp,
         lockedOutUntil: null,
-        activeEncounter: { areaId: KOBOLD_DEN, enemyId: 'kobold', enemyHp: 1, actorTurn: 'fighter', turns: [] },
+        activeEncounter: { areaId: KOBOLD_DEN, enemyId: 'kobold', enemyHp: 1, actorTurn: 'fighter' },
       });
       // Attack hits (d20=19 vs d20=1) for lethal damage against the Kobold's 1 hp;
       // resolveTurn's loop breaks as soon as defender.hp <= 0, so no follow-up-chance

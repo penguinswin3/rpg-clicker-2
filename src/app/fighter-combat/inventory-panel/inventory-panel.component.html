@@ -1,17 +1,17 @@
 <!-- src/app/fighter-combat/inventory-panel/inventory-panel.component.html -->
 <div class="inventory-panel" [class.disabled]="disabled">
   <div class="zone-header">[ INVENTORY ]</div>
-  <app-empty-state *ngIf="entries.length === 0" message="Bag is empty"></app-empty-state>
+  <app-empty-state *ngIf="entries.length === 0" message="Bag is empty" [compact]="true"></app-empty-state>
 
-  <div
-    class="inventory-item"
-    *ngFor="let entry of entries"
-    [style.borderColor]="rarityColor(entry.config.rarity)"
-    (click)="equip(entry.config.id)">
-    <div class="inventory-item-name" [style.color]="rarityColor(entry.config.rarity)">
-      {{ label(entry.config.id) }}
+  <div class="inventory-grid" *ngIf="entries.length > 0">
+    <div
+      class="inventory-slot"
+      *ngFor="let entry of entries; trackBy: trackByItemId"
+      [style.color]="rarityColor(entry.config.rarity)"
+      [style.borderColor]="rarityColor(entry.config.rarity)"
+      [appTooltip]="tooltip(entry)"
+      (click)="equip(entry.config.id)">
+      {{ symbol(entry.config.id) }}
     </div>
-    <div class="inventory-item-count">x{{ entry.count }}</div>
-    <div class="inventory-item-desc">{{ description(entry.config.id) }}</div>
   </div>
 </div>

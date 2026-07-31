@@ -18,23 +18,21 @@
   text-transform: uppercase;
 }
 
-.inventory-item {
+.inventory-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.inventory-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
   border: 1px solid #333;
-  padding: 4px;
+  font-size: 18px;
+  line-height: 1;
   cursor: pointer;
   user-select: none;
-}
-
-.inventory-item-name {
-  font-size: 12px;
-}
-
-.inventory-item-count {
-  font-size: 11px;
-  color: #bbb;
-}
-
-.inventory-item-desc {
-  font-size: 10px;
-  color: #888;
 }

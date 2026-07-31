@@ -57,17 +57,3 @@
     color: #666;
   }
 }
-
-.consumable-slots {
-  display: flex;
-  gap: 4px;
-}
-
-.consumable-slot {
-  flex: 1;
-  border: 1px dashed #333;
-  padding: 6px;
-  text-align: center;
-  font-size: 10px;
-  color: #444;
-}

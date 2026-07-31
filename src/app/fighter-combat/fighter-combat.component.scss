@@ -7,19 +7,58 @@
   height: 100%;
 }
 
+// Two purposeful groups instead of seven same-width columns: a fixed-width loadout
+// sidebar (gear management) and a flexible battle column (the actual fight), so each
+// side gets exactly the width its content needs rather than splitting evenly.
 .fighter-combat-zones {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.loadout-column {
+  flex: 0 0 240px;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
-  flex: 1;
+}
+
+.battle-column {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.battle-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
 }
 
 .jacks-slot,
-.enemy-stats,
 .fighter-side,
-.enemy-side-empty {
+.enemy-side {
   border: 1px solid #222;
   padding: 6px;
+}
+
+.fighter-side,
+.enemy-side {
+  flex: 1 1 0;
+  min-width: 0;
+  // Fixed so the Fight!/Flee action bar underneath never shifts when an enemy
+  // appears/disappears — sized to fit the fully-populated state (ascii art + HP bar +
+  // six-row stat block), not just the "no enemy engaged" placeholder's natural height.
+  min-height: 268px;
+}
+
+.fighter-stats,
+.enemy-stats {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid #222;
 }
 
 .zone-header {
@@ -27,4 +66,19 @@
   color: #bbb;
   text-transform: uppercase;
   margin-bottom: 4px;
+}
+
+.consumable-slots {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.consumable-slot {
+  flex: 1;
+  border: 1px dashed #333;
+  padding: 6px;
+  text-align: center;
+  font-size: 10px;
+  color: #444;
 }

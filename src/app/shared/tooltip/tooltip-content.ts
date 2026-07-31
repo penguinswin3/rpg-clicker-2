@@ -6,6 +6,10 @@ export interface TooltipRow {
   label: string;
   value: string;
   color?: string;
+  /** Render this row as a full-width wrapped block (label above value) instead of the
+   *  default single-line label/value pair — for a value too long to fit on one line,
+   *  like an item's effect description. */
+  wrap?: boolean;
 }
 
 /** Full content for one `[appTooltip]` — `title` is the button's own name (optional,

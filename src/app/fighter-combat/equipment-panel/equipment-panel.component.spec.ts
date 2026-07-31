@@ -13,15 +13,15 @@ describe('EquipmentPanelComponent', () => {
     fixture.detectChanges();
   });
 
-  it('renders all seven slot instances with their labels', () => {
+  it('renders all eight slot instances with their labels', () => {
     const el: HTMLElement = fixture.nativeElement;
     const labels = Array.from(el.querySelectorAll('.equipment-slot-label')).map(n => n.textContent);
-    expect(labels).toEqual(['Helmet', 'Armor', 'Boots', 'Gauntlets', 'Ring', 'Ring', 'Necklace']);
+    expect(labels).toEqual(['Weapon', 'Helmet', 'Armor', 'Boots', 'Gauntlets', 'Ring', 'Ring', 'Necklace']);
   });
 
   it('shows "-- empty --" for every unoccupied slot', () => {
     const el: HTMLElement = fixture.nativeElement;
-    expect(el.querySelectorAll('.equipment-slot-empty').length).toBe(7);
+    expect(el.querySelectorAll('.equipment-slot-empty').length).toBe(8);
   });
 
   it("shows the equipped item's label once a slot is filled", () => {
@@ -38,7 +38,7 @@ describe('EquipmentPanelComponent', () => {
     fixture.detectChanges();
 
     const slots = fixture.nativeElement.querySelectorAll('.equipment-slot');
-    (slots[4] as HTMLElement).click(); // ring-1 is the 5th slot instance (index 4)
+    (slots[5] as HTMLElement).click(); // ring-1 is the 6th slot instance (index 5, after weapon/helmet/armor/boots/gauntlets)
 
     expect(equipment.getEquippedItemId('ring-1')).toBeUndefined();
   });
@@ -50,7 +50,7 @@ describe('EquipmentPanelComponent', () => {
     fixture.detectChanges();
 
     const slots = fixture.nativeElement.querySelectorAll('.equipment-slot');
-    (slots[4] as HTMLElement).click();
+    (slots[5] as HTMLElement).click();
 
     expect(equipment.getEquippedItemId('ring-1')).toBe('ring-swift-strike');
   });

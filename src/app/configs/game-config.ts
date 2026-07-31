@@ -467,6 +467,7 @@ export const FIGHTER_BASE_STATS: SixStats = {
 // belongs to; equipping picks a specific free instance of that type.
 
 export type EquipmentSlotType =
+  | 'weapon'
   | 'helmet'
   | 'armor'
   | 'boots'
@@ -481,6 +482,7 @@ export interface EquipmentSlotInstance {
 }
 
 export const EQUIPMENT_SLOTS: EquipmentSlotInstance[] = [
+  { id: 'weapon', slotType: 'weapon', label: 'Weapon' },
   { id: 'helmet', slotType: 'helmet', label: 'Helmet' },
   { id: 'armor', slotType: 'armor', label: 'Armor' },
   { id: 'boots', slotType: 'boots', label: 'Boots' },
@@ -522,6 +524,12 @@ export const EQUIPMENT_ITEMS: EquipmentConfig[] = [
     slotType: 'ring',
     rarity: 'uncommon',
     effects: [{ type: 'extra-attack-chance', chance: 0.05 }],
+  },
+  {
+    id: 'basic-sword',
+    slotType: 'weapon',
+    rarity: 'common',
+    effects: [{ type: 'stat-bonus', stat: 'strength', amount: 1 }],
   },
 ];
 

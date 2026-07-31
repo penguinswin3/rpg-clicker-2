@@ -753,7 +753,15 @@ built to extend as pure config (`src/app/configs/game-config.ts`'s `FIGHTER_ENEM
   (`EquipmentSlotInstance`/`EQUIPMENT_SLOTS`), because Ring needs two concurrent equip
   positions — an item's `slotType` says which category it belongs to; equipping picks a
   specific free instance of that type. Adding a new slot later (a Cloak, say) is one new
-  slot type plus one new instance entry.
+  slot type plus one new instance entry — Weapon (holding the Basic Sword, a dev-tools-
+  only item for now) was added exactly this way after the slot list first shipped.
+- **An HP number overlaid on its own bar needs a hard dark outline
+  (`text-shadow`), not a flat color** — `CombatantDisplayComponent`'s HP label is white,
+  which reads fine against the near-black bar background but has very poor contrast
+  against the bright green fill (pure green is nearly as luminant as white). A 4-direction
+  black `text-shadow` outline keeps the number legible on both surfaces at once, wherever
+  the fill happens to end — the general fix any future overlaid-on-a-colored-fill label
+  in this game should reach for, rather than picking a single "compromise" text color.
 - **Rarity (Common/Uncommon/Rare/Epic/Unique) is display-only** — a color/label lookup
   (`RARITY_FLAVOR`, `flavor-text.ts`), not a mechanical multiplier on anything. It maps
   positionally onto this game's own gray/white/cyan/gold/purple color ladder (§3) in
@@ -777,21 +785,89 @@ built to extend as pure config (`src/app/configs/game-config.ts`'s `FIGHTER_ENEM
 - **Loot entries roll independently** (`EnemyConfig.loot`, each its own `chance`) — a
   kill can yield gold *and* a monster part *and*, rarely, an item, all in one fight. Not
   a single weighted pick off a table.
-- **Round-by-round attack detail stays in a local combat feed inside the panel
-  (`CombatFeedComponent`), not the global Activity Log** — only an encounter's outcome
-  (win + loot / flee / defeat) logs one milestone-level line globally. A single fight's
-  10-30+ individual turns would otherwise bury unrelated game activity in the shared log,
-  cutting against §1's own "reserve rare/noteworthy, not routine play" log convention.
-- **The Jacks slot and the two consumable slots in the layout are reserved, inert
-  placeholders** (`EmptyStateComponent`, no backing data), not stubs of something
-  half-built — there's no `JacksService` to assign from yet (§13 is still a design spec)
-  and no consumable item type exists yet. Both are real spots in the seven-zone layout,
-  wired for whenever those systems actually arrive.
+- **Round-by-round attack detail logs to the shared Activity Log, at `'default'` (INFO)
+  level, the same as every other routine game action** — there is no separate local
+  combat feed (`CombatFeedComponent` existed briefly and was removed once a real UI
+  existed to judge it against). A single fight's 10-30+ individual turns are exactly the
+  kind of routine, filterable-out detail the INFO level exists for; only an encounter's
+  outcome (win + loot / flee / defeat) logs at a louder level (`'success'`/`'warn'`).
+- **The Jacks slot is a reserved, inert placeholder** (`EmptyStateComponent`, no backing
+  data), not a stub of something half-built — there's no `JacksService` to assign from
+  yet (§13 is still a design spec). It's a real spot in the seven-zone layout, wired for
+  whenever that system actually arrives. The two consumable slots are the same kind of
+  placeholder (no consumable item type exists yet) — they render under the Fighter's own
+  HP bar (`fighter-side`), not in the Combat Controls zone, so a future consumable reads
+  as something the Fighter carries and uses on themselves, not a generic combat control.
+- **The seven zones are grouped into two visual clusters, not seven equal-width
+  columns** (`fighter-combat-zones`, a two-item flex row, not a 7-column grid): a
+  fixed-width `loadout-column` (Inventory, Equipment, Jacks — gear management, stacked)
+  and a flexible `battle-column` (a `battle-row` with Fighter and Enemy+Enemy-Stats side
+  by side, "versus"-screen style, with Combat Controls spanning both underneath as an
+  action bar). An earlier revision gave all seven zones equal grid columns with
+  `align-items: stretch`, which forced every column's border box to match whichever was
+  tallest (Equipment, at 8 slots) — five mostly-empty zones each rendered a large
+  dead-space border box for no reason. Grouping by relationship instead of splitting
+  evenly gives each cluster only the width and height its own content needs. Equipment's
+  slots (`equipment-panel`) are single-line (label left, item right) rather than
+  two-line, for the same reason — the sidebar's fixed width made the old two-line-per-
+  slot format needlessly tall.
+- **`EmptyStateComponent` has a `compact` input** (default `false`, so every other
+  panel's placeholder is unaffected) for exactly this kind of tight card — its default
+  `2.5rem` vertical padding is sized for large panels and made the Jacks slot and the
+  "no enemy engaged" placeholders dominate their small boxes. `compact` drops that to
+  `0.4rem`; used on the Jacks, Inventory-empty, and both enemy-side placeholders.
+- **The loadout column's height is what the whole zone row is anchored to** — it holds
+  roughly constant (Equipment's slot count never changes during combat), so as long as
+  the battle column stays shorter, the panel's overall height never shifts between idle
+  and engaged states.
+- **`.fighter-side`/`.enemy-side` also carry their own explicit `min-height` (268px),
+  independent of the loadout-column anchor above** — this is what keeps the Fight!/Flee
+  action bar directly below them from shifting position the moment an enemy
+  appears/disappears, since `.enemy-side` would otherwise be a few lines tall while idle
+  (just the compact "No enemy engaged" placeholder) and much taller once populated
+  (ascii art + HP bar + a six-row stat block). The value is sized to the fully-populated
+  state; the empty/idle state just reserves the same space rather than collapsing.
+- **The Fighter has its own persistent `[ FIGHTER STATS ]` block** (`fighterStats`,
+  `equipment.getEffectiveStats()`), positioned under the Fighter's own combatant-display
+  exactly where `[ ENEMY STATS ]` sits under the enemy's — deliberately mirrored so both
+  sides of the fight are legible at a glance without hovering. This replaced an earlier
+  hover-tooltip-only approach (`[appTooltip]="fighterTooltip"` on `.fighter-side`) once
+  the stats needed to be visible always, not just on hover — the tooltip machinery was
+  removed rather than left as a redundant duplicate.
+- **`InventoryPanelComponent` renders one square icon box per item stack** (`.inventory-
+  slot`, `EquipmentFlavor.symbol`) instead of a name/count/description list row — name,
+  rarity, slot, count, and effect all moved into a hover tooltip (`TooltipDirective`,
+  built by `InventoryPanelComponent.tooltip()`) so the grid stays visually simple.
+  `TooltipRow` gained an optional `wrap` flag for this (`tooltip-content.ts`,
+  `tooltip.component.scss`) — the default row layout is a single-line label/value pair
+  with `white-space: nowrap`, which is wrong for a full-sentence effect description;
+  `wrap: true` renders that one row as a wrapped block instead. See the trackBy note in
+  Design Patterns below — this is the same bug class that would silently break the new
+  hover tooltip if reintroduced.
 
 ---
 
 # Design Patterns
 
+- **A `*ngFor` over a getter that returns freshly-built objects/arrays every call needs
+  an explicit `trackBy` keyed on a stable id — without one, hover-driven UI on those rows
+  (tooltips, CSS `:hover` state relying on DOM identity, anything with a timer tied to
+  the element) can silently never trigger.** Root-caused in `InventoryPanelComponent`:
+  `EquipmentService.inventoryEntries` builds a brand-new array of brand-new `{config,
+  count}` objects on every access (by design — it's recomputed from the wallet map, not
+  cached). Change detection in this app runs far more often than "only when
+  `equipment.changes$` fires" (several unrelated `setInterval`-driven services tick
+  every 100ms-1s and each trigger a zone-wide `ApplicationRef.tick()`, regardless of
+  `OnPush`), so without a `trackBy`, Angular's default identity-based diffing treated
+  every one of those ticks as "the whole list changed," destroying and recreating each
+  `.inventory-slot` DOM node many times a second. A real mouse hover landed on a node
+  that was gone milliseconds later — `TooltipDirective`'s `pointerenter` fired
+  correctly, but the 350ms show-delay timer never survived to complete, so no tooltip
+  ever appeared, with no error anywhere to point at it. `trackByItemId` (keyed on
+  `entry.config.id`) fixed it: same list, stable DOM nodes, hover works. Apply the same
+  `trackBy` discipline to any future `*ngFor` whose source array isn't a stable
+  reference (contrast `EquipmentPanelComponent`'s `slots`, which reuses the constant
+  `EQUIPMENT_SLOTS` array and never needed this).
 - Game values such as costs, unlock requirements, resource yields should be dynamic and
   extracted to a `game-config.ts` file. This includes cross-entity **relations** — e.g.
   which character a resource is assigned to for Party Vault filtering — not just

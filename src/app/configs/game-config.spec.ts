@@ -329,13 +329,19 @@ describe('game-config integrity', () => {
       expect(duplicateIds(equipmentIds)).toEqual([]);
     });
 
-    it('every equipment item has an EQUIPMENT_FLAVOR entry with a non-empty label and description', () => {
+    it('every equipment item has an EQUIPMENT_FLAVOR entry with a non-empty label, description, and symbol', () => {
       expect(idsMissingFlavor(equipmentIds, EQUIPMENT_FLAVOR)).toEqual([]);
       for (const item of EQUIPMENT_ITEMS) {
         const flavor = EQUIPMENT_FLAVOR[item.id];
         expect(flavor.label).withContext(item.id).not.toBe('');
         expect(flavor.description).withContext(item.id).not.toBe('');
+        expect(flavor.symbol).withContext(item.id).not.toBe('');
       }
+    });
+
+    it('every EQUIPMENT_FLAVOR symbol is a plain Unicode glyph, never an emoji (AGENTS.md)', () => {
+      const symbols = Object.fromEntries(Object.entries(EQUIPMENT_FLAVOR).map(([id, f]) => [id, f.symbol]));
+      expect(emojiSymbols(symbols)).toEqual([]);
     });
 
     it("every equipment item's slotType is a real slot type in EQUIPMENT_SLOTS", () => {

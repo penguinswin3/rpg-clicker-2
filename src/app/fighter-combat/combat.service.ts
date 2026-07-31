@@ -23,7 +23,6 @@ export interface ActiveEncounter {
   enemyId: string;
   enemyHp: number;
   actorTurn: 'fighter' | 'enemy';
-  turns: CombatTurnResult[];
 }
 
 export interface CombatSnapshot {
@@ -31,11 +30,6 @@ export interface CombatSnapshot {
   lockedOutUntil: number | null;
   activeEncounter: ActiveEncounter | null;
 }
-
-/** Capped length of a live encounter's turn transcript — defensive bound against a
- *  future higher-HP/lower-damage enemy running an unbounded number of turns, same
- *  reasoning as MAX_LOG_MESSAGES. */
-const MAX_TRANSCRIPT_TURNS = 50;
 
 /**
  * Owns the Fighter's persistent combat HP, the post-defeat lockout, and at most one
@@ -108,7 +102,7 @@ export class CombatService {
     const enemy = this.enemyCombatant(enemyConfig);
     const actorTurn = rollInitiative(fighter, enemy);
 
-    this.encounter = { areaId, enemyId, enemyHp: enemy.hp, actorTurn, turns: [] };
+    this.encounter = { areaId, enemyId, enemyHp: enemy.hp, actorTurn };
     this.nextTurnAt = Date.now() + COMBAT_TURN_MS;
     this.changesSource.next();
   }
@@ -168,7 +162,7 @@ export class CombatService {
 
     encounter.enemyHp = enemy.hp;
     this.fighterHp = fighter.hp;
-    this.appendTurns(encounter, results);
+    this.logTurns(results, getFighterEnemyFlavor(enemyConfig.id).label);
 
     if (fighter.hp <= 0) {
       this.resolveDefeat(encounter);
@@ -184,10 +178,25 @@ export class CombatService {
     this.changesSource.next();
   }
 
-  private appendTurns(encounter: ActiveEncounter, results: CombatTurnResult[]): void {
-    encounter.turns.push(...results);
-    const excess = encounter.turns.length - MAX_TRANSCRIPT_TURNS;
-    if (excess > 0) encounter.turns.splice(0, excess);
+  /** Routine, per-turn combat detail logs straight to the shared Activity Log at
+   *  'default' (INFO) level, same as any other routine game action — there's no
+   *  separate local combat feed. A single fight's 10-30+ lines are exactly the kind of
+   *  routine, filterable detail the INFO level exists for. */
+  private logTurns(results: CombatTurnResult[], enemyLabel: string): void {
+    for (const turn of results) {
+      this.activityLog.log(this.describeTurn(turn, enemyLabel), 'default');
+    }
+  }
+
+  private describeTurn(turn: CombatTurnResult, enemyLabel: string): string {
+    const actorLabel = turn.actor === 'fighter' ? 'You' : enemyLabel;
+    if (!turn.hit) {
+      return `${actorLabel} miss${turn.actor === 'fighter' ? '' : 'es'}. (${turn.attackRoll} vs ${turn.defenseRoll})`;
+    }
+    const prefix = turn.followUp
+      ? `${actorLabel} strike${turn.actor === 'fighter' ? '' : 's'} again!`
+      : `${actorLabel} hit${turn.actor === 'fighter' ? '' : 's'}!`;
+    return `${prefix} ${turn.damage} damage. (${turn.attackRoll} vs ${turn.defenseRoll})`;
   }
 
   private resolveVictory(enemyConfig: EnemyConfig): void {
@@ -228,10 +237,10 @@ export class CombatService {
       lockedOutUntil: this.lockedOutUntil,
       // Copied, not aliased — unlike TimedActionsService's instances (which are
       // replaced wholesale, never mutated in place), an ActiveEncounter's enemyHp/
-      // actorTurn/turns are mutated in place turn by turn (see checkTurn below). A
-      // snapshot that shared the live object by reference would silently drift if the
-      // encounter kept ticking after the snapshot was taken.
-      activeEncounter: this.encounter ? { ...this.encounter, turns: [...this.encounter.turns] } : null,
+      // actorTurn are mutated in place turn by turn (see checkTurn below). A snapshot
+      // that shared the live object by reference would silently drift if the encounter
+      // kept ticking after the snapshot was taken.
+      activeEncounter: this.encounter ? { ...this.encounter } : null,
     };
   }
 
@@ -246,9 +255,7 @@ export class CombatService {
     // fight again. Same stale-reference handling as CraftingService.restore().
     const restored = snapshot?.activeEncounter;
     const enemyStillExists = !!restored && FIGHTER_ENEMIES.some(e => e.id === restored.enemyId);
-    this.encounter = restored && enemyStillExists
-      ? { ...restored, turns: [...restored.turns] }
-      : null;
+    this.encounter = restored && enemyStillExists ? { ...restored } : null;
     this.nextTurnAt = this.encounter ? Date.now() + COMBAT_TURN_MS : 0;
     this.changesSource.next();
   }

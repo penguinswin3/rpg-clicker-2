@@ -16,14 +16,16 @@ test.describe('Fighter Combat minigame', () => {
     expect(errors).toEqual([]);
   });
 
-  test('Fight! starts an encounter against the Kobold', async ({ page }) => {
+  test('Fight! starts an encounter against the Kobold, logging turn-by-turn detail to the Activity Log', async ({ page }) => {
     await seedSave(page, { unlocks: { minigames: true } });
     await gotoFreshGame(page);
 
     await page.click('button.fight-button');
 
     await expect(page.locator('button.flee-button')).toBeVisible();
-    await expect(page.locator('app-combat-feed')).toBeVisible();
+    // Routine per-turn detail (hit/miss) logs to the same shared Activity Log as every
+    // other game action — there's no separate local combat feed to check instead.
+    await expect(page.locator('.log-entry', { hasText: /hit|miss/i })).toBeVisible({ timeout: 10_000 });
   });
 
   test('winning grants gold and logs the victory', async ({ page }) => {
@@ -32,7 +34,7 @@ test.describe('Fighter Combat minigame', () => {
       combat: {
         fighterHp: 140,
         lockedOutUntil: null,
-        activeEncounter: { areaId: 'kobold-den', enemyId: 'kobold', enemyHp: 1, actorTurn: 'fighter', turns: [] },
+        activeEncounter: { areaId: 'kobold-den', enemyId: 'kobold', enemyHp: 1, actorTurn: 'fighter' },
       },
     });
     await gotoFreshGame(page);
@@ -57,7 +59,7 @@ test.describe('Fighter Combat minigame', () => {
         // enemyHp of 60 (~8-10 turns) carried a real ~3% chance of the Fighter
         // finishing the Kobold off first and winning by accident; 200 drives that down
         // to ~0.001% with no cost to how fast the intended (losing) path resolves.
-        activeEncounter: { areaId: 'kobold-den', enemyId: 'kobold', enemyHp: 200, actorTurn: 'enemy', turns: [] },
+        activeEncounter: { areaId: 'kobold-den', enemyId: 'kobold', enemyHp: 200, actorTurn: 'enemy' },
       },
     });
     await gotoFreshGame(page);

@@ -45,6 +45,16 @@
   z-index: 1;
   text-align: center;
   font-size: 11px;
+  font-weight: bold;
   color: #fff;
   line-height: 14px;
+  // A flat white reads fine on the near-black background but washes out badly against
+  // the bright green fill (very poor contrast, since pure green is nearly as luminant
+  // as white) — a hard dark outline keeps the number legible against both at once,
+  // wherever the fill happens to end.
+  text-shadow:
+    -1px -1px 0 #000,
+    1px -1px 0 #000,
+    -1px 1px 0 #000,
+    1px 1px 0 #000;
 }

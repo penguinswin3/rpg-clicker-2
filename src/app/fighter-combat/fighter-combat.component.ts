@@ -2,14 +2,11 @@ import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDe
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { EmptyStateComponent } from '../shared/empty-state/empty-state.component';
-import { TooltipDirective } from '../shared/tooltip/tooltip.directive';
-import { TooltipContent } from '../shared/tooltip/tooltip-content';
 import { InventoryPanelComponent } from './inventory-panel/inventory-panel.component';
 import { EquipmentPanelComponent } from './equipment-panel/equipment-panel.component';
 import { CombatantDisplayComponent } from './combatant-display/combatant-display.component';
 import { StatBlockComponent } from './stat-block/stat-block.component';
 import { CombatControlsComponent } from './combat-controls/combat-controls.component';
-import { CombatFeedComponent } from './combat-feed/combat-feed.component';
 import { EquipmentService } from './equipment.service';
 import { CombatService } from './combat.service';
 import { FIGHTER_ENEMIES, EnemyConfig } from '../configs/game-config';
@@ -26,13 +23,11 @@ const ZERO_STATS: SixStats = {
   imports: [
     CommonModule,
     EmptyStateComponent,
-    TooltipDirective,
     InventoryPanelComponent,
     EquipmentPanelComponent,
     CombatantDisplayComponent,
     StatBlockComponent,
     CombatControlsComponent,
-    CombatFeedComponent,
   ],
   templateUrl: './fighter-combat.component.html',
   styleUrl: './fighter-combat.component.scss',
@@ -82,19 +77,8 @@ export class FighterCombatComponent implements OnInit, OnDestroy {
     return this.currentEnemyConfig()?.stats ?? ZERO_STATS;
   }
 
-  get fighterTooltip(): TooltipContent {
-    const stats = this.equipment.getEffectiveStats();
-    return {
-      title: this.fighterName,
-      rows: [
-        { label: 'STR', value: `${stats.strength}` },
-        { label: 'DEX', value: `${stats.dexterity}` },
-        { label: 'CON', value: `${stats.constitution}` },
-        { label: 'INT', value: `${stats.intelligence}` },
-        { label: 'WIS', value: `${stats.wisdom}` },
-        { label: 'CHA', value: `${stats.charisma}` },
-      ],
-    };
+  get fighterStats(): SixStats {
+    return this.equipment.getEffectiveStats();
   }
 
   ngOnInit(): void {

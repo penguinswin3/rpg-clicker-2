@@ -1,44 +1,56 @@
 <!-- src/app/fighter-combat/fighter-combat.component.html -->
 <div class="fighter-combat">
   <div class="fighter-combat-zones">
-    <app-inventory-panel [disabled]="inEncounter"></app-inventory-panel>
-    <app-equipment-panel [disabled]="inEncounter"></app-equipment-panel>
-
-    <div class="jacks-slot">
-      <div class="zone-header">[ JACKS ]</div>
-      <app-empty-state message="No Jack assigned"></app-empty-state>
-    </div>
-
-    <div class="fighter-side" [appTooltip]="fighterTooltip">
-      <app-combatant-display
-        [name]="fighterName"
-        [ascii]="fighterAscii"
-        [hp]="fighterHp"
-        [maxHp]="fighterMaxHp">
-      </app-combatant-display>
-    </div>
-
-    <app-combat-controls></app-combat-controls>
-
-    <app-combatant-display
-      *ngIf="inEncounter; else noEnemy"
-      [name]="enemyName"
-      [ascii]="enemyAscii"
-      [hp]="enemyHp"
-      [maxHp]="enemyMaxHp">
-    </app-combatant-display>
-    <ng-template #noEnemy>
-      <div class="enemy-side-empty">
-        <app-empty-state message="No enemy engaged"></app-empty-state>
+    <div class="loadout-column">
+      <app-inventory-panel [disabled]="inEncounter"></app-inventory-panel>
+      <app-equipment-panel [disabled]="inEncounter"></app-equipment-panel>
+      <div class="jacks-slot">
+        <div class="zone-header">[ JACKS ]</div>
+        <app-empty-state message="No Jack assigned" [compact]="true"></app-empty-state>
       </div>
-    </ng-template>
+    </div>
 
-    <div class="enemy-stats">
-      <div class="zone-header">[ ENEMY STATS ]</div>
-      <app-stat-block *ngIf="inEncounter" [stats]="enemyStats"></app-stat-block>
-      <app-empty-state *ngIf="!inEncounter" message="No enemy engaged"></app-empty-state>
+    <div class="battle-column">
+      <div class="battle-row">
+        <div class="fighter-side">
+          <app-combatant-display
+            [name]="fighterName"
+            [ascii]="fighterAscii"
+            [hp]="fighterHp"
+            [maxHp]="fighterMaxHp">
+          </app-combatant-display>
+
+          <div class="fighter-stats">
+            <div class="zone-header">[ FIGHTER STATS ]</div>
+            <app-stat-block [stats]="fighterStats"></app-stat-block>
+          </div>
+
+          <div class="consumable-slots">
+            <div class="consumable-slot" *ngFor="let i of [0, 1]">-- empty --</div>
+          </div>
+        </div>
+
+        <div class="enemy-side">
+          <app-combatant-display
+            *ngIf="inEncounter; else noEnemy"
+            [name]="enemyName"
+            [ascii]="enemyAscii"
+            [hp]="enemyHp"
+            [maxHp]="enemyMaxHp">
+          </app-combatant-display>
+          <ng-template #noEnemy>
+            <app-empty-state message="No enemy engaged" [compact]="true"></app-empty-state>
+          </ng-template>
+
+          <div class="enemy-stats">
+            <div class="zone-header">[ ENEMY STATS ]</div>
+            <app-stat-block *ngIf="inEncounter" [stats]="enemyStats"></app-stat-block>
+            <app-empty-state *ngIf="!inEncounter" message="No enemy engaged" [compact]="true"></app-empty-state>
+          </div>
+        </div>
+      </div>
+
+      <app-combat-controls></app-combat-controls>
     </div>
   </div>
-
-  <app-combat-feed *ngIf="inEncounter"></app-combat-feed>
 </div>

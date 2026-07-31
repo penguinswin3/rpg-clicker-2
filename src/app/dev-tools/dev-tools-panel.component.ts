@@ -4,7 +4,9 @@ import { WalletService } from '../economy/wallet.service';
 import { UnlocksService } from '../shared/unlocks.service';
 import { UpgradesService } from '../upgrades/upgrades.service';
 import { SaveService } from '../save/save.service';
+import { EquipmentService } from '../fighter-combat/equipment.service';
 import { RESOURCES, DEV_TOOLS_CURRENCY_GRANTS } from '../configs/game-config';
+import { getEquipmentFlavor } from '../configs/flavor-text';
 import { formatAmount } from '../shared/number-format';
 
 /**
@@ -26,6 +28,7 @@ export class DevToolsPanelComponent {
   private unlocks = inject(UnlocksService);
   private upgrades = inject(UpgradesService);
   private saveService = inject(SaveService);
+  private equipment = inject(EquipmentService);
   private cdr = inject(ChangeDetectorRef);
 
   readonly currencyGrants = DEV_TOOLS_CURRENCY_GRANTS;
@@ -59,6 +62,11 @@ export class DevToolsPanelComponent {
   zeroAllUpgrades(): void {
     this.upgrades.resetAll();
     this.showStatus('Reset every upgrade to level 0.');
+  }
+
+  giveSword(): void {
+    this.equipment.addToInventory('basic-sword');
+    this.showStatus(`Added a ${getEquipmentFlavor('basic-sword').label} to the Fighter's inventory.`);
   }
 
   /** No confirmation, unlike OptionsPanelComponent.resetSave() — Dev Tools actions

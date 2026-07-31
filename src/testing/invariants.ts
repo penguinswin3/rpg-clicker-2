@@ -34,12 +34,22 @@ export function danglingReferences(ids: string[], validIds: Iterable<string>): s
  *  (AGENTS.md's "No emojis, ever") is a blanket ban: flag anything that looks like one
  *  rather than trying to enumerate every emoji precisely. Covers the emoji-presentation
  *  blocks (misc pictographs, emoticons, transport, supplemental symbols, dingbats,
- *  misc symbols) plus the explicit emoji variation selector. None of this game's actual
- *  symbols (see RESOURCE_FLAVOR) fall inside these ranges. */
+ *  misc symbols) plus the explicit emoji variation selector. */
 const EMOJI_PATTERN = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}]/u;
+
+/** Symbols that fall inside `EMOJI_PATTERN`'s broad Misc-Symbols sweep but are not actually
+ *  emoji: their Unicode default presentation is text, not emoji (no glyph-altering variation
+ *  selector needed), so they render as plain monochrome glyphs everywhere this game uses
+ *  them. Add a codepoint here only when it's a genuine false positive, with a one-line note
+ *  on which flavor entry uses it — this is an exception list, not a way around the ban. */
+const TEXT_PRESENTATION_EXCEPTIONS = new Set<string>([
+  '⛭', // U+26ED GEAR WITHOUT HUB — RESOURCE_FLAVOR['ironmongery'], text-presentation by default
+]);
 
 /** Every [id, symbol] pair whose symbol looks like an emoji rather than a plain Unicode
  *  text glyph. Empty result means the invariant holds. */
 export function emojiSymbols(symbols: Record<string, string>): [string, string][] {
-  return Object.entries(symbols).filter(([, symbol]) => EMOJI_PATTERN.test(symbol));
+  return Object.entries(symbols).filter(
+    ([, symbol]) => EMOJI_PATTERN.test(symbol) && !TEXT_PRESENTATION_EXCEPTIONS.has(symbol)
+  );
 }

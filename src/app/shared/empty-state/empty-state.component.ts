@@ -12,4 +12,7 @@ import { CommonModule } from '@angular/common';
 })
 export class EmptyStateComponent {
   @Input() message = 'Nothing here yet';
+  /** Tighter padding for placeholders inside small/narrow cards (e.g. a sidebar slot)
+   *  where the default generous padding would dominate the card's whole height. */
+  @Input() compact = false;
 }

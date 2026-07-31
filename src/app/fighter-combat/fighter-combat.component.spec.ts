@@ -42,4 +42,10 @@ describe('FighterCombatComponent', () => {
       .componentInstance as InventoryPanelComponent;
     expect(inventoryPanel.disabled).toBeFalse();
   });
+
+  it('renders two inert consumable slots under the Fighter\'s HP bar', () => {
+    const el: HTMLElement = fixture.nativeElement;
+    const fighterSide = el.querySelector('.fighter-side');
+    expect(fighterSide?.querySelectorAll('.consumable-slot').length).toBe(2);
+  });
 });

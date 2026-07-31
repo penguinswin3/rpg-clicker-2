@@ -50,8 +50,4 @@ describe('CombatControlsComponent', () => {
     expect(fightButton.disabled).toBeTrue();
     expect(fightButton.textContent).toContain('Recovering');
   });
-
-  it('renders two inert consumable slots', () => {
-    expect(fixture.nativeElement.querySelectorAll('.consumable-slot').length).toBe(2);
-  });
 });
