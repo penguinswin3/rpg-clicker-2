@@ -90,6 +90,18 @@ export async function seedBlacksmithUnlockedSave(page: Page): Promise<void> {
   });
 }
 
+/** Blacksmith active with the Forge unlocked (minigames system) and enough
+ *  Ironmongery/Ingot/Pelt on hand to start any single Common pattern craft. */
+export async function seedBlacksmithForgeReadySave(page: Page): Promise<void> {
+  await seedSave(page, {
+    characters: { unlockedIds: ['fighter', 'ranger', 'blacksmith'], activeId: 'blacksmith' },
+    objectives: { reachedIds: [], completedIds: ['unlock-ranger', 'unlock-blacksmith'] },
+    upgrades: { levels: {}, unlockedIds: ['hard-work', 'better-offcuts', 'extra-baiting', 'clean-traps'] },
+    unlocks: { minigames: true },
+    wallet: { amounts: { ironmongery: 20, ingot: 20, pelt: 10 }, unlockedIds: ['ironmongery', 'ingot', 'pelt'] },
+  });
+}
+
 export async function selectCharacter(page: Page, label: 'Fighter' | 'Ranger' | 'Blacksmith'): Promise<void> {
   await page.click(`.character-box:has-text("${label}")`);
   await expect(page.locator('.character-box.active')).toHaveText(label);
@@ -110,6 +122,13 @@ export function timedActionButton(page: Page, actionId: string) {
  *  `timedActionButton` above. */
 export function craftingActionButton(page: Page, actionId: string) {
   return page.locator(`[data-testid="crafting-action-${actionId}"]`);
+}
+
+/** Locates a Blacksmith Forge Craft button by its stable PatternConfig.id
+ *  (`data-testid="pattern-craft-<id>"`, blacksmith-forge.component.html), same reasoning
+ *  as timedActionButton/craftingActionButton above. */
+export function patternCraftButton(page: Page, patternId: string) {
+  return page.locator(`[data-testid="pattern-craft-${patternId}"]`);
 }
 
 /** Collects every console/page error seen during the callback's lifetime, for a final
