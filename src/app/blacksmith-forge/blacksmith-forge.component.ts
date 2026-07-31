@@ -15,6 +15,24 @@ export interface CostDisplayEntry {
   color: string;
 }
 
+/** Every possible statusLabel() string — real data, not a hand-counted length, so
+ *  craftButtonMinWidthPx can't silently drift out of sync if the wording ever changes. */
+const CRAFT_BUTTON_LABELS = ['Craft', 'Crafting...', 'Forge Busy', 'OWNED'];
+
+/** .craft-button's own horizontal padding (2 * 14px) + border (2 * 1px) —
+ *  blacksmith-forge.component.scss. A min-width sized purely off character count (`ch`)
+ *  has no effect until it's large enough to also cover this chrome too, since the button
+ *  is `box-sizing: border-box` — same reasoning as ButtonZoneComponent's own
+ *  `timedActionMinWidthPx`. Keep in sync if `.craft-button`'s padding/border change. */
+const CRAFT_BUTTON_HORIZONTAL_CHROME_PX = 30;
+
+/** .craft-button's own font-size/letter-spacing — same file. A `ch` unit only measures
+ *  one glyph, not the letter-spacing gap after it, so the raw character count
+ *  underestimates a long label's real width without this correction. Keep in sync if
+ *  `.craft-button`'s font-size/letter-spacing change. */
+const CRAFT_BUTTON_FONT_SIZE_PX = 12;
+const CRAFT_BUTTON_LETTER_SPACING_EM = 0.05;
+
 /** The Blacksmith's second minigame-zone occupant (see MinigameZoneComponent) — a fixed
  *  list of equipment slot-lines, each craftable once known and not yet owned. Only one
  *  craft can be active across the whole list; see PatternCraftingService. */
@@ -41,6 +59,19 @@ export class BlacksmithForgeComponent implements OnInit, OnDestroy {
   get anyActive(): boolean {
     return this.visiblePatterns.some(p => p.active);
   }
+
+  /** Fixed width sized for the longest possible status label ("Crafting...") — every
+   *  Craft button shares this one width, so a button never resizes/shifts as its own
+   *  label cycles between Craft/Crafting.../Forge Busy/OWNED, or as a *different* row's
+   *  button switches to "Forge Busy" while this one is active. Same `ch` + chrome +
+   *  letter-spacing technique as ButtonZoneComponent.timedActionMinWidthPx, just constant
+   *  across every row here rather than computed per-row, since the label set is fixed
+   *  rather than varying per pattern. */
+  readonly craftButtonMinWidthPx: string = (() => {
+    const chars = Math.max(...CRAFT_BUTTON_LABELS.map(l => l.length));
+    const letterSpacingPx = CRAFT_BUTTON_FONT_SIZE_PX * CRAFT_BUTTON_LETTER_SPACING_EM * Math.max(chars - 1, 0);
+    return `calc(${chars}ch + ${CRAFT_BUTTON_HORIZONTAL_CHROME_PX + letterSpacingPx}px)`;
+  })();
 
   ngOnInit(): void {
     this.sub.add(this.patternCrafting.changes$.subscribe(() => this.cdr.markForCheck()));

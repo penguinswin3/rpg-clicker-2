@@ -66,7 +66,9 @@
   position: relative;
   overflow: hidden;
   flex: 0 0 auto;
-  min-width: 110px;
+  // No static min-width here — it's set inline per-button (craftButtonMinWidthPx),
+  // sized off the actual longest possible label so every Craft button shares one fixed
+  // width and never resizes as its label cycles.
   background: #000;
   color: #fff;
   border: 1px solid #fff;

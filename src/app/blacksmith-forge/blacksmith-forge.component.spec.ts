@@ -29,6 +29,28 @@ describe('BlacksmithForgeComponent', () => {
     buttons.forEach(b => expect(b.disabled).toBeFalse());
   });
 
+  it('gives every Craft button the same fixed min-width, regardless of its current label', () => {
+    const el: HTMLElement = fixture.nativeElement;
+    const buttons = Array.from(el.querySelectorAll<HTMLButtonElement>('.craft-button'));
+    const widths = buttons.map(b => b.style.minWidth);
+
+    expect(widths[0]).toBeTruthy();
+    widths.forEach(w => expect(w).toBe(widths[0]));
+
+    // Sanity check it's sized generously enough to hold the longest label ("Crafting...")
+    // — a plain 11 doesn't fit "11ch", but the button's own computed width should.
+    wallet.add('ironmongery', 5);
+    wallet.add('ingot', 5);
+    fixture.detectChanges();
+    (el.querySelector('[data-testid="pattern-craft-pattern-common-weapon"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const widthsAfter = Array.from(el.querySelectorAll<HTMLButtonElement>('.craft-button')).map(b => b.style.minWidth);
+    // Now showing a mix of "Crafting..." (the active one) and "Forge Busy" (the rest) —
+    // still every button must share the exact same width as before starting.
+    widthsAfter.forEach(w => expect(w).toBe(widths[0]));
+  });
+
   it('shows "-- not forged --" for every pattern with no owned item yet', () => {
     const el: HTMLElement = fixture.nativeElement;
     expect(el.querySelectorAll('.pattern-none').length).toBe(5);

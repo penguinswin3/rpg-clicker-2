@@ -14,6 +14,7 @@
     <button
       class="craft-button"
       [attr.data-testid]="'pattern-craft-' + p.config.id"
+      [style.min-width]="craftButtonMinWidthPx"
       [appTooltip]="tooltip(p.config)"
       [disabled]="craftDisabled(p)"
       (click)="craft(p)">
