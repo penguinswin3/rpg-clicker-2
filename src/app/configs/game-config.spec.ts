@@ -12,6 +12,7 @@ import {
   EquipmentRarity,
   FIGHTER_ENEMIES,
   FIGHTER_AREAS,
+  PATTERNS,
 } from './game-config';
 import {
   RESOURCE_FLAVOR,
@@ -23,6 +24,7 @@ import {
   RARITY_FLAVOR,
   FIGHTER_ENEMY_FLAVOR,
   FIGHTER_AREA_FLAVOR,
+  PATTERN_FLAVOR,
 } from './flavor-text';
 import { idsMissingFlavor, duplicateIds, danglingReferences, emojiSymbols } from '../../testing/invariants';
 
@@ -47,6 +49,7 @@ describe('game-config integrity', () => {
   const equipmentIds = EQUIPMENT_ITEMS.map(e => e.id);
   const fighterEnemyIds = FIGHTER_ENEMIES.map(e => e.id);
   const fighterAreaIds = FIGHTER_AREAS.map(a => a.id);
+  const patternIds = PATTERNS.map(p => p.id);
 
   describe('Characters', () => {
     it('has no duplicate ids', () => {
@@ -381,6 +384,60 @@ describe('game-config integrity', () => {
             expect(effect.chance).withContext(item.id).toBeGreaterThan(0);
           }
         }
+      }
+    });
+  });
+
+  describe('Blacksmith Forge: patterns', () => {
+    it('has no duplicate ids', () => {
+      expect(duplicateIds(patternIds)).toEqual([]);
+    });
+
+    it('every pattern has a PATTERN_FLAVOR entry with a non-empty label and logMessage', () => {
+      expect(idsMissingFlavor(patternIds, PATTERN_FLAVOR)).toEqual([]);
+      for (const pattern of PATTERNS) {
+        const flavor = PATTERN_FLAVOR[pattern.id];
+        expect(flavor.label).withContext(pattern.id).not.toBe('');
+        expect(flavor.logMessage).withContext(pattern.id).not.toBe('');
+      }
+    });
+
+    it('every pattern targets a real character', () => {
+      expect(danglingReferences(PATTERNS.map(p => p.characterId), characterIds)).toEqual([]);
+    });
+
+    it("every pattern's equipmentId (and upgradesFromEquipmentId, if set) resolves to a real equipment item", () => {
+      for (const pattern of PATTERNS) {
+        expect(equipmentIds).withContext(`${pattern.id}.equipmentId`).toContain(pattern.equipmentId);
+        if (pattern.upgradesFromEquipmentId) {
+          expect(equipmentIds)
+            .withContext(`${pattern.id}.upgradesFromEquipmentId`)
+            .toContain(pattern.upgradesFromEquipmentId);
+        }
+      }
+    });
+
+    it("every pattern's slotType and rarity match its own equipmentId's EquipmentConfig", () => {
+      for (const pattern of PATTERNS) {
+        const item = EQUIPMENT_ITEMS.find(i => i.id === pattern.equipmentId);
+        expect(item).withContext(pattern.id).toBeDefined();
+        expect(item!.slotType).withContext(pattern.id).toBe(pattern.slotType);
+        expect(item!.rarity).withContext(pattern.id).toBe(pattern.rarity);
+      }
+    });
+
+    it('every cost resourceId is real and every amount is positive', () => {
+      for (const pattern of PATTERNS) {
+        for (const entry of pattern.cost) {
+          expect(resourceIds).withContext(`${pattern.id} -> ${entry.resourceId}`).toContain(entry.resourceId);
+          expect(entry.amount).withContext(`${pattern.id} -> ${entry.resourceId}`).toBeGreaterThan(0);
+        }
+      }
+    });
+
+    it('every pattern has a positive durationMs', () => {
+      for (const pattern of PATTERNS) {
+        expect(pattern.durationMs).withContext(pattern.id).toBeGreaterThan(0);
       }
     });
   });

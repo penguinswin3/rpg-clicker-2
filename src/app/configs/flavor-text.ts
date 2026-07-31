@@ -243,6 +243,31 @@ export const EQUIPMENT_FLAVOR: Record<string, EquipmentFlavor> = {
     description: '+1 Strength while equipped.',
     symbol: '†',
   },
+  'forged-sword': {
+    label: 'Forged Sword',
+    description: '+1 bonus damage while equipped.',
+    symbol: '|',
+  },
+  'forged-helmet': {
+    label: 'Forged Helmet',
+    description: '+1 Wisdom while equipped.',
+    symbol: '∩',
+  },
+  'forged-armor': {
+    label: 'Forged Armor',
+    description: 'Reduces incoming damage by 5% while equipped.',
+    symbol: '#',
+  },
+  'forged-boots': {
+    label: 'Forged Boots',
+    description: '+1 Dexterity while equipped.',
+    symbol: '⌐',
+  },
+  'forged-gauntlets': {
+    label: 'Forged Gauntlets',
+    description: '+1 Strength while equipped.',
+    symbol: '»',
+  },
 };
 
 const DEFAULT_EQUIPMENT_FLAVOR: EquipmentFlavor = { label: '', description: '', symbol: '' };
@@ -313,3 +338,42 @@ export function getFighterAreaFlavor(id: string): FighterAreaFlavor {
 // The Fighter's own combat-display art (only one Fighter, so a bare constant rather than
 // a Record).
 export const FIGHTER_COMBAT_ASCII = '  _O_\n //|\\\\\n  / \\';
+
+// ── Blacksmith Forge: patterns ─────────────────────────────────
+
+export interface PatternFlavor {
+  /** Title shown on the Craft button and in its tooltip. */
+  label: string;
+  /** Flavor sentence logged (SUCCESS level) once the craft completes. */
+  logMessage: string;
+}
+
+// Keyed by PatternConfig.id (game-config.ts).
+export const PATTERN_FLAVOR: Record<string, PatternFlavor> = {
+  'pattern-common-weapon': {
+    label: 'Weapon Pattern (Common)',
+    logMessage: 'You finish shaping the blade and admire your work.',
+  },
+  'pattern-common-helmet': {
+    label: 'Helmet Pattern (Common)',
+    logMessage: 'You quench the newly-formed helmet and set it aside to cool.',
+  },
+  'pattern-common-armor': {
+    label: 'Armor Pattern (Common)',
+    logMessage: 'You rivet the last plate into place, completing the armor.',
+  },
+  'pattern-common-boots': {
+    label: 'Boots Pattern (Common)',
+    logMessage: 'You fit the final buckle, finishing a sturdy pair of boots.',
+  },
+  'pattern-common-gauntlets': {
+    label: 'Gauntlets Pattern (Common)',
+    logMessage: 'You hammer the last joint smooth, completing the gauntlets.',
+  },
+};
+
+const DEFAULT_PATTERN_FLAVOR: PatternFlavor = { label: '', logMessage: '' };
+
+export function getPatternFlavor(id: string): PatternFlavor {
+  return PATTERN_FLAVOR[id] ?? DEFAULT_PATTERN_FLAVOR;
+}

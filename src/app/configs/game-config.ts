@@ -531,6 +531,118 @@ export const EQUIPMENT_ITEMS: EquipmentConfig[] = [
     rarity: 'common',
     effects: [{ type: 'stat-bonus', stat: 'strength', amount: 1 }],
   },
+  {
+    id: 'forged-sword',
+    slotType: 'weapon',
+    rarity: 'common',
+    effects: [{ type: 'bonus-damage', amount: 1 }],
+  },
+  {
+    id: 'forged-helmet',
+    slotType: 'helmet',
+    rarity: 'common',
+    effects: [{ type: 'stat-bonus', stat: 'wisdom', amount: 1 }],
+  },
+  {
+    id: 'forged-armor',
+    slotType: 'armor',
+    rarity: 'common',
+    effects: [{ type: 'damage-reduction', reduction: 0.05 }],
+  },
+  {
+    id: 'forged-boots',
+    slotType: 'boots',
+    rarity: 'common',
+    effects: [{ type: 'stat-bonus', stat: 'dexterity', amount: 1 }],
+  },
+  {
+    id: 'forged-gauntlets',
+    slotType: 'gauntlets',
+    rarity: 'common',
+    effects: [{ type: 'stat-bonus', stat: 'strength', amount: 1 }],
+  },
+];
+
+// ── Blacksmith Forge: patterns ─────────────────────────────────
+// A Pattern is a permanent recipe, not a consumable — once known
+// (PatternCraftingService.knownPatternIds), the Blacksmith can craft it any number of
+// times, cost/time permitting. Each pattern represents a single equipment slot-line for
+// the Fighter, not a repeatable stack: once its equipmentId is owned, the pattern is
+// "done" until a future higher-tier pattern (upgradesFromEquipmentId set) supersedes it
+// in place — see PatternCraftingService.isOwned.
+
+export interface PatternConfig {
+  id: string;
+  characterId: string;
+  slotType: EquipmentSlotType;
+  rarity: EquipmentRarity;
+  /** The equipment item this pattern produces. */
+  equipmentId: string;
+  /** Set only for a rarity-upgrade pattern (none ship in this version — see PATTERNS
+   *  below). Craft requires the Fighter currently owns this item (equipped or in
+   *  inventory); PatternCraftingService consumes it and replaces it with `equipmentId`
+   *  via EquipmentService.replaceInventoryItem. */
+  upgradesFromEquipmentId?: string;
+  cost: { resourceId: string; amount: number }[];
+  durationMs: number;
+  /** Whether this pattern is known from the moment the Blacksmith Forge unlocks — same
+   *  "starts unlocked" meaning as UpgradeConfig.unlocked/CharacterConfig.unlocked. A
+   *  future non-starting pattern (rarity upgrade, combat drop) ships false and relies on
+   *  PatternCraftingService.unlock(). */
+  unlocked: boolean;
+}
+
+export const PATTERNS: PatternConfig[] = [
+  {
+    id: 'pattern-common-weapon',
+    characterId: 'blacksmith',
+    slotType: 'weapon',
+    rarity: 'common',
+    equipmentId: 'forged-sword',
+    cost: [{ resourceId: 'ironmongery', amount: 5 }, { resourceId: 'ingot', amount: 5 }],
+    durationMs: 60_000,
+    unlocked: true,
+  },
+  {
+    id: 'pattern-common-helmet',
+    characterId: 'blacksmith',
+    slotType: 'helmet',
+    rarity: 'common',
+    equipmentId: 'forged-helmet',
+    cost: [{ resourceId: 'ironmongery', amount: 3 }, { resourceId: 'ingot', amount: 5 }],
+    durationMs: 45_000,
+    unlocked: true,
+  },
+  {
+    id: 'pattern-common-armor',
+    characterId: 'blacksmith',
+    slotType: 'armor',
+    rarity: 'common',
+    equipmentId: 'forged-armor',
+    cost: [{ resourceId: 'ironmongery', amount: 6 }, { resourceId: 'ingot', amount: 8 }],
+    durationMs: 90_000,
+    unlocked: true,
+  },
+  {
+    id: 'pattern-common-boots',
+    characterId: 'blacksmith',
+    slotType: 'boots',
+    rarity: 'common',
+    equipmentId: 'forged-boots',
+    cost: [{ resourceId: 'ironmongery', amount: 3 }, { resourceId: 'pelt', amount: 2 }],
+    durationMs: 40_000,
+    unlocked: true,
+  },
+  {
+    id: 'pattern-common-gauntlets',
+    characterId: 'blacksmith',
+    slotType: 'gauntlets',
+    rarity: 'common',
+    equipmentId: 'forged-gauntlets',
+    cost: [{ resourceId: 'ironmongery', amount: 4 }, { resourceId: 'pelt', amount: 2 }],
+    durationMs: 50_000,
+    unlocked: true,
+  },
 ];
 
 // ── Fighter Combat: enemies & areas ────────────────────────────
