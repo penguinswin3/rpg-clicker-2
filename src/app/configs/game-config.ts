@@ -657,7 +657,8 @@ export interface EnemyConfig {
 
 export type LootDrop =
   | { type: 'resource'; resourceId: string; chance: number; min: number; max: number }
-  | { type: 'equipment'; equipmentId: string; chance: number };
+  | { type: 'equipment'; equipmentId: string; chance: number }
+  | { type: 'pattern'; patternId: string; chance: number };
 
 export interface FighterAreaConfig {
   id: string;

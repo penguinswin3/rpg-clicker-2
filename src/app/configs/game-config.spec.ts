@@ -471,7 +471,7 @@ describe('game-config integrity', () => {
       }
     });
 
-    it('every enemy loot entry references a real resource or equipment item, with a sane chance', () => {
+    it('every enemy loot entry references a real resource, equipment item, or pattern, with a sane chance', () => {
       for (const enemy of FIGHTER_ENEMIES) {
         for (const drop of enemy.loot) {
           expect(drop.chance).withContext(enemy.id).toBeGreaterThan(0);
@@ -480,8 +480,10 @@ describe('game-config integrity', () => {
             expect(resourceIds).withContext(`${enemy.id} -> ${drop.resourceId}`).toContain(drop.resourceId);
             expect(drop.min).withContext(enemy.id).toBeGreaterThan(0);
             expect(drop.max).withContext(enemy.id).toBeGreaterThanOrEqual(drop.min);
-          } else {
+          } else if (drop.type === 'equipment') {
             expect(equipmentIds).withContext(`${enemy.id} -> ${drop.equipmentId}`).toContain(drop.equipmentId);
+          } else {
+            expect(patternIds).withContext(`${enemy.id} -> ${drop.patternId}`).toContain(drop.patternId);
           }
         }
       }

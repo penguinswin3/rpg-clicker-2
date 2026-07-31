@@ -190,6 +190,17 @@ describe('CombatService', () => {
     });
   });
 
+  describe('pattern loot drops', () => {
+    // No FIGHTER_ENEMIES entry has a 'pattern' loot type yet (the 5 Common patterns
+    // start known rather than drop-gated, this version) — same "wired but unexercised"
+    // precedent as PatternCraftingService's rarity-upgrade path
+    // (pattern-crafting.service.spec.ts). Replace this with a real test the moment an
+    // enemy's loot table gets one.
+    it('unlocks the dropped pattern via PatternCraftingService', () => {
+      pending("no FIGHTER_ENEMIES loot entry has type 'pattern' yet");
+    });
+  });
+
   describe('snapshot / restore', () => {
     it('round-trips HP, lockout, and an in-progress encounter', () => {
       service.start(KOBOLD_DEN);

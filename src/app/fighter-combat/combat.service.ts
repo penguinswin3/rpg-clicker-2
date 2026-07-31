@@ -4,6 +4,7 @@ import { WalletService } from '../economy/wallet.service';
 import { StatisticsService } from '../statistics/statistics.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { EquipmentService } from './equipment.service';
+import { PatternCraftingService } from '../blacksmith-forge/pattern-crafting.service';
 import { CombatCombatant, CombatTurnResult, resolveTurn, rollInitiative } from './combat-resolution';
 import { getMaxHp } from '../shared/six-stats';
 import {
@@ -15,7 +16,7 @@ import {
   COMBAT_TURN_MS,
   FIGHTER_DEFEAT_LOCKOUT_MS,
 } from '../configs/game-config';
-import { getEquipmentFlavor, getFighterEnemyFlavor } from '../configs/flavor-text';
+import { getEquipmentFlavor, getFighterEnemyFlavor, getPatternFlavor } from '../configs/flavor-text';
 import { resourceAmountToken } from '../shared/resource-token';
 
 export interface ActiveEncounter {
@@ -51,6 +52,7 @@ export interface CombatSnapshot {
 export class CombatService {
   private wallet = inject(WalletService);
   private equipment = inject(EquipmentService);
+  private patternCrafting = inject(PatternCraftingService);
   private statistics = inject(StatisticsService);
   private activityLog = inject(ActivityLogService);
 
@@ -210,9 +212,12 @@ export class CombatService {
         const amount = drop.min + Math.floor(Math.random() * (drop.max - drop.min + 1));
         this.wallet.add(drop.resourceId, amount);
         grants.push(resourceAmountToken(drop.resourceId, amount));
-      } else {
+      } else if (drop.type === 'equipment') {
         this.equipment.addToInventory(drop.equipmentId);
         grants.push(getEquipmentFlavor(drop.equipmentId).label);
+      } else {
+        this.patternCrafting.unlock(drop.patternId);
+        grants.push(getPatternFlavor(drop.patternId).label);
       }
     }
 
