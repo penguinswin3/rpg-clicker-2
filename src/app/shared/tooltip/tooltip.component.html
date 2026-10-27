@@ -1,4 +1,4 @@
-<div class="tooltip-box" role="tooltip">
+<div class="tooltip-box" role="tooltip" [id]="id">
   <div class="tooltip-title" *ngIf="title">{{ title }}</div>
   <div class="tooltip-row" [class.wrap]="row.wrap" *ngFor="let row of rows">
     <span class="tooltip-label">{{ row.label }}</span>

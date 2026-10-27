@@ -51,6 +51,41 @@ describe('TooltipDirective', () => {
     expect(tooltipBox()).not.toBeNull();
   }));
 
+  it('shows the tooltip on focus, the same way pointerenter does', fakeAsync(() => {
+    button.dispatchEvent(new Event('focus'));
+    tick(350);
+    fixture.detectChanges();
+
+    expect(tooltipBox()).not.toBeNull();
+  }));
+
+  it('hides on blur', fakeAsync(() => {
+    button.dispatchEvent(new Event('focus'));
+    tick(350);
+    fixture.detectChanges();
+    expect(tooltipBox()).not.toBeNull();
+
+    button.dispatchEvent(new Event('blur'));
+    fixture.detectChanges();
+    expect(tooltipBox()).toBeNull();
+  }));
+
+  it('sets aria-describedby on the host pointing at the tooltip while shown, and removes it on hide', fakeAsync(() => {
+    expect(button.getAttribute('aria-describedby')).toBeNull();
+
+    button.dispatchEvent(new Event('pointerenter'));
+    tick(350);
+    fixture.detectChanges();
+
+    const describedBy = button.getAttribute('aria-describedby');
+    expect(describedBy).toBeTruthy();
+    expect(document.getElementById(describedBy!)).toBe(tooltipBox());
+
+    button.dispatchEvent(new Event('pointerleave'));
+    fixture.detectChanges();
+    expect(button.getAttribute('aria-describedby')).toBeNull();
+  }));
+
   it('renders the title and every row, with the row color applied inline', fakeAsync(() => {
     button.dispatchEvent(new Event('pointerenter'));
     tick(350);

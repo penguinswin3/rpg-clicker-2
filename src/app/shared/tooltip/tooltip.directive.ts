@@ -24,6 +24,8 @@ const TOOLTIP_SHOW_DELAY_MS = 350;
 const VIEWPORT_MARGIN_PX = 6;
 const TRIGGER_GAP_PX = 8;
 
+let tooltipIdCounter = 0;
+
 /**
  * Hover-triggered detail tooltip — `[appTooltip]="content"` on any element. Shows a
  * `TooltipComponent` positioned above (or, if there's no room, below) the host element
@@ -49,6 +51,7 @@ export class TooltipDirective implements OnChanges, OnDestroy {
 
   private ref?: ComponentRef<TooltipComponent>;
   private showTimer?: ReturnType<typeof setTimeout>;
+  private readonly tooltipId = `tooltip-${tooltipIdCounter++}`;
 
   @HostListener('pointerenter')
   onPointerEnter(): void {
@@ -57,6 +60,16 @@ export class TooltipDirective implements OnChanges, OnDestroy {
 
   @HostListener('pointerleave')
   onPointerLeave(): void {
+    this.hide();
+  }
+
+  @HostListener('focus')
+  onFocus(): void {
+    this.scheduleShow();
+  }
+
+  @HostListener('blur')
+  onBlur(): void {
     this.hide();
   }
 
@@ -89,6 +102,8 @@ export class TooltipDirective implements OnChanges, OnDestroy {
   private show(): void {
     if (this.ref) return;
     this.ref = this.vcr.createComponent(TooltipComponent);
+    this.ref.instance.id = this.tooltipId;
+    this.host.nativeElement.setAttribute('aria-describedby', this.tooltipId);
     this.applyContent();
     // The box's own size (for centering/clamping) isn't known until its content has
     // actually rendered — force a synchronous render before measuring.
@@ -124,6 +139,7 @@ export class TooltipDirective implements OnChanges, OnDestroy {
     this.clearTimer();
     this.ref?.destroy();
     this.ref = undefined;
+    this.host.nativeElement.removeAttribute('aria-describedby');
   }
 
   private clearTimer(): void {

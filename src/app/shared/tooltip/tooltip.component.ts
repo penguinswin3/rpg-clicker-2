@@ -13,6 +13,7 @@ import { TooltipRow } from './tooltip-content';
   styleUrl: './tooltip.component.scss',
 })
 export class TooltipComponent {
+  id = '';
   title?: string;
   rows: TooltipRow[] = [];
 }
