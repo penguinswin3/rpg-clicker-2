@@ -1,13 +1,16 @@
 <div class="top-bar">
   <div class="nav-group left">
-    <button class="nav-btn" *ngFor="let b of leftButtons" (click)="open(b.id)">{{ b.label }}</button>
+    <button class="nav-btn" *ngFor="let b of leftButtons; trackBy: trackNavButton" (click)="open(b.id)">{{ b.label }}</button>
   </div>
 
-  <pre class="title" [attr.aria-label]="gameTitle">{{ gameTitleAscii }}</pre>
+  <!-- Decorative: app.component.html has the real, properly-exposed <h1>{{ gameTitle }}</h1>
+       now, so this is pure ASCII art — hidden rather than aria-labelled (an aria-label on a
+       <pre> isn't reliably exposed anyway), same treatment .combatant-ascii gets. -->
+  <pre class="title" aria-hidden="true">{{ gameTitleAscii }}</pre>
 
   <div class="nav-group right">
     <button class="nav-btn dev-tools-btn" *ngIf="devToolsEnabled" (click)="open('dev-tools')">Dev Tools</button>
     <div class="playtime-box" *ngIf="showPlaytime">{{ playtimeDisplay }}</div>
-    <button class="nav-btn" *ngFor="let b of rightButtons" (click)="open(b.id)">{{ b.label }}</button>
+    <button class="nav-btn" *ngFor="let b of rightButtons; trackBy: trackNavButton" (click)="open(b.id)">{{ b.label }}</button>
   </div>
 </div>

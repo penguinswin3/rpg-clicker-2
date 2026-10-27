@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
-import { GAME_TITLE, DEV_TOOLS_ENABLED } from '../configs/game-config';
+import { DEV_TOOLS_ENABLED } from '../configs/game-config';
 import { GAME_TITLE_ASCII } from '../configs/flavor-text';
 import { ModalId, ModalService } from '../shared/modal.service';
 import { PlaytimeService } from '../statistics/playtime.service';
@@ -31,7 +31,8 @@ export class TopBarComponent implements OnInit, OnDestroy {
   private cdr = inject(ChangeDetectorRef);
   private sub = new Subscription();
 
-  readonly gameTitle = GAME_TITLE;
+  // The plain-text title is AppComponent's job now (the real <h1>) — this is just the
+  // decorative ASCII banner, which is aria-hidden.
   readonly gameTitleAscii = GAME_TITLE_ASCII;
   readonly devToolsEnabled = DEV_TOOLS_ENABLED;
 
@@ -58,6 +59,19 @@ export class TopBarComponent implements OnInit, OnDestroy {
       { id: 'options', label: 'Options', unlocked: true },
     ];
     return defs.filter(b => b.unlocked);
+  }
+
+  /** `leftButtons`/`rightButtons` are getters that build a fresh array of fresh `NavButton`
+   *  objects on every read, so without a `trackBy` Angular's default identity diffing sees
+   *  an entirely new list every change-detection cycle and destroys/recreates every nav
+   *  button's DOM node — and this component markForChecks once per second off
+   *  `playtime.changes$`. That churn silently breaks keyboard use: focus on a recreated
+   *  node is dropped to `<body>` within a second, so you can't Tab to "Options" and press
+   *  Enter, and `UiModalComponent`'s focus-return-on-close had nothing live to return to
+   *  (its captured trigger was already detached). Track by the one stable thing — the
+   *  modal id — exactly as ButtonZoneComponent.trackTimedAction does for the same reason. */
+  trackNavButton(_: number, b: NavButton): ModalId {
+    return b.id;
   }
 
   ngOnInit(): void {
