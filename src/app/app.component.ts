@@ -19,6 +19,7 @@ import { OptionsPanelComponent } from './options/options-panel.component';
 import { CreditsPanelComponent } from './credits/credits-panel.component';
 import { DevToolsPanelComponent } from './dev-tools/dev-tools-panel.component';
 import { ConfirmModalComponent } from './shared/confirm-modal/confirm-modal.component';
+import { LiveAnnouncerComponent } from './shared/live-announcer/live-announcer.component';
 import { SaveService } from './save/save.service';
 
 @Component({
@@ -28,6 +29,7 @@ import { SaveService } from './save/save.service';
     RouterOutlet,
     CommonModule,
     ActivityLogComponent,
+    LiveAnnouncerComponent,
     TopBarComponent,
     CharacterSelectComponent,
     PartyVaultComponent,
