@@ -375,6 +375,49 @@ Objective logs at `'success'` with no token.
 
 ---
 
+## 19. Accessibility (keyboard + screen reader)
+
+Every interactive element must be keyboard-operable and screen-reader-announced — for
+all UI, present and future, not just what the initial retrofit covered.
+
+- **Promote a clickable `<div>`/`<span>` to a real `<button>`**, rather than inventing a
+  `role="button"`-plus-keydown pattern — `<button>` is the one interactive primitive
+  this whole app already uses everywhere else, and it gets keyboard focus/activation for
+  free. Only skip this when the element isn't actually interactive (e.g. a resource row
+  with nothing to expand stays a plain `<div>`, never a focusable no-op).
+- **`UiModalComponent` already gives every modal dialog semantics, a focus trap, and
+  focus-return-on-close for free** (`role="dialog"`, `aria-modal`, `aria-labelledby`,
+  Tab/Shift+Tab wrapped inside the panel, focus moved in on open and restored to the
+  trigger on close) — route any new modal-like surface through it rather than building a
+  new one.
+- **`TooltipDirective` already gives every tooltip keyboard parity for free** (shows on
+  focus the same as pointerenter, wires `aria-describedby`) — route any new hover-detail
+  UI through it rather than building a new one.
+- **Decorative content gets `aria-hidden="true"`**: ASCII art, a bracket glyph that's
+  redundant with its already-labelled parent button, and every progress-fill bar
+  (redundant with the adjacent real text that already states the same number/state).
+  Don't add `role="progressbar"` to a fill bar — see §Design Patterns and the
+  accessibility retrofit's design doc (`docs/superpowers/specs/`) for why.
+- **A rare/discrete event that already logs above `'default'` level in the Activity Log
+  is announced for free** via the shared live-region announcer
+  (`LiveAnnouncerComponent`) — don't add a second announcement mechanism, and don't log
+  high-frequency/continuous content (ticking currency, HP during a fight, running
+  timers) above `'default'` just to make it live-announced; that content stays readable
+  on demand as real text, not auto-announced.
+- **A toggle-style button's current state gets `aria-pressed`/`aria-current`/
+  `aria-checked`/`aria-expanded`** (whichever fits — see Party Vault/Activity Log filter
+  bars, Character Select, Options toggles, the combat area-select for reference
+  implementations) in addition to its `.active`/`.on`-style CSS class — color/border
+  alone never conveys state to a screen reader.
+- **`@axe-core/playwright` runs in e2e** (`e2e/accessibility.spec.ts`, §Testing) as a
+  regression gate, not the primary design tool — fix a violation at the component level
+  per the conventions above, not by suppressing the check. It deliberately excludes the
+  `color-contrast` rule (a pre-existing property of this game's dark terminal palette,
+  out of scope for this retrofit — see the design doc's Non-goals) — don't disable any
+  other rule without updating that doc's reasoning.
+
+---
+
 ## Testing
 
 Two layers, run after any change that could plausibly touch them:
@@ -399,6 +442,11 @@ Key specs to extend rather than re-derive:
   nothing else enforces it.
 - **`e2e/helpers.ts`** — reusable page interactions; extend rather than re-deriving
   inline.
+- **`e2e/accessibility.spec.ts`** — runs `@axe-core/playwright` against a handful of
+  representative screens/states (fresh game, Fighter Combat active, Blacksmith Forge
+  active, each of Options/Stats/Dev Tools open) and asserts zero violations
+  (`color-contrast` excluded — see §19 Accessibility). Extend the state list whenever a
+  new structurally-distinct screen is added, same spirit as the config-integrity suite.
 - Locate a timed-action button by `data-testid="timed-action-<id>"`, never by label text
   (labels change across idle/running/ready phases).
 - Seed exact-amount scenarios via `seedSave` (writes straight to localStorage pre-boot),
