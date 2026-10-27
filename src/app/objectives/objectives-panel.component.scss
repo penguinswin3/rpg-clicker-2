@@ -27,6 +27,18 @@
   text-align: left;
   cursor: default;
 
+  // An in-progress/completed row has nothing to do — it's `[disabled]` so it isn't a
+  // focusable no-op in the tab order (AGENTS.md §19). Neutralizing the browser's default
+  // disabled treatment keeps that purely semantic: the row must look exactly as it did
+  // before, since "not yet claimable" is already conveyed by the N/M progress readout and
+  // the absent gold CLAIM border, and dimming it would be a visual change on the app's
+  // single most common row state. (`color`/`background` are already pinned above and
+  // author styles beat the UA stylesheet, but `opacity` isn't — so pin it too.)
+  &:disabled {
+    opacity: 1;
+    cursor: default;
+  }
+
   &.completed {
     font-size: 12px;
     padding: 4px 6px;

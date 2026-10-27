@@ -1,9 +1,16 @@
-<header>
+<!-- The explicit role on each landmark duplicates the implicit role the element already
+     carries, which is harmless — and it's deliberate insurance: these wrappers are
+     `display: contents` (app.component.scss, so they stay out of :host's flex layout),
+     and that has a documented history of dropping elements and their implicit ARIA roles
+     out of the accessibility tree in some browser versions. axe-core checks the DOM, not
+     real AT exposure, so it can't catch that regression for us. An explicit role is
+     exposed identically to the implicit one, so this costs nothing and removes the risk. -->
+<header role="banner">
   <h1 class="sr-only">{{ gameTitle }}</h1>
   <app-top-bar></app-top-bar>
 </header>
 
-<main>
+<main role="main">
   <app-character-select></app-character-select>
 
   <div class="main-layout">
@@ -13,10 +20,13 @@
   </div>
 </main>
 
-<aside aria-label="Activity Log">
+<aside role="complementary" aria-label="Activity Log">
   <app-activity-log></app-activity-log>
-  <app-live-announcer></app-live-announcer>
 </aside>
+
+<!-- Outside <aside>: the announcer is a visually-hidden aria-live region, not part of the
+     visible panel that `aria-label="Activity Log"` names. -->
+<app-live-announcer></app-live-announcer>
 
 <app-ui-modal
   *ngIf="modalService.active$ | async as active"

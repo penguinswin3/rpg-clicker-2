@@ -17,6 +17,32 @@ export async function closeModal(page: Page): Promise<void> {
   await page.keyboard.press('Escape');
 }
 
+/** Opens Options and clicks Reset Save, which swaps the *already-open* modal's content to
+ *  the Confirm panel (OptionsPanelComponent.resetSave -> ModalService.open('confirm') —
+ *  the modal itself is never closed/reopened). Stops at the confirmation prompt: nothing
+ *  is reset unless the caller goes on to click Reset. */
+export async function openResetSaveConfirm(page: Page): Promise<void> {
+  await page.click('text=Options');
+  await expect(page.locator('.options-panel')).toBeVisible();
+  await page.click('.options-panel button:has-text("Reset Save")');
+  await expect(page.locator('.confirm-modal')).toBeVisible();
+}
+
+/** Starts a fight from the Fighter Combat minigame and waits until the encounter is
+ *  actually live (the Flee button only exists mid-encounter). Requires the `minigames`
+ *  unlock and Fighter active — e.g. `seedSave(page, { unlocks: { minigames: true } })`. */
+export async function startFight(page: Page): Promise<void> {
+  await page.click('button.fight-button');
+  await expect(page.locator('button.flee-button')).toBeVisible();
+}
+
+/** Hovers `selector` and waits out TooltipDirective's deliberate show delay, so the
+ *  tooltip is actually on screen when the caller looks for it. */
+export async function showTooltip(page: Page, selector: string): Promise<void> {
+  await page.hover(selector);
+  await expect(page.locator('.tooltip-box')).toBeVisible({ timeout: 2000 });
+}
+
 /** Grants 1,000,000 of every currency via Dev Tools — the fast path to affording
  *  anything (upgrades, the unlock-ranger objective) without grinding real clicks. */
 export async function grantMillionOfEveryCurrency(page: Page): Promise<void> {

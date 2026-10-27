@@ -8,6 +8,7 @@
     [class.completed]="o.completed"
     [class.claimable]="o.claimable"
     [class.flashing]="isFlashing(o)"
+    [disabled]="!o.claimable"
     (click)="claim(o)">
     <div
       class="objective-fill"

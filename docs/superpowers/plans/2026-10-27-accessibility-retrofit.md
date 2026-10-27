@@ -1790,6 +1790,195 @@ git commit -m "Add @axe-core/playwright accessibility regression scan"
 
 ---
 
+### Task 14: Landmark regions, a real `<h1>`, and the modal close-button label fix
+
+**Added after Task 13's axe-core scan surfaced real, legitimate violations that the
+original 13-task plan never covered — see the ledger for the human decision that
+authorized this task.** Two unrelated-but-small gaps, bundled into one task since both
+were discovered by the same scan and both are contained, low-risk HTML/SCSS-only fixes:
+
+1. **No page-level landmarks.** `axe-core`'s `landmark-one-main`, `page-has-heading-one`,
+   and `region` rules failed on every scanned state: the app shell has no `<main>`, no
+   `<h1>` anywhere, and almost all top-level content isn't contained in any semantic
+   landmark. Fix: wrap the existing top-level children in `app.component.html` with
+   `<header>`/`<main>`/`<aside>` (zero visual change — each gets `display: contents` in
+   `app.component.scss`, the same technique `PartyVaultComponent`/`TopBarComponent`/
+   `CharacterSelectComponent` already use on their own `:host` to stay transparent to
+   `AppComponent`'s flex layout) plus one visually-hidden `<h1>`.
+2. **Modal close button's accessible name doesn't contain its visible text.**
+   `axe-core`'s `label-content-name-mismatch` rule failed on every modal: `.modal-close`
+   has visible text `[x]` but `aria-label="Close"` — WCAG 2.5.3 requires the accessible
+   name to contain the visible label text (a voice-control user saying "click [x]" has no
+   reliable match). Fix: change the `aria-label` to `"Close [x]"` — keeps the visible
+   bracket-glyph convention (AGENTS.md §1/§2) while containing the visible text.
+
+**Files:**
+- Modify: `src/app/app.component.html`
+- Modify: `src/app/app.component.ts`
+- Modify: `src/app/app.component.scss`
+- Modify: `src/app/shared/ui-modal/ui-modal.component.html`
+- Modify: `src/app/shared/ui-modal/ui-modal.component.spec.ts`
+
+**Interfaces:** none — presentational/structural only.
+
+- [ ] **Step 1: Update the close-button spec to the new label**
+
+In `src/app/shared/ui-modal/ui-modal.component.spec.ts`, update the existing test (added
+in Task 2) that currently reads:
+
+```ts
+  it('the close control is a real button labelled "Close"', () => {
+    openModal();
+    const close: HTMLButtonElement = fixture.nativeElement.querySelector('.modal-close');
+    expect(close.tagName).toBe('BUTTON');
+    expect(close.getAttribute('aria-label')).toBe('Close');
+  });
+```
+
+to:
+
+```ts
+  it('the close control is a real button whose accessible name contains its visible text', () => {
+    openModal();
+    const close: HTMLButtonElement = fixture.nativeElement.querySelector('.modal-close');
+    expect(close.tagName).toBe('BUTTON');
+    expect(close.getAttribute('aria-label')).toBe('Close [x]');
+    expect(close.getAttribute('aria-label')).toContain(close.textContent!.trim());
+  });
+```
+
+Run: `npm run test:unit`
+Expected: this one spec FAILS (`aria-label` is still `'Close'` against the current
+template).
+
+- [ ] **Step 2: Fix the close button's label**
+
+In `src/app/shared/ui-modal/ui-modal.component.html`, change:
+
+```html
+      <button type="button" class="modal-close" aria-label="Close" (click)="closed.emit()">[x]</button>
+```
+
+to:
+
+```html
+      <button type="button" class="modal-close" aria-label="Close [x]" (click)="closed.emit()">[x]</button>
+```
+
+- [ ] **Step 3: Run the spec to verify it passes**
+
+Run: `npm run test:unit`
+Expected: the updated `UiModalComponent` spec PASSES.
+
+- [ ] **Step 4: Add the `<h1>` title and wire it into `AppComponent`**
+
+In `src/app/app.component.ts`, add the import and a readonly field:
+
+```ts
+import { GAME_TITLE } from './configs/game-config';
+```
+
+Add inside the class body (anywhere among the existing fields):
+
+```ts
+  readonly gameTitle = GAME_TITLE;
+```
+
+- [ ] **Step 5: Wrap the app shell in landmarks**
+
+Replace the full contents of `src/app/app.component.html` with:
+
+```html
+<header>
+  <h1 class="sr-only">{{ gameTitle }}</h1>
+  <app-top-bar></app-top-bar>
+</header>
+
+<main>
+  <app-character-select></app-character-select>
+
+  <div class="main-layout">
+    <app-party-vault></app-party-vault>
+    <app-game-area></app-game-area>
+    <app-side-panel></app-side-panel>
+  </div>
+</main>
+
+<aside aria-label="Activity Log">
+  <app-activity-log></app-activity-log>
+  <app-live-announcer></app-live-announcer>
+</aside>
+
+<app-ui-modal
+  *ngIf="modalService.active$ | async as active"
+  [title]="modalTitle(active)"
+  (closed)="modalService.close()">
+  <ng-container [ngSwitch]="active">
+    <app-jacks-panel *ngSwitchCase="'jacks'"></app-jacks-panel>
+    <app-crown-panel *ngSwitchCase="'crown'"></app-crown-panel>
+    <app-stats-panel *ngSwitchCase="'stats'"></app-stats-panel>
+    <app-options-panel *ngSwitchCase="'options'"></app-options-panel>
+    <app-credits-panel *ngSwitchCase="'credits'"></app-credits-panel>
+    <app-dev-tools-panel *ngSwitchCase="'dev-tools'"></app-dev-tools-panel>
+    <app-confirm-modal *ngSwitchCase="'confirm'"></app-confirm-modal>
+  </ng-container>
+</app-ui-modal>
+
+<router-outlet></router-outlet>
+```
+
+(Only the `<header>`/`<main>`/`<aside>` wrappers and the `<h1>` are new — every existing
+element, binding, and `*ngSwitchCase` is unchanged.)
+
+- [ ] **Step 6: Make the new wrapper elements transparent to the existing flex layout**
+
+In `src/app/app.component.scss`, add (the existing `:host`/`.main-layout` rules stay
+exactly as they are):
+
+```scss
+// header/main/aside are new semantic landmarks (Task 14) added purely for
+// accessibility — display: contents keeps them invisible to :host's flex layout so
+// their children (app-top-bar, .main-layout, etc.) remain direct flex items exactly as
+// before, same technique PartyVaultComponent/TopBarComponent/CharacterSelectComponent
+// already use on their own :host for the same reason.
+header,
+main,
+aside {
+  display: contents;
+}
+```
+
+- [ ] **Step 7: Run the full unit + e2e suite**
+
+Run: `npm run test:all`
+Expected: everything green, including the updated `UiModalComponent` spec. Visually
+nothing should have changed — `display: contents` on the three new wrappers means they
+contribute no box to the layout.
+
+- [ ] **Step 8: Run the Task 13 axe-core scan in isolation**
+
+Run: `npx playwright test e2e/accessibility.spec.ts`
+Expected: all 6 tests now PASS — this is the real proof both fixes closed the gaps Task
+13 found. If any violation remains, do not weaken the scan — report back with the
+violation detail.
+
+- [ ] **Step 9: Manual check**
+
+Run `npm start`, confirm the page looks pixel-identical to before (no layout shift from
+the new `<header>`/`<main>`/`<aside>` wrappers), and that a screen reader (or the
+browser's accessibility tree inspector, e.g. Chrome DevTools' Accessibility pane) now
+shows a `banner` region, a `main` region, a `complementary` region, and a single
+level-1 heading.
+
+- [ ] **Step 10: Commit**
+
+```bash
+git add src/app/app.component.html src/app/app.component.ts src/app/app.component.scss src/app/shared/ui-modal/ui-modal.component.html src/app/shared/ui-modal/ui-modal.component.spec.ts
+git commit -m "Add page landmarks + h1, fix modal close button's accessible name"
+```
+
+---
+
 ## Final verification (not a task — a checklist before calling this plan done)
 
 - [ ] `npm run test:all` is green.

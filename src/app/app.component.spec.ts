@@ -32,4 +32,38 @@ describe('AppComponent', () => {
     expect(text).toContain('QUESTS');
     expect(text).toContain('ACTIVITY LOG');
   });
+
+  describe('landmarks', () => {
+    /** The implicit roles these elements already carry are duplicated explicitly because
+     *  they're `display: contents`, which has historically dropped elements (and their
+     *  implicit landmark role) out of the accessibility tree in some browsers — see
+     *  app.component.html. axe-core checks the DOM, so only a test like this pins it. */
+    it('exposes banner/main/complementary explicitly, not only implicitly', () => {
+      const fixture = TestBed.createComponent(AppComponent);
+      fixture.detectChanges();
+      const el = fixture.nativeElement as HTMLElement;
+
+      expect(el.querySelector('header')?.getAttribute('role')).toBe('banner');
+      expect(el.querySelector('main')?.getAttribute('role')).toBe('main');
+      expect(el.querySelector('aside')?.getAttribute('role')).toBe('complementary');
+      expect(el.querySelector('aside')?.getAttribute('aria-label')).toBe('Activity Log');
+    });
+
+    it('names the game in a real <h1> inside the banner', () => {
+      const fixture = TestBed.createComponent(AppComponent);
+      fixture.detectChanges();
+      const h1 = (fixture.nativeElement as HTMLElement).querySelector('header h1');
+
+      expect(h1?.textContent?.trim()).toBe(fixture.componentInstance.gameTitle);
+    });
+
+    it("keeps the live-region announcer out of the Activity Log aside it isn't part of", () => {
+      const fixture = TestBed.createComponent(AppComponent);
+      fixture.detectChanges();
+      const el = fixture.nativeElement as HTMLElement;
+
+      expect(el.querySelector('app-live-announcer')).withContext('still rendered').toBeTruthy();
+      expect(el.querySelector('aside app-live-announcer')).toBeNull();
+    });
+  });
 });
