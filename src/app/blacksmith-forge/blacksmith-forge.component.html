@@ -18,7 +18,7 @@
       [appTooltip]="tooltip(p.config)"
       [disabled]="craftDisabled(p)"
       (click)="craft(p)">
-      <div class="craft-button-fill" *ngIf="p.active" [style.width.%]="p.progress * 100"></div>
+      <div class="craft-button-fill" *ngIf="p.active" aria-hidden="true" [style.width.%]="p.progress * 100"></div>
       <span class="craft-button-label">{{ statusLabel(p) }}</span>
     </button>
   </div>

@@ -25,6 +25,7 @@
           <div
             class="timed-button-fill"
             *ngIf="t.running && t.config.duration.type === 'fixed'"
+            aria-hidden="true"
             [style.width.%]="t.progress * 100"></div>
           <span class="timed-button-label">{{ timedActionLabel(t) }}</span>
         </button>
@@ -39,7 +40,7 @@
           (pointerup)="onCraftHoldEnd(c)"
           (pointerleave)="onCraftHoldEnd(c)"
           (pointercancel)="onCraftHoldEnd(c)">
-          <div class="crafting-button-fill" [style.width.%]="c.progress * 100"></div>
+          <div class="crafting-button-fill" aria-hidden="true" [style.width.%]="c.progress * 100"></div>
           <span class="crafting-button-label">{{ craftingLabel(c) }}</span>
         </button>
       </div>
@@ -50,7 +51,7 @@
           [attr.data-testid]="'crafting-action-' + c.config.id"
           [appTooltip]="craftingTooltip(c.config)"
           (click)="onCraftClick(c)">
-          <div class="crafting-button-fill" [style.width.%]="c.progress * 100"></div>
+          <div class="crafting-button-fill" aria-hidden="true" [style.width.%]="c.progress * 100"></div>
           <span class="crafting-button-label">{{ craftingLabel(c) }}</span>
         </button>
       </div>
