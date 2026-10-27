@@ -1,7 +1,8 @@
 <div class="objectives-panel">
   <app-empty-state *ngIf="objectives.length === 0" message="No objectives available"></app-empty-state>
 
-  <div
+  <button
+    type="button"
     class="objective-row"
     *ngFor="let o of objectives"
     [class.completed]="o.completed"
@@ -11,6 +12,7 @@
     <div
       class="objective-fill"
       *ngIf="!o.completed"
+      aria-hidden="true"
       [style.width.%]="progressPercent(o)"
       [style.background]="fillColor(o)"></div>
     <div class="objective-desc">
@@ -29,5 +31,5 @@
       <span *ngIf="o.claimable" class="objective-claim">CLAIM</span>
       <span *ngIf="o.completed" class="objective-done">DONE</span>
     </div>
-  </div>
+  </button>
 </div>
