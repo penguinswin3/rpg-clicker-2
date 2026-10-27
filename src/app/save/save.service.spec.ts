@@ -7,7 +7,6 @@ import { StatisticsService } from '../statistics/statistics.service';
 import { UpgradesService } from '../upgrades/upgrades.service';
 import { UnlocksService } from '../shared/unlocks.service';
 import { TimedActionsService } from '../timed-actions/timed-actions.service';
-import { HoldHintService } from '../shared/hold-hint.service';
 import { CraftingService } from '../crafting/crafting.service';
 import { EquipmentService } from '../fighter-combat/equipment.service';
 import { CombatService } from '../fighter-combat/combat.service';
@@ -40,7 +39,6 @@ const EXPECTED_SAVE_KEYS: (keyof SaveData)[] = [
   'upgrades',
   'unlocks',
   'timedActions',
-  'holdHints',
   'crafting',
   'equipment',
   'combat',
@@ -77,7 +75,6 @@ describe('SaveService', () => {
     const upgrades = TestBed.inject(UpgradesService);
     const unlocks = TestBed.inject(UnlocksService);
     const timedActions = TestBed.inject(TimedActionsService);
-    const holdHint = TestBed.inject(HoldHintService);
     const crafting = TestBed.inject(CraftingService);
     const equipment = TestBed.inject(EquipmentService);
     const combat = TestBed.inject(CombatService);
@@ -87,7 +84,6 @@ describe('SaveService', () => {
     unlocks.unlock('guildContract');
     timedActions.start('fighter-guild-contract');
     statistics.recordAction('fighter-hard-labor');
-    holdHint.markHeld('fighter-hard-labor');
     wallet.add('ingot', 10);
     crafting.click('blacksmith-smith-metal');
     equipment.addToInventory('ring-swift-strike');
@@ -106,7 +102,6 @@ describe('SaveService', () => {
     expect(decoded.upgrades).toEqual(upgrades.getSnapshot());
     expect(decoded.unlocks).toEqual(unlocks.getSnapshot());
     expect(decoded.timedActions).toEqual(timedActions.getSnapshot());
-    expect(decoded.holdHints).toEqual(holdHint.getSnapshot());
     expect(decoded.crafting).toEqual(crafting.getSnapshot());
     expect(decoded.equipment).toEqual(equipment.getSnapshot());
     expect(decoded.combat).toEqual(combat.getSnapshot());

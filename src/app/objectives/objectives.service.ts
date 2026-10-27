@@ -5,7 +5,6 @@ import { CharacterSelectService } from '../character-select/character-select.ser
 import { UnlocksService } from '../shared/unlocks.service';
 import { UpgradesService } from '../upgrades/upgrades.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
-import { AttentionService } from '../shared/attention.service';
 import { getObjectiveFlavor } from '../configs/flavor-text';
 import { OBJECTIVES, ObjectiveConfig, ObjectiveReward } from '../configs/game-config';
 
@@ -45,7 +44,6 @@ export class ObjectivesService {
   private unlocks = inject(UnlocksService);
   private upgrades = inject(UpgradesService);
   private activityLog = inject(ActivityLogService);
-  private attention = inject(AttentionService);
 
   private reachedIds = new Set<string>();
   private completedIds = new Set<string>();
@@ -139,14 +137,6 @@ export class ObjectivesService {
     switch (reward.type) {
       case 'character':
         this.characterService.unlock(reward.characterId);
-        // Unlocking a character can reveal a previously-hidden prerequisite-gated
-        // objective (see ObjectiveConfig.prerequisiteCharacterId) — re-shine the
-        // Objectives tab at the exact transition, rather than relying on the fresh-game
-        // seed (SaveService.seedFreshGameAttention), which only covers objectives
-        // available from the very start.
-        if (OBJECTIVES.some(o => o.prerequisiteCharacterId === reward.characterId)) {
-          this.attention.markUnseen('tab:objectives');
-        }
         break;
       case 'system':
         this.unlocks.unlock(reward.systemId);

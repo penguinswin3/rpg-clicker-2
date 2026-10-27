@@ -1,18 +1,14 @@
 <div class="side-panel">
-  <div class="tab-bar">
-    <button
-      class="tab-btn"
-      *ngFor="let tab of tabs"
-      [class.active]="tab.id === activeTab"
-      [class.has-attention]="hasAttention(tab.id) && !reducedMotion"
-      [class.has-attention-static]="hasAttention(tab.id) && reducedMotion"
-      (click)="selectTab(tab.id)">
-      {{ tab.label }}
-    </button>
+  <div class="side-column">
+    <div class="column-header">[ Upgrades ]</div>
+    <div class="column-body">
+      <app-upgrades-panel></app-upgrades-panel>
+    </div>
   </div>
-
-  <div class="tab-body">
-    <app-upgrades-panel *ngIf="activeTab === 'upgrades'"></app-upgrades-panel>
-    <app-objectives-panel *ngIf="activeTab === 'objectives'"></app-objectives-panel>
+  <div class="side-column">
+    <div class="column-header">[ Objectives ]</div>
+    <div class="column-body">
+      <app-objectives-panel></app-objectives-panel>
+    </div>
   </div>
 </div>

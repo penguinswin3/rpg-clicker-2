@@ -4,8 +4,8 @@
 
 .side-panel {
   display: flex;
-  flex-direction: column;
-  width: 220px;
+  flex-direction: row;
+  width: 440px;
   flex-shrink: 0;
   background: #000;
   border-left: 1px solid #333;
@@ -14,37 +14,28 @@
   overflow: hidden;
 }
 
-.tab-bar {
+.side-column {
   display: flex;
-  background: #0a0a0a;
-  border-bottom: 1px solid #222;
-}
-
-.tab-btn {
-  flex: 1;
-  background: #000;
-  color: #444;
-  border: none;
+  flex-direction: column;
+  width: 220px;
+  flex-shrink: 0;
+  min-width: 0;
   border-right: 1px solid #222;
-  font-family: inherit;
-  // Matches .panel-header/.zone-header's 4px vertical padding + 12px font exactly, so
-  // this bar lines up with Party Vault's and the Button Zone's headers alongside it.
-  font-size: 12px;
-  padding: 4px 4px;
-  cursor: pointer;
-  transition: color 0.1s, background 0.1s;
 
   &:last-child { border-right: none; }
-
-  &:hover { color: #aaa; }
-
-  &.active {
-    color: #fff;
-    background: #111;
-  }
 }
 
-.tab-body {
+.column-header {
+  // Matches .panel-header/.zone-header's 4px vertical padding + 12px font exactly, so
+  // this lines up with Party Vault's and the Button Zone's headers alongside it.
+  background: #0a0a0a;
+  border-bottom: 1px solid #222;
+  color: #aaa;
+  padding: 4px 4px;
+  text-align: center;
+}
+
+.column-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;

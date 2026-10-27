@@ -34,7 +34,6 @@ export async function unlockAllSystems(page: Page): Promise<void> {
 /** Claims every currently-claimable Objectives row (loops since claiming one could in
  *  principle reveal another, though none do today). */
 export async function claimAllReadyObjectives(page: Page): Promise<void> {
-  await page.click('text=[ Objectives ]');
   while ((await page.locator('.objective-row.claimable').count()) > 0) {
     await page.locator('.objective-row.claimable').first().click();
   }

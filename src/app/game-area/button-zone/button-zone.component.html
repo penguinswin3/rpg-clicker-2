@@ -9,11 +9,9 @@
           [appTooltip]="primaryActionTooltip(action)"
           appHoldToClick
           [holdToClickIntervalMs]="autoClickIntervalMs"
-          (appHoldToClick)="onAction()"
-          (holdRepeat)="onHoldRepeat()">
+          (appHoldToClick)="onAction()">
           {{ actionLabel }}
         </button>
-        <div class="hold-hint" *ngIf="!hasHeld">hold to repeat</div>
       </div>
 
       <div class="timed-action-wrap" *ngFor="let t of timedActionsForActiveCharacter; trackBy: trackTimedAction">

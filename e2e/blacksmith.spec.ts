@@ -26,7 +26,6 @@ test.describe('Blacksmith', () => {
 
     expect(await page.locator('.character-box', { hasText: 'Blacksmith' }).count()).toBe(0);
 
-    await page.click('text=[ Objectives ]');
     const row = page.locator('.objective-row', { hasText: 'Collect Prey' });
     await expect(row).toHaveClass(/claimable/);
     await row.click();

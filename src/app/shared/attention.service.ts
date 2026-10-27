@@ -2,11 +2,10 @@ import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs';
 
 /**
- * Tracks "there's something new here" state for the shine/glow effect — a tab
- * (`tab:upgrades`, `tab:objectives`) or a character box (`character:ranger`) stays
- * marked until the player actually navigates to/selects it. Deliberately generic (a
- * flat set of string keys) so any future "new thing available" case reuses this
- * instead of each feature inventing its own boolean flag.
+ * Tracks "there's something new here" state for the shine/glow effect — e.g. a
+ * character box (`character:ranger`) stays marked until the player actually selects it.
+ * Deliberately generic (a flat set of string keys) so any future "new thing available"
+ * case reuses this instead of each feature inventing its own boolean flag.
  */
 @Injectable({ providedIn: 'root' })
 export class AttentionService {

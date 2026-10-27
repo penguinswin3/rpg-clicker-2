@@ -1,7 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Subject } from 'rxjs';
 import { WalletService } from '../economy/wallet.service';
-import { AttentionService } from '../shared/attention.service';
 import { UPGRADES, UpgradeConfig, TimedActionConfig } from '../configs/game-config';
 
 export interface UpgradeState {
@@ -29,13 +28,11 @@ function isUpgradesSnapshot(
  * `getActionAmountBonus(actionId)`, `PerSecondCalculatorService` asks for
  * `getGeneratorRateBonus(generatorId)`, `TimedActionsService` asks for the three
  * timed-action bonuses below. Neither of those services is asked about in
- * return (no circular dependency) — this service only ever depends on `WalletService`
- * and `AttentionService`.
+ * return (no circular dependency) — this service only ever depends on `WalletService`.
  */
 @Injectable({ providedIn: 'root' })
 export class UpgradesService {
   private wallet = inject(WalletService);
-  private attention = inject(AttentionService);
 
   private levels = new Map<string, number>();
   private unlockedIds = new Set<string>(UPGRADES.filter(u => u.unlocked).map(u => u.id));
@@ -51,13 +48,10 @@ export class UpgradesService {
     return this.unlockedIds.has(upgradeId);
   }
 
-  /** Idempotent — unlocking an already-unlocked upgrade is a no-op. Re-shines the
-   *  Upgrades tab (see AGENTS.md) since this is exactly the "a newly-available upgrade
-   *  was just revealed" moment that shine is meant for. */
+  /** Idempotent — unlocking an already-unlocked upgrade is a no-op. */
   unlock(upgradeId: string): void {
     if (this.unlockedIds.has(upgradeId)) return;
     this.unlockedIds.add(upgradeId);
-    this.attention.markUnseen('tab:upgrades');
     this.changesSource.next();
   }
 

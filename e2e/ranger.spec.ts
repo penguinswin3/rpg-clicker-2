@@ -16,7 +16,6 @@ test.describe('Ranger', () => {
     await expect(page.locator('.character-box', { hasText: 'Ranger' })).toBeVisible();
     await selectCharacter(page, 'Ranger');
 
-    await page.click('text=[ Upgrades ]');
     const upgradesText = await page.locator('.upgrades-panel').innerText();
     expect(upgradesText).toContain('Better Offcuts');
     expect(upgradesText).toContain('Extra Baiting');

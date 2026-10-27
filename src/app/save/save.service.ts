@@ -9,12 +9,11 @@ import { AttentionService } from '../shared/attention.service';
 import { UnlocksService } from '../shared/unlocks.service';
 import { UpgradesService } from '../upgrades/upgrades.service';
 import { TimedActionsService } from '../timed-actions/timed-actions.service';
-import { HoldHintService } from '../shared/hold-hint.service';
 import { CraftingService } from '../crafting/crafting.service';
 import { EquipmentService } from '../fighter-combat/equipment.service';
 import { CombatService } from '../fighter-combat/combat.service';
 import { PatternCraftingService } from '../blacksmith-forge/pattern-crafting.service';
-import { VERSION, OBJECTIVES, UPGRADES } from '../configs/game-config';
+import { VERSION } from '../configs/game-config';
 import { SaveData, SCHEMA_VERSION } from './save-data';
 
 const SAVE_KEY = 'rpg-clicker-2-save';
@@ -39,7 +38,6 @@ export class SaveService {
   private unlocks = inject(UnlocksService);
   private upgrades = inject(UpgradesService);
   private timedActions = inject(TimedActionsService);
-  private holdHint = inject(HoldHintService);
   private crafting = inject(CraftingService);
   private equipment = inject(EquipmentService);
   private combat = inject(CombatService);
@@ -96,7 +94,6 @@ export class SaveService {
       upgrades: this.upgrades.getSnapshot(),
       unlocks: this.unlocks.getSnapshot(),
       timedActions: this.timedActions.getSnapshot(),
-      holdHints: this.holdHint.getSnapshot(),
       crafting: this.crafting.getSnapshot(),
       equipment: this.equipment.getSnapshot(),
       combat: this.combat.getSnapshot(),
@@ -150,29 +147,8 @@ export class SaveService {
 
   private loadFromLocalStorage(): void {
     const raw = localStorage.getItem(SAVE_KEY);
-    if (!raw) {
-      this.seedFreshGameAttention();
-      return; // fresh game — createdAt already defaulted to now
-    }
+    if (!raw) return; // fresh game — createdAt already defaulted to now
     this.parse(raw, /* apply */ true);
-  }
-
-  /**
-   * One-time setup for a truly fresh game (no prior save at all): whatever's available
-   * from the very start gets its shine seeded here, since there's no real "unlock"
-   * event to hang it off. Every objective today has no prerequisite (available
-   * immediately), so this is the only place that ever needs to seed 'tab:objectives' —
-   * once objectives can be locked behind a prerequisite, whichever system reveals a
-   * newly-available one should call `attention.markUnseen('tab:objectives')` there
-   * instead, same as CharacterSelectService.unlock() already does for characters.
-   */
-  private seedFreshGameAttention(): void {
-    if (OBJECTIVES.length > 0) {
-      this.attention.markUnseen('tab:objectives');
-    }
-    if (UPGRADES.length > 0) {
-      this.attention.markUnseen('tab:upgrades');
-    }
   }
 
   /** Parses and validates a base64 save. Optionally applies it to every service. */
@@ -197,7 +173,6 @@ export class SaveService {
       this.upgrades.restore(data.upgrades);
       this.unlocks.restore(data.unlocks);
       this.timedActions.restore(data.timedActions);
-      this.holdHint.restore(data.holdHints);
       this.crafting.restore(data.crafting);
       this.equipment.restore(data.equipment);
       this.combat.restore(data.combat);

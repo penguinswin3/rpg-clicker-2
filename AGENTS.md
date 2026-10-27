@@ -1,1111 +1,413 @@
 # RPG Clicker 2 — Agent Design Guide
 
-This file is the source of truth for visual style and system design decisions in this
-project. It exists so that any agent (or contributor) working on a new feature makes the
-same choices a human designer steeped in this game's taste would make, without having to
-re-derive them from scratch each time.
-
-**This file is a living document.** Whenever the developer makes an opinionated design
-decision it must be added here. If a decision changes in the future, update this file so
-the correction sticks. If a rule here turns out to be wrong or superseded, edit or remove
-it rather than leaving it stale. It is not required to create a section for every single
-feature or screen or request — focus on broad-scale design and specific, non-obvious
-instructions, not a changelog of what got built.
+Source of truth for this project's visual style and system architecture. Read before
+building a new feature so choices match existing conventions instead of re-deriving them.
+Living document — add new decisions here, correct/remove stale ones. Record only broad,
+reusable decisions, not a changelog of what got built.
 
 ---
 
-## 1. Visual Style Baseline: The Activity Log
+## 1. Visual Style Baseline
 
-The [Activity Log](src/app/activity-log/) is the reference implementation for the whole
-game's look. It currently has "no notes" from Brad — treat its actual CSS/markup as
-ground truth over any prose description below. When building a new component, prefer
-copying its patterns over inventing new ones.
+The [Activity Log](src/app/activity-log/) is the reference implementation — copy its
+CSS/markup patterns for new components rather than inventing new ones.
 
-Concretely, that means:
+- **Font:** `'Courier New', Courier, monospace` everywhere. Terminal-styled game, no
+  decorative fonts.
+- **No emojis, anywhere.** Use plain Unicode text glyphs for symbols (`ᱛ`, `§`, `<`, `~`,
+  `¤`, `‡`), never pictographs.
+- **Backgrounds:** near-black (`#000`/`#0a0a0a`/`#111`), panels darker than headers,
+  headers darker than hover states.
+- **Borders:** thin 1px, `#222`–`#333` for internal dividers; `#fff` only for the
+  outermost separating edge.
+- **Bracket iconography:** section titles in literal brackets (`[ ACTIVITY LOG ]`);
+  collapse/expand uses `[-]`/`[+]` project-wide (§2) — not `[>]`-style arrows.
+- **Filter/toggle bars:** small, dense, uppercase monospace buttons, 1px border, lit up
+  only when active, gray (`#444`) otherwise — the model for any toggle-group UI.
+- **Scrollbars:** custom thin (6px) dark scrollbars on every internally-scrolling panel.
+- **Density over whitespace:** tight padding, 11–12px body text, multi-column layouts
+  over single-column-with-dead-space.
+- **Inline colored tokens:** log text parses `{{currencyId|displayText}}` and colors just
+  that substring with the currency's accent color — reuse this "colored token inside
+  plain sentence" pattern anywhere game text references a currency/resource/character.
 
-- **Font:** `'Courier New', Courier, monospace` everywhere. This is a terminal-styled
-  game — no rounded, humanist, or decorative fonts.
-- **No emojis, ever — anywhere, for anything.** Not in currency/resource symbols, not in
-  log messages, not in UI chrome, not even as a "temporary" placeholder. Where an icon or
-  symbol is needed (e.g. a currency's `RESOURCE_FLAVOR.symbol`, §7), use a plain Unicode
-  text glyph instead — e.g. `ᱛ`, `§`, `<`, `~`, `¤`, `‡` — the same family of characters
-  already in use, not a pictograph/emoji standing in for one.
-- **Backgrounds:** near-black (`#000`, `#0a0a0a`, `#111`), never a "modern UI"
-  light/gray-white surface. Panels are darker than their headers, headers darker than
-  hover states.
-- **Borders:** thin, 1px, mostly `#222`–`#333` for internal dividers, brighter (`#fff`)
-  only for the outermost separating edge (e.g. `.log-panel`'s `border-top: 2px solid #fff`).
-- **Bracket/terminal iconography:** section titles wrapped in literal brackets, e.g.
-  `[ ACTIVITY LOG ]`; toggle affordances are literal characters: `[-]` to collapse,
-  `[+]` to expand — see §2 for the unified convention.
-- **Filter/segmented-button bar:** small, dense, uppercase, monospace buttons with a
-  1px border that only lights up (color + border + subtle tinted background) when
-  active; muted gray (`#444`) otherwise. This is the model for any toggle-group UI
-  (filters, category tabs, on/off switches).
-- **Scrollbars:** custom-styled thin (6px) dark scrollbars, not the OS default — apply
-  this to any other internally-scrolling panel (log body, upgrade list, statistics list).
-- **Density over whitespace:** tight `padding`, small `font-size` (11–12px body text),
-  `line-height: 1.5`. This is a data-dense terminal UI, not a spacious modern SaaS
-  dashboard. Prefer dense, multi-column layouts over single-column lists with dead space
-  (see §4 Upgrades for the concrete example).
-- **Inline colored tokens:** the log parses `{{currencyId|displayText}}` tokens and
-  colors just that substring using the currency's accent color, leaving surrounding
-  text uncolored. This "colored token inside plain sentence" pattern should be reused
-  anywhere game text references a currency, resource, or character by name.
+**Layout:** Top Bar fixed to the top (title centered, Jacks/Crown docked left, Stats/
+Options docked right). Center column: primary/timed-action buttons on the top half,
+minigame content on the bottom half (§15). Party Vault and Character Select are
+collapsible side panels. Activity Log is fixed to the bottom, full width, collapsible —
+`.main-layout` reserves a constant `padding-bottom` sized for its *expanded* height so
+collapsing it never shifts content above. Party Vault's header, the Button Zone's header,
+and the right-hand side panel's column headers all share the same height (4px vertical
+padding, 12px font) — check this by eye on any change.
 
-### Layout anchor points
-
-- **Activity Log:** fixed to the bottom of the viewport, full width, collapsible.
-  **Collapsing/expanding it must never move anything above it.** `.main-layout`
-  (`app.component.scss`) reserves a constant `padding-bottom` sized for the log's
-  *expanded* height regardless of its current collapsed/expanded state — that padding
-  eats into `.main-layout`'s own box, so shrinking it to match a collapsed log (the
-  original approach) visibly shifted every centered zone above it (Button Zone,
-  minigames) on every toggle. A collapsed log now just leaves empty space below the
-  reserved area instead of the reserved area itself shrinking — that trade-off (a gap
-  vs. content jumping) is deliberate; don't "fix" the gap by resizing the padding again.
-- **Top Bar:** fixed to the top — ASCII title centered, Jacks/Crown docked left
-  (unlock-gated), Stats/Options docked right. Nav buttons stretch to fill the bar's full
-  height (`align-items: stretch` on `.top-bar`/`.nav-group`) rather than sitting small
-  and center-aligned within it — do this for any button added to the bar later.
-- **Game Screen (center):** top half is reserved for the primary clicker button(s) and
-  any unlocked timed-action buttons (see §6), bottom half for minigame content (§15).
-- **Side panels** (Party Vault / wallet, Character Select): collapsible sidebars.
-- **Header row alignment:** Party Vault's `.panel-header`, the Button Zone's
-  `.zone-header`, and the side panel's `.tab-bar` all sit in the same visual row and
-  must be the same height — same vertical padding (4px) and font-size (12px) on all
-  three, even though the tab bar's buttons need their own active/inactive coloring.
-  Check this by eye whenever any of the three changes; a mismatch here is immediately
-  obvious since the whole row visibly steps.
-- **Buttons keep running in the background regardless of what's on screen.** The primary
-  click button's effect is instant, but anything with a duration (timed actions, §6;
-  passive generators, §7) is owned by a service, not a component — switching character,
-  opening a modal, or navigating away never pauses or resets one. See §6 for how this is
-  guaranteed concretely.
+Anything with a duration (timed actions §6, passive generators §8) is owned by a service,
+not a component — switching character/screen/modal never pauses or resets it.
 
 ---
 
 ## 2. Collapse Direction
 
-**Rule:** collapse/expand affordances use `[-]`/`[+]` (state-based) project-wide — this
-is the Activity Log's convention, the "no notes" baseline component. Party Vault and
-Character Select's `[>]`-style directional arrows were an inconsistency, not a
-deliberate distinction; sidebars adopt `[-]`/`[+]` rather than the reverse.
+Collapse/expand affordances use `[-]`/`[+]` (state-based) everywhere, project-wide.
 
 ---
 
 ## 3. Color Hierarchy
 
-There is a deliberate, tiered color language. Keep new UI inside this palette rather than
-introducing arbitrary new colors:
-
 | Color | Meaning |
 |---|---|
 | Gray (`#444`–`#aaa`) | Flavor text, dividers, timestamps, disabled/inactive state |
-| White (`#bbb`–`#fff`) | Normal text, primary accents (e.g. the main button, active state) |
-| Light blue / Cyan (`#0ff`) | Upgrades and other "impactful" interactive elements |
-| Gold (`#ffd700`) | Rare, one-off upgrades, a reward waiting to be claimed, and rare log messages (tier above cyan) |
-| Purple | Reserved for **Relic**-tier items — the highest power tier (not yet implemented) |
-| Green / Yellow-ish / Red | Semantic log message states: success / warn / error |
+| White (`#bbb`–`#fff`) | Normal text, primary accents |
+| Cyan (`#0ff`) | Upgrades and other "impactful" interactive elements |
+| Gold (`#ffd700`) | Rare/one-off upgrades, an unclaimed reward, rare log messages |
+| Purple | Relic-tier items — highest power tier |
+| Green / Yellow / Red | Semantic log states: success / warn / error |
 
-Notes and open issues to keep in mind (Brad's words, paraphrased):
-
-- The gray-vs-white line is a little fuzzy today (e.g. headers) — when in doubt, white
-  reads as "content", gray reads as "chrome/meta".
-- **Correction:** top-bar nav buttons (Jacks/Crown/Stats/Options) use white label text,
-  not gray — gray read as too muted/low-contrast for primary navigation specifically.
-  Gray is still right for lower-emphasis chrome (dividers, timestamps, disabled state);
-  this is scoped to top-bar nav, not a blanket reversal of the gray-chrome rule above.
-- Rate/delta displays use color to carry meaning, not just currency identity: positive
-  is green, negative is red, and **exactly zero is gray** (`#666`) — a `0/s` rate is
-  inactive/informational, not a "positive" reading, so it shouldn't get the green
-  treatment. Apply this anywhere a signed rate or delta is shown (Party Vault's rate
-  column and per-source breakdown both do this).
-- Collapse arrows / pure interaction-chrome should bias toward gray/white, not cyan —
-  reserve cyan/gold/purple for things that represent in-game power/rarity, not UI
-  plumbing. **Deliberate exception:** the top-bar "Dev Tools" button (only rendered when
-  `DEV_TOOLS_ENABLED` in `game-config.ts` is true) is cyan specifically to look
-  distinct/alarming from real nav chrome, not to extend "impactful upgrade" meaning to it.
-- A claimable Objective row (§5) uses gold, not gray/white chrome, even though it's
-  arguably "just UI" — a reward sitting there waiting to be collected reads closer to a
-  rare/noteworthy event than to pure interaction chrome.
-- Every currency gets its own persistent color + symbol — this pairing is core to the
-  game's identity (see §7 Party Vault) and should extend to any new currency, upgrade
-  tier, or resource-like entity. Characters also have associated colors, but used far
-  more sparingly than currency colors (e.g. a single letter/color badge in a collapsed
-  selector) — don't over-apply character color the way currency color is applied
-  everywhere.
-- **Gotcha:** `body` has a fallback `color: #bbb` (`styles.scss`) specifically so plain
-  text with no explicit color rule doesn't render invisible black-on-black. Still give
-  every new text element its own explicit color per this table; the fallback is a safety
-  net, not a substitute.
+- Rate/delta displays: positive green, negative red, **exactly zero is gray** (`#666`) —
+  zero is informational, not "positive."
+- Pure interaction chrome (collapse arrows, etc.) biases gray/white — reserve
+  cyan/gold/purple for in-game power/rarity, not UI plumbing. Exception: the Dev Tools
+  nav button is cyan deliberately, to look alarming/distinct from real nav chrome.
+- A claimable Objective row uses gold even though it's "just UI" — a waiting reward reads
+  as rare/noteworthy.
+- Every currency has a persistent color + symbol pairing; characters have colors too but
+  used far more sparingly (a badge letter, not everywhere).
+- `body`'s fallback `color: #bbb` is a black-on-black safety net only — always give new
+  text its own explicit color.
 
 ---
 
 ## 4. Upgrades
 
-- Upgrades modify the numbers and mechanics of buttons and minigames (multipliers,
-  unlocks, mechanical changes — not just flat stat bumps), paid from wallet currencies.
-- **Unlock requirements are independent from cost/affordability** — e.g. a prerequisite
-  upgrade level, or a system-level unlock. Visually distinguish locked/hidden vs.
-  visible-but-unaffordable.
-- **Locked upgrades render no card at all** (`UpgradeConfig.unlocked` — "starts the game
-  unlocked", same meaning as `CharacterConfig.unlocked` — vs. `UpgradesService.unlock()`
-  for everything else) — `UpgradesPanelComponent` filters to unlocked before the
-  template sees them, same "invisible until unlocked" precedent Character Select set for
-  a locked character (§8), rather than a dimmed/locked placeholder card. Unlocking
-  re-shines the Upgrades tab (`AttentionService`) since that's exactly the "a newly
-  available upgrade was just revealed" moment §6/Attention describes.
-- **Layout:** a multi-column card grid (`auto-fill, minmax(140px, 1fr)`), not a
-  single-column list — a single column leaves a lot of dead space when only one upgrade
-  category is unlocked yet. Each card shows name, description, current level/cap, and a
-  cyan Buy button (in-game-power color, §3) with cost + currency symbol, or a gray
-  "MAXED" label.
-- Descriptions should be concise but unambiguous about whether an effect is flat or
-  scales per level (game 1's terse "+1" was ambiguous on this). Prefer showing both the
-  current and next level's effect where space allows — game 1 only ever showed next.
-- **No hard level cap by default** unless there's a specific design reason for one (game
-  1's cap of 999 was arbitrary and effectively unreachable).
-- Build resource-symbol tooltips in from the start, especially for goal/unlock-gated
-  symbols the player hasn't seen yet (§7's symbol-per-currency rule).
-- **Config shape is a discriminated union on purpose** — `UpgradeConfig.effect` covers
-  `action-amount`, `generator-rate`, `timed-action-yield` (flat bonus to a timed
-  action's payout — High Quality Contracts), `timed-action-duration` (see below —
-  Faster Contracts), and `payout-double-chance` (chance to double a gold payout,
-  rolled independently each time any of `targetActionIds` grants a reward — Bonus
-  Payout, shared across Hard Labor *and* Guild Contract via one upgrade). Every number
-  an upgrade needs — cost, cost curve, level cap, effect magnitude — lives in
-  `game-config.ts`, never hardcoded in `UpgradesService` or the panel component.
-- **`timed-action-duration` is multiplicative decay, not a flat "-Nms per level."**
-  `durationMs *= (1 - decayPerLevel) ^ level` — a flat per-level subtraction would hit
-  zero/negative at high levels; decaying toward (never reaching) zero is what makes each
-  additional level a genuinely smaller absolute improvement than the last. Faster
-  Contracts' `decayPerLevel: 0.1` on Guild Contract's 10s base reads as "~1s faster" at
-  level 1 (10s → 9s) while still diminishing every level after — tune `decayPerLevel`
-  per upgrade to roughly `1 / baseDurationMs` if a future one wants that same "~1 unit
-  faster at level 1" feel.
-- **A doubled payout logs at `'rare'`, not `'default'`** — `payout-double-chance` is
-  rolled at the exact moment a payout is granted (`ButtonZoneComponent.onAction`,
-  `TimedActionsService.complete`), not baked into the base amount, and a lucky double is
-  noteworthy enough to earn the louder log level (see "Game action log messages" below).
-- **Cost curve:** `cost(level) = ceil(baseCost * costScalingFactor^level)`, where `level`
-  is the number of levels already owned. `costScalingFactor` is per-upgrade, not global
-  (1.15 for `hard-work`, a common incremental-game default) — tune it per upgrade.
-- `UpgradesService` only depends on `WalletService`; `ButtonZoneComponent`
-  (`getActionAmountBonus`) and `PerSecondCalculatorService` (`getGeneratorRateBonus`) ask
-  it for a bonus by id, and it never reaches back into either — two services depending on
-  each other directly would be a circular DI error, same principle as
-  `ObjectivesService` → `CharacterSelectService`.
-- `generator-rate` effects and `getGeneratorRateBonus` are fully wired but unexercised
-  (`GENERATORS` is still empty) — registering a real generator later should "just work"
-  without touching `PerSecondCalculatorService` again.
-- Purchasing logs like any other game action (see "Game action log messages" below).
-  `UpgradesService.purchase()` returns the cost actually charged (not just a boolean) so
-  the log can report the real number without recomputing it after the level changed.
-- `hideMaxedUpgrades` (`SettingsService`) filters maxed upgrades out of the list when on.
-- **Every upgrade belongs to exactly one character** (`UpgradeConfig.characterId`) —
-  `UpgradesPanelComponent` filters to whichever character is currently active
-  (`CharacterSelectService.active`/`active$`), the same per-character filtering the
-  Button Zone already does for `CHARACTER_ACTIONS`/`TIMED_ACTIONS`. An upgrade never
-  shows while its character isn't selected, even if unlocked.
+- Modify button/minigame numbers and mechanics, paid from wallet currencies.
+- Unlock requirements (prerequisite level, system unlock) are independent from
+  cost/affordability.
+- **Locked upgrades render no card at all** (`UpgradeConfig.unlocked` = starts unlocked,
+  vs. `UpgradesService.unlock()` for everything else) — filtered before the template sees
+  them, same "invisible until unlocked" treatment as Character Select (§9) and Objectives
+  (§5).
+- Layout: multi-column card grid, not single-column.
+- No hard level cap by default.
+- **`UpgradeConfig.effect` is a discriminated union**: `action-amount`, `generator-rate`,
+  `timed-action-yield`, `timed-action-duration`, `payout-double-chance`. Every tunable
+  number (cost, cost curve, cap, magnitude) lives in `game-config.ts`, never hardcoded in
+  the service/component.
+- `timed-action-duration` decays multiplicatively (`durationMs *= (1 - decayPerLevel) ^
+  level`), never a flat per-level subtraction, so it approaches but never reaches zero.
+- Cost curve: `cost(level) = ceil(baseCost * costScalingFactor^level)`, tuned per upgrade.
+- `UpgradesService` only depends on `WalletService`; consumers (`ButtonZoneComponent`,
+  `PerSecondCalculatorService`) ask it for a bonus by id — never a two-way dependency
+  between services (circular DI).
+- Every upgrade belongs to exactly one character (`UpgradeConfig.characterId`) and is
+  filtered to the active character, same convention as Button Zone actions.
 
 ---
 
 ## 5. Objectives
 
-- Quest-like tasks: purchase N upgrades, act N times, acquire N of a resource, or
-  complete a minigame in a specific way. Doubles as tutorialization and milestone
-  pacing — an objective's copy should teach, not just track.
-- **Implemented types**, a discriminated union on `ObjectiveConfig.type`:
-  - `resource-threshold` — acquire N of a resource *lifetime*, not "currently hold N in
-    the wallet" — reads `StatisticsService.getLifetimeGainedFor(resourceId)`, not
-    `WalletService.getAmount`. Spending gold on an upgrade must never undo progress
-    toward "obtain 100 gold"; tracking the wallet balance directly would let it. This is
-    also why `ObjectivesService` doesn't depend on `WalletService` at all.
-  - `action-count` — perform N actions, summed across *every* recorded action
-    (`StatisticsService.getActionCounts()`), not one specific character/button, so it
-    stays meaningful as more characters/actions are added.
-  - Purchase-N-upgrades and minigame-specific types still need their own union member
-    when built — don't bolt them onto either existing shape.
-- **Reaching a target is not the same as completing it.** Hitting the target makes an
-  objective *claimable*; the player must click the row (`ObjectivesService.claim`) to
-  actually apply the reward and mark it done — an objective's reward never fires
-  silently the instant a number crosses a threshold. "Reached" and "claimed" are both
-  sticky, tracked independently of the live current/target numbers — spending back down
-  (or however a future counter might regress) never un-reaches or un-claims something
-  already past that point.
-- Claiming is a real player action and logs through the Activity Log at `'success'`
-  level — a deliberate exception to the usual flavor-sentence-plus-colored-token shape
-  (see "Game action log messages" below), since an objective's reward is often a
-  character/system unlock, not a currency amount, so there's no token to append.
-- **`ObjectiveConfig.rewards` is a *list*, not a single value** — one objective can
-  unlock several things at once. Each entry is still a single-purpose union
-  (`character` | `system` | `upgrade`) since completing an objective won't always unlock
-  a character — sometimes it's a system (Jacks, Crown, Minigames, Guild Contract, ...),
-  an upgrade, or several of each. `'upgrade'` unlocks via `UpgradesService.unlock()` now
-  that upgrades have a real locked/unlocked concept (§4). Never have `ObjectivesService`
-  mutate another service's state directly — always route through the owning service
-  (`CharacterSelectService`, `UnlocksService`, `UpgradesService`).
-- **"Work 15 times" is the first objective** (`work-15-times` in `OBJECTIVES` — array
-  order is display order), an `action-count` objective whose four rewards unlock the
-  Guild Contract timed-action button (§6) *and* its three upgrades (High Quality
-  Contracts, Faster Contracts, Bonus Payout — §4) all at once. Its target count is a
-  config number (`targetCount`), not a magic number in code or copy — any future
-  "do N things" objective should be built the same way.
-- **Progress bar / completed-row treatment:** each unclaimed row fills left-to-right in
-  the target's color (a neutral white for objectives with no single resource, e.g.
-  `action-count`) at low opacity, behind the text. A claimable-but-unclaimed row gets a
-  gold border and a "CLAIM" label instead of the live progress numbers (§3 on why gold
-  here, not gray/white chrome). Completed rows drop the fill and shrink/gray out
-  entirely rather than disappearing — a persistent checklist, consistent with
-  Statistics' milestone pattern (§11).
-- **"New objective available" shine:** seeded once for a brand-new save
-  (`SaveService.seedFreshGameAttention`) for the objectives with no prerequisite. A
-  prerequisite-gated objective (see below) instead gets its shine the moment it actually
-  becomes available — `ObjectivesService.applyReward`'s `'character'` case re-shines
-  `tab:objectives` right after unlocking a character, if any `OBJECTIVES` entry has that
-  character as its `prerequisiteCharacterId`.
-- **Prerequisite-gated objectives:** `ObjectiveConfig.prerequisiteCharacterId` (optional)
-  hides an objective from `.objectives` (and skips it in `evaluateAll`) until
-  `CharacterSelectService.isUnlocked(id)` is true for that character — same "invisible
-  until unlocked" treatment as a locked character/upgrade, not a dimmed placeholder row.
-  `unlock-blacksmith` (gated on `ranger`) is the reference example: it stays completely
-  absent from the Objectives panel until Ranger is unlocked, then appears and shines per
-  the bullet above. Extend this field (or add a sibling `prerequisiteObjectiveId`/similar
-  if a future case needs to gate on something other than a character) rather than
-  inventing a separate always-vs-conditionally-visible objective list.
-- **`specific-action-count`** is the third `ObjectiveConfig` type, alongside
-  `resource-threshold`/`action-count`: like `action-count` but scored off one exact
-  action id (`StatisticsService.getActionCount(actionId)`) instead of every recorded
-  action summed together — for a goal like "collect prey 25 times" that must count only
-  Bait Trap's own collections, not Hard Labor/Cut Bait/etc mixed in.
+- Quest-like tasks (purchase N upgrades, act N times, acquire N resource, minigame
+  milestone) — copy should teach, not just track.
+- **`ObjectiveConfig.type` is a discriminated union:** `resource-threshold` (lifetime
+  gained, not current wallet balance — spending must never undo progress), `action-count`
+  (every recorded action, summed), `specific-action-count` (one exact action id only).
+- **Reaching a target ≠ completing it.** Hitting target makes it *claimable*; the player
+  must click to claim (`ObjectivesService.claim`) — a reward never fires silently. Both
+  "reached" and "claimed" are sticky, independent of the live current/target numbers.
+- **`ObjectiveConfig.rewards` is a list** — one objective can unlock several things at
+  once, each a single-purpose union (`character`/`system`/`upgrade`). `ObjectivesService`
+  never mutates another service's state directly — always routes through the owning one.
+- **Prerequisite-gated objectives** (`ObjectiveConfig.prerequisiteCharacterId`) stay
+  completely absent until the prerequisite unlocks, same "invisible until unlocked"
+  treatment as a locked character/upgrade.
+- Claiming logs at `'success'` level — an exception to the usual flavor+token log shape
+  (§18), since the reward is often an unlock, not a currency amount.
 
 ---
 
 ## 6. Timed Actions (second buttons)
 
-A character's "second button" — Guild Contract (Fighter, 10s duration, +15 Gold,
-`TIMED_ACTIONS` in `game-config.ts`) is the first, unlocked by the "Work 15 times"
-objective (§5). Click to start a fixed-duration timer; collect a flat reward once it
-finishes.
+A character's "second button" (e.g. Guild Contract) — click to start a fixed-duration
+timer, collect a flat reward on completion. Build new ones on `TimedActionsService`,
+never a one-off component timer.
 
-- **Progress renders as the button, not below it** — a low-opacity fill grows
-  left-to-right *behind* the button's own label while running (`.timed-button-fill`,
-  same layered-fill-behind-text shape as the Objectives row's `.objective-fill`, §5),
-  rather than a separate progress bar underneath. A disabled/running button already
-  reads as "busy"; the fill communicates how much longer, in the same space.
-- **Buttons in the Button Zone lay out left-to-right, not stacked.** The primary button
-  and every unlocked timed-action button are siblings in one row (`.zone-body`,
-  wrapping if there isn't room) — a new second/third button for a character extends the
-  row, it doesn't add a new vertical section.
-- **Every button in this zone shares one visual size**, not just a family resemblance —
-  the primary button and every timed-action button extend the same `%zone-button` Sass
-  placeholder (`button-zone.component.scss`: font-size, padding, border all come from
-  there), so a new button type is never smaller/larger than Hard Labor by accident. Only
-  layer on top of it (fill overlay, disabled state, hold-pulse) — don't redeclare the
-  shared properties on a new button class.
-- **The "hold to repeat" hint retires itself once it's done its job — permanently, not
-  just for the session.** Hold-to-click buttons (`HoldToClickDirective`) must have a
-  visible affordance — game 1 had none and players never discovered the mechanic — but
-  once the player has actually held one (not just tapped it: the directive's
-  `holdRepeat` output only fires the first time a press produces a real repeat, distinct
-  from `appHoldToClick`'s per-tick output), that action id is marked in
-  `HoldHintService` (`src/app/shared/hold-hint.service.ts`, keyed by
-  `CharacterActionConfig.id`) and the hint stops rendering for that action for good —
-  persisted (`SaveData.holdHints`) so it doesn't come back after a reload. Keeps the UI
-  teaching the mechanic exactly once, ever, then getting out of the way.
-
-**This is the pattern for every timed/manual "start it and wait" button in the game,
-not just Guild Contract** — build new ones on `TimedActionsService`
-(`src/app/timed-actions/`) rather than a one-off component timer:
-
-- **All the numbers are config, not code** — `TimedActionConfig` (duration, reward
-  resource + amount, which `UnlocksService` key gates visibility) lives in
-  `game-config.ts`; the button label and completion log flavor live in `flavor-text.ts`
-  (`TIMED_ACTION_FLAVOR`) — same config-vs-flavor split as everything else.
-- **Running state is a single absolute start timestamp**, not a countdown or a
-  `setTimeout`. Completion is resolved by comparing real elapsed time
-  (`Date.now() - startedAt`) against the *effective* duration
-  (`UpgradesService.getTimedActionDurationMs`, §4) on `TIMED_ACTION_TICK_MS`'s interval —
-  this is what makes a timer keep running, and finish on time, no matter which
-  character/screen is currently displayed: nothing about completion depends on the
-  button's component staying mounted. It's also what makes a timer survive a page reload
-  mid-run for free — a restored start timestamp just means "more time has already
-  elapsed" on the very next tick.
-- **Completion checks run on their own fast interval, deliberately not
-  `GameLoopService`'s shared 1s tick.** `TIMED_ACTION_TICK_MS` (`game-config.ts`, 100ms)
-  is one constant shared by `TimedActionsService.checkCompletions()` *and*
-  `ButtonZoneComponent`'s progress-bar refresh, specifically so the fill hitting 100%
-  and the action actually completing land within one tick of each other. Piggybacking on
-  the 1s economy tick (the original design) let the bar sit at a "done-looking" 100% for
-  up to a second before the button re-enabled and the reward paid out — a visible hang at
-  the end. `GENERATORS`' shared-tick performance rationale (§7) is about keeping cost
-  proportional to *how many* generators are active, which doesn't apply here — there are
-  only ever a handful of timed actions, so polling them every 100ms is cheap regardless,
-  and getting the visual/actual completion moment to line up matters more than sharing
-  the tick.
-- Persisted via the usual `getSnapshot()`/`restore()` pair (start timestamps only,
-  `SaveData.timedActions`).
-- A running timer never blocks anything else — the primary click button, other timed
-  actions, navigation, all keep working normally while one is in progress.
-- The visible progress-bar animation is a separate, purely cosmetic refresh loop owned
-  by the consuming component (`ButtonZoneComponent`, on `TIMED_ACTION_TICK_MS`) — it only
-  makes already-current state look smooth; it never drives whether or when the action
-  actually completes.
-- **A `TimedActionConfig.duration` of type `'random'` (Bait Trap) never shows the
-  progress fill** — the fill's whole value is showing real elapsed/total info, and a
-  random duration is deliberately hidden from the player (§ below), so filling it would
-  leak the ratio and let an attentive player estimate the range. Its running button
-  instead cycles 1-3 trailing dots on the label (`ButtonZoneComponent.waitingDots`, purely
-  a function of wall-clock time, no extra state) — a "still working" pulse, not a
-  readout. A `'fixed'` duration (Guild Contract) keeps the real fill, since its length is
-  already known/stable.
-- **A `requiresCollection` action's "ready to collect" button (Bait Trap's Collect Prey)
-  stays plain white, not gold** — a deliberate exception to §3/§5's "a reward waiting to
-  be collected reads gold" rule. That rule is for a *rare, one-off* moment (an Objective
-  claim); a timed action can cycle through ready/collected indefinitely as a routine part
-  of play, so treating it as a rare-tier event would be misleading and would visually
-  compete with genuinely rare moments elsewhere.
-- **Bait Trap** (Ranger's second button): costs 1 Bait to start (`TimedActionConfig.cost`),
-  rolls a random 5-20s duration once at start (hidden from the player), then requires an
-  explicit collect click for 1 Raw Meat + a 10% chance at 1 Pelt
-  (`TimedActionConfig.bonusReward`, cascading past 100% the same "excess percent" way as
-  Better Offcuts, §4 above — see `shared/chance.ts`).
+- Config (duration, reward, unlock gate) lives in `game-config.ts`; label/flavor in
+  `flavor-text.ts` — same config/flavor split as everywhere (§18).
+- **Running state is a single absolute start timestamp**, not a countdown/`setTimeout`.
+  Completion = comparing real elapsed time against the *effective* duration (upgrades
+  applied) on a shared interval. This is what keeps a timer running regardless of which
+  screen is active, and lets it survive a reload for free.
+- Completion checks run on their own fast interval (`TIMED_ACTION_TICK_MS`, 100ms) —
+  deliberately not the shared 1s economy tick, so the progress fill and actual completion
+  land within one tick of each other.
+- Progress renders as a low-opacity fill *behind* the button's own label, not a separate
+  bar underneath.
+- A `'random'`-duration action (Bait Trap) never shows the progress fill (would leak the
+  hidden range) — cycles trailing dots instead. A `'fixed'`-duration action keeps the
+  real fill.
+- Every button in the Button Zone shares one visual size (`%zone-button` Sass
+  placeholder) — only layer on top of it, never redeclare the shared properties.
 
 ---
 
-## 6a. Crafting Actions (Blacksmith's third+ buttons)
+## 7. Crafting Actions (Blacksmith-style buttons)
 
-A character's buttons beyond the primary (§ above) and timed-action ones: an
-interactive, multi-step action that needs *sustained active engagement* to complete,
-unlike a primary click (instant) or a timed action (passive real-time wait that keeps
-running unattended regardless of screen). Built on `CraftingService`
-(`src/app/crafting/`), config in `CraftingActionConfig`/`CRAFTING_ACTIONS`
-(`game-config.ts`), flavor in `CRAFTING_FLAVOR` (`flavor-text.ts`) — same config-vs-flavor
-split as everything else. Blacksmith's Forge Ingots/Smith Metal are the first two, and
-the reference implementation for any future button of this kind.
+An action needing sustained active engagement (vs. an instant click or a passive timed
+wait). Built on `CraftingService`, config in `CraftingActionConfig`.
 
-- **Two mechanics so far**, a discriminated union on `CraftingActionConfig.mechanic.type`:
-  - **`'hold'`** (Forge Ingots) — charge a progress meter by holding the button down over
-    `holdMs`. Releasing before it fills drains it back down at `decayMultiplier`x the
-    charge rate rather than pausing in place — a skill/patience mechanic, not "start and
-    walk away." Progress is computed **live** from an anchor point
-    (`{ anchorProgressMs, anchorAt, holding }`) recomputed against `Date.now()` on every
-    read, the same "absolute anchor, compute forward" convention `TimedActionsService`
-    uses for its own start timestamps — the anchor only needs updating at the moments
-    `holding` actually flips (press/release), not on every tick. A separate interval
-    (`checkHoldCompletions`, on `TIMED_ACTION_TICK_MS`) exists purely to notice the two
-    edges that live computation alone would never act on: reaching full charge (pay out)
-    or fully decaying to 0 while released (abandon the attempt, so the next press
-    re-charges the cost).
-  - **`'clicks'`** (Smith Metal) — the button must be clicked `clicksRequired` times to
-    complete; progress is a plain step counter, never decays while idle.
-  - `holdMs` is meant to be shortenable by a future upgrade (not yet implemented) the
-    same way `timed-action-duration` shortens a `TimedActionConfig`'s duration — kept as
-    plain config data now so an upgrade slots in later without a reshape.
-- **Cost is charged once, the moment progress first leaves 0** — not per click/tick, and
-  not refunded by releasing/abandoning early. For a `'hold'` action that payment is
-  **staged**, not forfeited: fully decaying back to 0 after release does *not* re-charge
-  on the next press — the player already paid, and that payment survives indefinitely
-  across as many release/decay cycles as they like. Only a successful completion (the
-  reward actually paying out) consumes the staged payment, so the *next* attempt after
-  that needs a fresh charge. (A `'clicks'` action has no decay to stage against — its
-  step counter never regresses while idle — so this distinction only matters for
-  `'hold'`.) Reward pays out only once progress reaches its target. Unaffordable on that
-  first press/click logs the same insufficient-cost error as a `TimedActionConfig` (§6).
-- **Progress renders as the button's own background fill**, identical layered-fill-
-  behind-label shape as a timed action's `.timed-button-fill` (§6) — `.crafting-button-fill`,
-  growing (or, for a released `'hold'` action, shrinking) left-to-right behind
-  `.crafting-button-label`. Every crafting button also extends `%zone-button` (§6), same
-  "one shared button family" rule.
-- **Persisted** via the usual `getSnapshot()`/`restore()` pair (`SaveData.crafting`) — a
-  `'clicks'` counter round-trips as-is; a `'hold'` instance persists `{ progressMs,
-  savedAt }` and `restore()` applies whatever decay would have happened while the save
-  was closed (always restored as released — a page reload can't literally still be
-  holding — same real-elapsed-time convention as `TimedActionsService.restore`). Kept
-  even if that decay fully drains it to 0, not dropped — the staged payment (above)
-  survives a reload the same way it survives an in-session release/decay cycle.
+- **Two mechanics**, a discriminated union on `mechanic.type`: `'hold'` (charge a meter
+  by holding; releasing early decays it back down, doesn't pause in place) and
+  `'clicks'` (plain step counter, never decays).
+- **Cost is charged once**, the moment progress first leaves 0 — not refunded by
+  releasing/abandoning. For `'hold'`, that payment is *staged*: decaying back to 0 after
+  release doesn't require re-charging on the next press. Only a successful completion
+  consumes the staged payment.
+- Progress renders as the button's own background fill, same convention as Timed Actions
+  (§6).
+- Persisted via the usual `getSnapshot()`/`restore()` pair; a `'hold'` instance's decay
+  is replayed on restore using real elapsed time, same convention as Timed Actions.
 
 ---
 
-## 7. Party Vault
+## 8. Party Vault & Economy Performance
 
-- Per currency: name, color, symbol, current quantity, and (once unlocked) rate/second.
-  Clicking a resource shows a breakdown of its income sources.
-- EXP (once it exists) is the most shared currency in the game and should be pinned at
-  the top rather than sorted in with the rest.
-- Any new mechanic needs at least minimal in-context explanation (tooltip, log message,
-  or objective tie-in) — game 1's EXP progress bar looked great but was never explained
-  anywhere in-game.
-- **Unlock rule:** a currency only appears once its amount has gone above zero at least
-  once (`WalletService.isUnlocked`), and stays visible even if spent back down to zero —
-  it never re-locks. Filtering by character (`ALL` + one filter button per unlocked
-  character, Activity-Log filter-bar style) is a separate, independent concern from
-  unlock state.
-- **Live data, not static mock values:** amounts come from `WalletService`, rates +
-  source breakdowns from `PerSecondCalculatorService`. See the Performance subsection
-  below before changing either — the aggregation and change-notification shape is
-  deliberate, not incidental.
-- The collapsed sidebar interaction is a pattern worth reusing broadly elsewhere too.
+- Per currency: name, color, symbol, quantity, rate/second once unlocked. A currency
+  appears once its amount has ever gone above zero (`WalletService.isUnlocked`) and never
+  re-locks.
+- Live data only: amounts from `WalletService`, rates from `PerSecondCalculatorService` —
+  never static/mock values.
 
-### Performance: the per-second calculator
+**Performance (`src/app/economy/`)** — this is the one subsystem guaranteed to run
+continuously regardless of what's on screen, so it's built to stay cheap as
+resources/generators grow:
 
-The economy (`src/app/economy/`: `WalletService`, `PerSecondCalculatorService`,
-`GameLoopService`) is built to stay cheap as the number of resources/generators grows,
-because this is the one part of the game guaranteed to run continuously in the
-background regardless of what screen the player is looking at:
-
-- **Partial updates, not full recomputes.** `PerSecondCalculatorService` caches a
-  `{ total, sources }` aggregate per resource id. Recomputing one resource
-  (`recompute(resourceId)`) only touches that resource's own generator list — adding,
-  removing, or changing one generator later (an upgrade, a Jack) must stay O(generators
-  for that resource), never O(all generators/resources). Don't replace this with a
-  "recalculate everything on every tick" approach even if it looks simpler.
-- **Change-pulse, not snapshot cloning.** `WalletService.changes$` emits the *id* of the
-  resource that changed, not a cloned map/array of the whole wallet. Components read
-  current values imperatively (`getAmount`/`isUnlocked`) and call
-  `ChangeDetectorRef.markForCheck()` (OnPush throughout) — this avoids allocating and
-  diffing a new object on every tick.
-- **One shared tick, not per-resource timers.** `GameLoopService` runs a single 1-second
-  interval that walks every *active* generator's resource once — cost scales with active
-  generators, not with resource count or wall-clock granularity. Timed Actions (§6) piggy
-  back on this same tick rather than starting their own timer. If sub-second precision
-  is ever needed, switch this to a delta-time accumulator rather than adding more timers.
-- Any future system that produces or consumes resources (Upgrades, Jacks, minigames)
-  should register through `GENERATORS`/`WalletService.add`, not maintain its own parallel
-  amount/rate state — that's what would break the partial-update guarantee above.
+- **Partial updates, not full recomputes** — `PerSecondCalculatorService` caches a
+  per-resource `{total, sources}` aggregate; `recompute(resourceId)` only touches that
+  resource's own generators. Must stay O(generators for that resource), never
+  O(everything).
+- **Change-pulse, not snapshot cloning** — `WalletService.changes$` emits the *id* that
+  changed, not a cloned wallet. Components read values imperatively and call
+  `markForCheck()` (OnPush throughout).
+- **One shared tick, not per-resource timers** — `GameLoopService` runs a single 1s
+  interval walking every *active* generator once; cost scales with active generators,
+  not resource count. Timed Actions piggyback on this same tick.
+- Any future resource producer/consumer registers through `GENERATORS`/`WalletService.add`,
+  never its own parallel amount/rate state.
 
 ---
 
-## 8. Character Select
+## 9. Character Select
 
-- Selects the active/displayed character. Passive generation and automation for
-  non-active characters continues in the background regardless of what's currently
-  displayed — selection is a UI/view concern only, never a gameplay-pausing one.
-- Showing read-only ambient stats (e.g. Gold/Bounty) next to the selector is good even
-  though it needs no interaction.
-- **Locked characters render no box at all** (`CharacterSelectComponent.slots` filters
-  to `unlocked` before the template ever sees them) — a deliberate reversal from "leave
-  a visibly empty slot to signal more is coming"; don't quietly revert to placeholder
-  boxes.
-- Naming/framing risk: "Party" implies both (a) more characters are coming, and (b) that
-  you assemble a sub-party like a traditional RPG. (b) isn't planned — be careful that
-  naming doesn't over-promise a mechanic that isn't planned; prefer naming that doesn't
-  imply it if it's not planned.
-- Flavor text is cute but of questionable value — low priority, don't over-invest here.
-- The collapsed color+letter badge for quick character selection is a good, reusable
-  pattern (ties into §3's sparing use of character color).
-- **Dynamic unlocking:** Fighter starts unlocked; every other character unlocks at
-  runtime via `CharacterSelectService.unlock(id)` (Ranger's is the "unlock-ranger"
-  objective, §5). `CHARACTERS` in `game-config.ts` only says which characters *start*
-  unlocked — `CharacterSelectService` owns actual unlock state, and it's what gets
-  saved/restored.
-- A newly-unlocked character's box shines (`AttentionService`, see Attention below)
-  until the player clicks it. `.slots` is a live getter + `changes$` — any new component
-  reading it must subscribe to `changes$` too, not just read it once at construction
-  (see `CharacterSelectComponent`/`PartyVaultComponent`).
+- Selects the active/displayed character only — a UI/view concern. Passive generation
+  for non-active characters continues regardless of what's displayed.
+- **Locked characters render no box at all** — filtered before the template sees them.
+- Fighter starts unlocked; everyone else unlocks at runtime via
+  `CharacterSelectService.unlock(id)`, which owns actual unlock state (saved/restored)
+  independent of `game-config.ts`'s "starts unlocked" list.
+- A newly-unlocked character's box shines (`AttentionService`, §18) until clicked.
 
 ---
 
-## 9. Save
+## 10. Save
 
-- Persists currencies, upgrades, active screens/configuration, minigame progress, timed
-  action running state — full game state.
-- Autosaves every 5 minutes, plus immediately on `visibilitychange` (tab hidden) and
-  `pagehide` (navigation/reload/close) so a closed tab never loses much progress. Both
-  handlers call the same synchronous `save()` as the interval — don't make save async, a
-  page teardown handler can't reliably await anything.
-- **Forward-compatibility is a hard requirement**: the save format must be designed so
-  old saves keep loading correctly as the game evolves (additive/versioned schema,
-  sensible defaults for fields that didn't exist yet, no silent breakage on new fields).
-  Treat this as a constraint on every future system's data shape, not just the save
-  system itself.
-
-### Implementation (`src/app/save/`)
-
-- **Storage:** `SaveService` writes/reads a single localStorage key
-  (`rpg-clicker-2-save`), holding the base64 encoding of the save JSON (`SaveData` in
-  `save-data.ts`). Base64 isn't encryption or compression — it's just what makes the
-  blob safe to copy/paste as plain text for export/import.
-- **The snapshot/restore convention:** every stateful service exposes
-  `getSnapshot()`/`restore(snapshot)`. `SaveService` is the *only* place that composes
-  these into one `SaveData` object or decomposes one back out. Adding a new persisted
-  system means adding a getSnapshot/restore pair to that system's own service + one
-  field in `SaveData` + one line in `SaveService.serialize()`/`parse()` — never teach an
-  existing service about another one's shape.
-- **Forward-compat mechanics, concretely:** `SaveData.schemaVersion` is ours to bump for
-  real migrations later; every field is read with `??`/optional-chaining fallbacks on
-  the reader side (inside each service's own `restore()`), so a save missing a field
-  that didn't exist yet just gets that service's default — never add a required field
-  or repurpose an existing one, always add a new optional one.
-- **`createdAt` vs `updatedAt`:** `createdAt` is set once (first boot with no existing
-  save, or right after a reset) and carried forward on every subsequent save;
-  `updatedAt` is stamped fresh on every save.
-- **Export:** `copyToClipboard()` and `downloadAsFile()` both just call the same
-  `exportBase64()` — one save representation, two delivery mechanisms.
-- **Import:** `importBase64()` validates, writes to localStorage, then does a full
-  `location.reload()` rather than live-patching running services — safer than trying to
-  hydrate an already-running app, and the same code path boot-time load already uses.
-  Reset follows the same reload pattern.
-- **Gotcha — the pagehide autosave races a deliberate reload.** `reset()` and
-  `importBase64()` both write to localStorage and then call `location.reload()`, but
-  `location.reload()` itself fires `pagehide` on the still-running old page *before* it
-  actually unloads — which would otherwise trigger the pagehide autosave handler above
-  and immediately re-serialize the untouched in-memory services, silently overwriting
-  the delete/import a moment after it happened (this is exactly why "Reset Save" used to
-  look like a no-op). `SaveService.suppressAutosave` is a one-way flag both methods set
-  right before reloading so that race can't happen — any future method that touches
-  localStorage directly and then reloads must set it too.
+- Persists full game state: currencies, upgrades, settings, minigame/timed-action
+  progress.
+- Autosaves every 5 minutes, plus immediately on `visibilitychange`/`pagehide` — both
+  call the same *synchronous* `save()` (a teardown handler can't reliably await
+  anything).
+- **Forward-compatibility is a hard requirement**: every field must be optional from the
+  reader's side (sensible defaults), never repurposed — only ever add new fields. Applies
+  to every future system's data shape, not just save itself.
+- **Snapshot/restore convention:** every stateful service exposes
+  `getSnapshot()`/`restore(snapshot)`. `SaveService` is the *only* place that
+  composes/decomposes these into `SaveData` — a new persisted system means a
+  getSnapshot/restore pair + one `SaveData` field + one line each in `SaveService`, never
+  teaching one service about another's shape.
+- Storage: a single localStorage key, base64-encoded JSON (for safe copy/paste export,
+  not encryption).
+- Import/Reset both write to localStorage then `location.reload()` rather than
+  live-patching running services.
+- **Gotcha:** `location.reload()` itself fires `pagehide` on the old page before
+  unloading, which would otherwise re-trigger the autosave handler and silently
+  overwrite a delete/import a moment later. `SaveService.suppressAutosave` is a one-way
+  flag both methods set first — any future method that touches localStorage then
+  reloads must set it too.
 
 ---
 
-## 10. Options
+## 11. Options
 
-- Player-facing tweaks, primarily save management and display settings.
-- Popup/modal treatment is reused for any settings-like surface. Credits is a button
-  inside Options ("// Credits") that opens the Credits modal in place of the Options
-  modal rather than stacking on top, since `ModalService` only tracks one active modal
-  at a time — follow this pattern for any other "modal launched from within a modal"
-  case rather than extending `ModalService` to a stack.
-- Show the version number.
-- Section headers styled like terminal comments (e.g. `// Save`) fit the aesthetic well
-  — reuse for grouping settings. On/off toggles styled as a literal checkbox-like box,
-  not a modern rounded switch.
-- **Settings live in `SettingsService`**, not component-local state — they're part of
-  the save (§9) and read by other components (`showPlaytime` gates the top-bar readout,
-  §11; `reducedMotion` gates the reset screen-shake; `hideMaxedUpgrades` gates the
-  upgrades list, §4). Any new toggle goes here.
-- Export/import/reset are real, not disabled placeholders (§9). Reset asks for
-  confirmation first — a deliberate exception to "don't add validation for things that
-  can't happen," since losing an entire save is high-cost and easy to trigger by
-  accident.
-- **Confirmation uses an in-app modal, never `window.confirm()`/`alert()`.** Native
-  dialogs are unreliable outside a plain browser tab — blocked or auto-dismissed in
-  embedded/automated contexts — so every "are you sure?" moment routes through
-  `ConfirmService` (`src/app/shared/confirm.service.ts`) + `ConfirmModalComponent`
-  instead: a caller sets the pending message/action (`confirmService.ask(...)`) and opens
-  it the same way Credits opens from Options (`modalService.open('confirm')`, replacing
-  the current modal rather than stacking). `OptionsPanelComponent.resetSave()` is the
-  reference implementation — any future destructive action should call this, not
-  `confirm()`.
+- Settings live in `SettingsService` (part of the save, §10), not component-local state.
+- A modal launched from within another modal (e.g. Credits from Options) replaces the
+  current modal rather than stacking, since `ModalService` tracks only one active modal.
+- **Confirmation uses an in-app modal, never `window.confirm()`/`alert()`** (unreliable
+  in embedded/automated contexts) — route every "are you sure?" through `ConfirmService`
+  + `ConfirmModalComponent`. `OptionsPanelComponent.resetSave()` is the reference
+  implementation.
 
 ---
 
-## 11. Statistics
+## 12. Statistics
 
-- Records lifetime totals, time played, major unlock timestamps, and other game actions.
-- New sections appear dynamically as they become relevant, only once they have at least
-  one entry — don't pre-seed empty/placeholder sections or rows.
-- Group by action/category, not by character (a deliberate change from game 1).
-- Milestone-style entries are a good pattern and could double as an achievements view. A
-  speedrun-style angle on play time made game 1 meaningfully more interesting late —
-  keep this in mind as a hook for Statistics/Objectives design later (timed milestones,
-  speedrun categories), even though nothing needs to be built for it yet.
+- Records lifetime totals, playtime, major-unlock timestamps, other actions. Sections
+  appear only once they have an entry — no pre-seeded placeholders.
 - **Recording convention:** whoever performs the action calls
-  `statistics.recordAction(actionId)` directly. Lifetime-gained is the one exception,
-  tracked automatically off `WalletService.changes$` (only when `delta > 0`, so a
-  save-load restore doesn't inflate it). `recordMajorUnlock(id, label)` is idempotent —
-  safe to call again for an already-recorded id without duplicating the entry.
-- Time Played belongs on this screen for sure, but is questionable as a
-  constantly-visible element on the main game screen — keep it toggleable there
-  (`SettingsService.state.showPlaytime`) rather than always-on; the Stats screen itself
-  always shows it regardless of the setting.
-- **`PlaytimeService` is its own service**, not folded into `StatisticsService` — it
-  needs to be read live from the top bar every second, whereas the rest of Statistics
-  only changes on discrete events. It piggybacks on `GameLoopService.tick$` (§7's
-  Performance subsection) rather than starting its own timer.
+  `statistics.recordAction(actionId)` directly. Lifetime-gained is auto-tracked off
+  `WalletService.changes$` (only on positive delta, so a restore doesn't inflate it).
+  `recordMajorUnlock` is idempotent.
+- `PlaytimeService` is its own service (read live every second from the top bar), not
+  folded into Statistics.
 
 ---
 
-## 12. Credits
+## 13. Jacks (automation) — design spec, not yet built
 
-- A polished, low-maintenance thanks/credits display. Not a high-iteration surface.
-- Attributed to Brad Carlin for now (`CreditsPanelComponent`), opened from a button
-  inside Options (§10) rather than the top bar directly.
-
----
-
-## 13. Jacks (automation)
-
-- A management pane reachable from the top bar, on the **left** side (mirroring Options
-  on the right), unlocked rather than available from the start.
-- Jacks are hired/unlocked individually, then assigned to a system to automate it.
-  Assignment is per-Jack, per-system.
-- Each Jack levels up independently and has 6 stats, each leveled individually:
-  - **Strength** — click power / effectiveness of the primary action.
-  - **Dexterity** — speed / time between primary actions.
-  - **Constitution** — how long the Jack can act before needing to rest.
-  - **Intelligence** — XP gain modifier.
-  - **Wisdom** — strategy effectiveness (playing a minigame or using a button
-    "correctly").
-  - **Charisma** — resource gain multiplier.
-- Leveling a stat costs normal resources **plus** Jack-specific XP as an additional cost
-  — XP is not a substitute for resource cost, it's an added gate.
-- Visual treatment: styled and displayed similarly to The Crown (§14) — both are
-  top-bar-launched management panes over a roster of upgradeable entities. Keep their
-  card/list UI consistent with each other, both in the Activity Log's terminal style.
+- Management pane from the top bar, left side (mirrors Options on the right); unlocked
+  rather than available from the start.
+- Jacks are hired/unlocked individually, then assigned per-system to automate it.
+- Six stats per Jack (Strength/Dexterity/Constitution/Intelligence/Wisdom/Charisma —
+  shared model, see Fighter Combat §17), each leveled individually, costing resources
+  *plus* Jack-specific XP as an added gate (not a substitute).
 
 ---
 
-## 14. The Crown (achievements)
+## 14. The Crown (achievements) — design spec, not yet built
 
-- Functions as the game's achievement system, displayed with a UI similar to Jacks.
-- Milestones, challenges, or random rolls award **jewels**.
-- Jewels slot into "the Crown" to unlock powerups/upgrades — flat multipliers to start,
-  with room for more significant system-level effects later.
+- Achievement system, UI similar to Jacks. Milestones/challenges/rolls award jewels;
+  jewels slot in to unlock upgrades (flat multipliers to start).
 
 ---
 
 ## 15. Minigames
 
-- Live in the bottom half of the game screen; the top half is reserved for the primary
-  button(s) and timed-action buttons (§1 Layout anchor points, §6).
-- Fighter Combat (§17) is the first one built, and establishes the visual pattern: §1's
-  terminal/monospace baseline throughout, no visually distinct "minigame skin."
-- **Gated like Jacks/Crown:** hidden until `UnlocksService.isUnlocked('minigames')` is
-  true — when locked, the button zone simply fills the whole center column instead of
-  splitting 50/50, rather than showing a locked placeholder in the bottom half.
-  `GameAreaComponent` subscribes to `UnlocksService.state$` (not a one-time read) so
-  unlocking at runtime reveals the minigame zone without a reload.
+- Live in the bottom half of the game screen (top half reserved for buttons, §1).
+- Gated like Jacks/Crown behind `UnlocksService` — when locked, the button zone fills
+  the whole center column instead of splitting.
 - **`MinigameZoneComponent` hosts exactly one minigame directly** — no registry or
-  tab-switcher (see `SidePanelComponent`'s Upgrades/Objectives tabs for what that would
-  look like). It also gates on the active character (Fighter Combat only shows while
-  Fighter is selected, mirroring how Upgrades/Actions already filter to the active
-  character), so a second minigame doesn't need a "which one to show" decision — it just
-  shows whenever its own character is active. A real switcher is only worth building the
-  day a single character needs more than one minigame at once, not before.
+  tab-switcher. Gates on the active character, so a second minigame needs no "which one
+  to show" decision.
 
 ---
 
 ## 16. Dev Tools
 
-- A testing-only surface, not a player-facing system — only exists to set up game
-  states quickly during development. Gated at the entry point: the top-bar "Dev Tools"
-  button (cyan — see §3's deliberate-exception note) only renders when
-  `DEV_TOOLS_ENABLED` (`game-config.ts`) is true, and flipping that flag off removes the
-  only way to reach it.
-- **Unlocks are runtime-toggleable** — `UnlocksService` (`src/app/shared/unlocks.service.ts`)
-  wraps the `UNLOCKS` defaults from `game-config.ts` in a `BehaviorSubject`, exposing
-  `isUnlocked(key)` / `unlock(key)` / `unlockAll()` / `getSnapshot()` / `restore()`.
-  Components subscribe to `UnlocksService.state$` rather than reading `UNLOCKS` once
-  statically, so an unlock (from Dev Tools or a real objective, §5) shows up immediately
-  without a reload.
-- **Dev Tools actions bypass normal game rules on purpose** — granting currency skips
-  the wallet's normal earn paths, and none of these five actions log through
-  `ActivityLogService`. This is a deliberate exception to "every game action logs a
-  message" (see below): these aren't game actions a player takes, they're test-state
-  setup, so routing them through the Activity Log would misrepresent them as real play.
-  Feedback instead uses the same transient `statusMessage` pattern as
-  `OptionsPanelComponent`'s save actions.
-- **The six tools**, each backed by a real service method rather than reaching into
-  wallet/upgrade internals from the panel component:
-  1. Add 100 / 10,000 / 1,000,000 of every currency (`DEV_TOOLS_CURRENCY_GRANTS`,
-     `game-config.ts` — tune the three amounts there) — loops `RESOURCES` and calls
-     `WalletService.add` for each.
-  2. Unlock every system flag — `UnlocksService.unlockAll()`.
-  3. Max every upgrade — `UpgradesService.maxAll()` (sets every upgrade to its
-     `maxLevel`).
-  4. Half every upgrade — `UpgradesService.halveAll()` (`ceil(maxLevel / 2)`, floored at
-     1 so a `maxLevel` of 1 doesn't land on 0).
-  5. Zero every upgrade — `UpgradesService.resetAll()`.
-  6. Delete the save — `SaveService.reset()`, with **no** confirmation step, unlike
-     Options' Reset Save (§10). This is the one intentional exception to "every
-     destructive action goes through `ConfirmService`" — Dev Tools exists specifically
-     to blow away state quickly while iterating, so adding a confirm step here would
-     fight the panel's own purpose.
+- Testing-only surface, gated behind `DEV_TOOLS_ENABLED` (`game-config.ts`).
+- **Unlocks are runtime-toggleable** — `UnlocksService` wraps `UNLOCKS` in a
+  `BehaviorSubject`; components subscribe to `state$`, never read the static config once,
+  so an unlock (Dev Tools or a real objective) shows up immediately.
+- **Dev Tools actions bypass normal game rules on purpose** — they don't log through
+  `ActivityLogService` (they aren't real player actions), and Delete Save skips the
+  `ConfirmService` confirmation (§11) every other destructive action requires —
+  deliberate exceptions, not precedent to extend elsewhere.
 
 ---
 
 ## 17. Fighter Combat
 
-The first minigame (§15): a turn-based fight against a single enemy today (the Kobold),
-built to extend as pure config (`src/app/configs/game-config.ts`'s `FIGHTER_ENEMIES`/
-`FIGHTER_AREAS`, `EQUIPMENT_ITEMS`) rather than code changes.
+First minigame: turn-based fight vs. a single enemy, built to extend as pure config
+(`FIGHTER_ENEMIES`/`FIGHTER_AREAS`/`EQUIPMENT_ITEMS`) rather than code changes.
 
-- **Six stats — Strength/Dexterity/Constitution/Intelligence/Wisdom/Charisma —
-  live in `shared/six-stats.ts` (`SixStats`), not `fighter-combat/`.** Deliberately
-  shared: Jacks (§13) specs the identical six-stat model, so Fighter Combat is the first
-  consumer of this shape, not the only intended one.
-- **Rolls use the raw stat value added directly to `1d20`** (`shared/dice.ts`'s
-  `rollD20()`), not a converted D&D-style ability modifier — a deliberate simplification,
-  not an oversight. It also makes equipment stat bonuses feel impactful (a flat +2
-  visibly shifts a 1-20 roll), which suits this game's numbers-should-visibly-matter feel
-  better than a real tabletop's small modifiers would.
-- **Max HP = Constitution × 10** (`getMaxHp()`, `shared/six-stats.ts`). The Fighter's
-  current HP is a persistent value (`CombatService`), not reset between fights — only
-  combat damage changes it, so entering a fight already wounded from a previous one is a
-  real, deliberate risk/reward tension. **Defeat is the one exception:** it revives the
-  Fighter to full HP immediately, in exchange for a 30-second Fight!-disabled lockout
-  (`FIGHTER_DEFEAT_LOCKOUT_MS`) — losing costs time, never progress, and never leaves a
-  soft-lock. A future "heal" button (not yet built) would let the player top off HP
-  proactively, without needing to lose on purpose first.
-- **Combat does not fast-forward on reload — this is the sharpest decision in the
-  system and the one most likely to look like a bug to a future contributor.**
-  `CombatService` is modeled on `TimedActionsService`'s absolute-timestamp-anchor pattern
-  (§6) in every other respect, but a `TimedActionConfig`'s completion is a single
-  deterministic threshold — safe to evaluate against however much real time has passed,
-  including with the tab closed. A turn's outcome is a dice roll. Bulk-resolving "however
-  many turns would have happened" while the tab was closed would mean silently
-  auto-battling a potentially unbounded number of them (and several full encounters) the
-  instant the page reopens. So: combat only advances while the app is open. `restore()`
-  brings back the exact state (HP, whose turn, the transcript so far) and gives a fresh
-  `COMBAT_TURN_MS` countdown to the next turn from the moment of load — it never
-  retroactively resolves turns for elapsed offline time. `lockedOutUntil`, being a plain
-  threshold like a timed action's duration, is the opposite case and correctly *does*
-  honor real elapsed time across a closed tab. **Do not "fix" combat to fast-forward like
-  a timed action — that was considered and rejected for the reason above.**
-- **Equipment items are fungible by id, like a second, typed wallet** (`EquipmentService`)
-  — a given item is always identical, held as a bag count, never an individually-rolled
-  instance. Slots are a list of *instances*, not just types
-  (`EquipmentSlotInstance`/`EQUIPMENT_SLOTS`), because Ring needs two concurrent equip
-  positions — an item's `slotType` says which category it belongs to; equipping picks a
-  specific free instance of that type. Adding a new slot later (a Cloak, say) is one new
-  slot type plus one new instance entry — Weapon (holding the Basic Sword, a dev-tools-
-  only item for now) was added exactly this way after the slot list first shipped.
-- **An HP number overlaid on its own bar needs a hard dark outline
-  (`text-shadow`), not a flat color** — `CombatantDisplayComponent`'s HP label is white,
-  which reads fine against the near-black bar background but has very poor contrast
-  against the bright green fill (pure green is nearly as luminant as white). A 4-direction
-  black `text-shadow` outline keeps the number legible on both surfaces at once, wherever
-  the fill happens to end — the general fix any future overlaid-on-a-colored-fill label
-  in this game should reach for, rather than picking a single "compromise" text color.
-- **Rarity (Common/Uncommon/Rare/Epic/Unique) is display-only** — a color/label lookup
-  (`RARITY_FLAVOR`, `flavor-text.ts`), not a mechanical multiplier on anything. It maps
-  positionally onto this game's own gray/white/cyan/gold/purple color ladder (§3) in
-  that exact order — Purple had no concrete value anywhere in the codebase before this;
-  it's the first realization of §3's reserved "Relic-tier" color.
-- **The gear-locked-during-combat invariant is enforced by the UI layer, not
-  `EquipmentService`.** The two panel components disable themselves
-  (`[disabled]="inEncounter"`) while a fight is active; `equip()`/`unequip()` themselves
-  don't check combat state. This is what makes computing effective stats live (not
-  snapshotted at combat start) safe — gear genuinely can't change mid-fight, but that
-  guarantee lives in the components, not the service. A future direct caller of
-  `equip()`/`unequip()` that bypasses those components would silently break it.
-- **A chance-to-attack-again effect (the shipping Ring of Swift Strikes,
-  `extra-attack-chance`) resolves through the same "excess percent" cascade
-  (`resolveExcessCount`, `shared/chance.ts`) that upgrade effects already use for a
-  chance that can exceed 100%** — not a bespoke bare `Math.random()` check. Stacking two
-  such rings sums their chance and can cascade into a guaranteed extra attack plus a
-  further roll for a second, the same way a stacked upgrade chance already does
-  elsewhere. A follow-up attack is checked again after it lands, so a chain of them falls
-  out for free with no special-case code.
-- **Loot entries roll independently** (`EnemyConfig.loot`, each its own `chance`) — a
-  kill can yield gold *and* a monster part *and*, rarely, an item, all in one fight. Not
-  a single weighted pick off a table.
-- **Round-by-round attack detail logs to the shared Activity Log, at `'default'` (INFO)
-  level, the same as every other routine game action** — there is no separate local
-  combat feed (`CombatFeedComponent` existed briefly and was removed once a real UI
-  existed to judge it against). A single fight's 10-30+ individual turns are exactly the
-  kind of routine, filterable-out detail the INFO level exists for; only an encounter's
-  outcome (win + loot / flee / defeat) logs at a louder level (`'success'`/`'warn'`).
-- **The Jacks slot is a reserved, inert placeholder** (`EmptyStateComponent`, no backing
-  data), not a stub of something half-built — there's no `JacksService` to assign from
-  yet (§13 is still a design spec). It's a real spot in the seven-zone layout, wired for
-  whenever that system actually arrives. The two consumable slots are the same kind of
-  placeholder (no consumable item type exists yet) — they render under the Fighter's own
-  HP bar (`fighter-side`), not in the Combat Controls zone, so a future consumable reads
-  as something the Fighter carries and uses on themselves, not a generic combat control.
-- **The seven zones are grouped into two visual clusters, not seven equal-width
-  columns** (`fighter-combat-zones`, a two-item flex row, not a 7-column grid): a
-  fixed-width `loadout-column` (Inventory, Equipment, Jacks — gear management, stacked)
-  and a flexible `battle-column` (a `battle-row` with Fighter and Enemy+Enemy-Stats side
-  by side, "versus"-screen style, with Combat Controls spanning both underneath as an
-  action bar). An earlier revision gave all seven zones equal grid columns with
-  `align-items: stretch`, which forced every column's border box to match whichever was
-  tallest (Equipment, at 8 slots) — five mostly-empty zones each rendered a large
-  dead-space border box for no reason. Grouping by relationship instead of splitting
-  evenly gives each cluster only the width and height its own content needs. Equipment's
-  slots (`equipment-panel`) are single-line (label left, item right) rather than
-  two-line, for the same reason — the sidebar's fixed width made the old two-line-per-
-  slot format needlessly tall.
-- **`EmptyStateComponent` has a `compact` input** (default `false`, so every other
-  panel's placeholder is unaffected) for exactly this kind of tight card — its default
-  `2.5rem` vertical padding is sized for large panels and made the Jacks slot and the
-  "no enemy engaged" placeholders dominate their small boxes. `compact` drops that to
-  `0.4rem`; used on the Jacks, Inventory-empty, and both enemy-side placeholders.
-- **The loadout column's height is what the whole zone row is anchored to** — it holds
-  roughly constant (Equipment's slot count never changes during combat), so as long as
-  the battle column stays shorter, the panel's overall height never shifts between idle
-  and engaged states.
-- **`.fighter-side`/`.enemy-side` also carry their own explicit `min-height` (268px),
-  independent of the loadout-column anchor above** — this is what keeps the Fight!/Flee
-  action bar directly below them from shifting position the moment an enemy
-  appears/disappears, since `.enemy-side` would otherwise be a few lines tall while idle
-  (just the compact "No enemy engaged" placeholder) and much taller once populated
-  (ascii art + HP bar + a six-row stat block). The value is sized to the fully-populated
-  state; the empty/idle state just reserves the same space rather than collapsing.
-- **The Fighter has its own persistent `[ FIGHTER STATS ]` block** (`fighterStats`,
-  `equipment.getEffectiveStats()`), positioned under the Fighter's own combatant-display
-  exactly where `[ ENEMY STATS ]` sits under the enemy's — deliberately mirrored so both
-  sides of the fight are legible at a glance without hovering. This replaced an earlier
-  hover-tooltip-only approach (`[appTooltip]="fighterTooltip"` on `.fighter-side`) once
-  the stats needed to be visible always, not just on hover — the tooltip machinery was
-  removed rather than left as a redundant duplicate.
-- **`InventoryPanelComponent` renders one square icon box per item stack** (`.inventory-
-  slot`, `EquipmentFlavor.symbol`) instead of a name/count/description list row — name,
-  rarity, slot, count, and effect all moved into a hover tooltip (`TooltipDirective`,
-  built by `InventoryPanelComponent.tooltip()`) so the grid stays visually simple.
-  `TooltipRow` gained an optional `wrap` flag for this (`tooltip-content.ts`,
-  `tooltip.component.scss`) — the default row layout is a single-line label/value pair
-  with `white-space: nowrap`, which is wrong for a full-sentence effect description;
-  `wrap: true` renders that one row as a wrapped block instead. See the trackBy note in
-  Design Patterns below — this is the same bug class that would silently break the new
-  hover tooltip if reintroduced.
+- **Six stats** (`shared/six-stats.ts`) are shared with Jacks (§13), not
+  Fighter-combat-specific.
+- **Rolls:** raw stat value added directly to `1d20` (not a D&D-style modifier) — a
+  deliberate simplification that makes equipment bonuses feel impactful.
+- **Max HP = Constitution × 10**, persists across fights (not reset) — a real
+  risk/reward. Defeat is the one exception: revives to full HP in exchange for a timed
+  Fight-disabled lockout — losing costs time, never progress.
+- **Combat does not fast-forward on reload — deliberately, unlike Timed Actions.** A
+  turn's outcome is a dice roll; bulk-resolving elapsed offline turns would mean silently
+  auto-battling an unbounded number of them. `restore()` brings back exact state and a
+  fresh countdown to the next turn; the lockout timer (a plain threshold, not a dice
+  roll) is the one part that *does* honor real elapsed time.
+- **Equipment items are fungible by id** (`EquipmentService`) — a bag count, never an
+  individually-rolled instance. Slots are typed instances (not just types), since Ring
+  needs two concurrent positions.
+- **Gear-locked-during-combat is enforced by the UI layer**, not `EquipmentService` — the
+  panels disable themselves while a fight is active; `equip()`/`unequip()` don't check
+  combat state themselves. A future direct caller bypassing those components would
+  silently break the invariant.
+- **Rarity is display-only** — a color/label lookup, not a mechanical multiplier.
+- Chance-to-attack-again and similar >100%-capable chances resolve through the shared
+  "excess percent" cascade (`shared/chance.ts`), not a bespoke `Math.random()` check.
+- Round-by-round attack detail logs at `'default'` level, same as any routine action —
+  only the encounter's outcome logs louder.
 
 ---
 
-# Design Patterns
+## 18. Design Patterns (cross-cutting)
 
-- **A `*ngFor` over a getter that returns freshly-built objects/arrays every call needs
-  an explicit `trackBy` keyed on a stable id — without one, hover-driven UI on those rows
-  (tooltips, CSS `:hover` state relying on DOM identity, anything with a timer tied to
-  the element) can silently never trigger.** Root-caused in `InventoryPanelComponent`:
-  `EquipmentService.inventoryEntries` builds a brand-new array of brand-new `{config,
-  count}` objects on every access (by design — it's recomputed from the wallet map, not
-  cached). Change detection in this app runs far more often than "only when
-  `equipment.changes$` fires" (several unrelated `setInterval`-driven services tick
-  every 100ms-1s and each trigger a zone-wide `ApplicationRef.tick()`, regardless of
-  `OnPush`), so without a `trackBy`, Angular's default identity-based diffing treated
-  every one of those ticks as "the whole list changed," destroying and recreating each
-  `.inventory-slot` DOM node many times a second. A real mouse hover landed on a node
-  that was gone milliseconds later — `TooltipDirective`'s `pointerenter` fired
-  correctly, but the 350ms show-delay timer never survived to complete, so no tooltip
-  ever appeared, with no error anywhere to point at it. `trackByItemId` (keyed on
-  `entry.config.id`) fixed it: same list, stable DOM nodes, hover works. Apply the same
-  `trackBy` discipline to any future `*ngFor` whose source array isn't a stable
-  reference (contrast `EquipmentPanelComponent`'s `slots`, which reuses the constant
-  `EQUIPMENT_SLOTS` array and never needed this).
-- Game values such as costs, unlock requirements, resource yields should be dynamic and
-  extracted to a `game-config.ts` file. This includes cross-entity **relations** — e.g.
-  which character a resource is assigned to for Party Vault filtering — not just
-  scalar values and unlock flags.
-- Flavor aspects such as resource symbols or themed colors should be extracted to a
-  `flavor-text.ts` file. Character names/colors and the top-bar ASCII title
-  (`GAME_TITLE_ASCII`) live here too — anything purely cosmetic, as opposed to a game
-  value or relation.
-- Each feature area gets its own `game-config.ts` export (e.g. `UNLOCKS`, `CHARACTERS`,
-  `RESOURCES`, `GENERATORS`, `TIMED_ACTIONS`) and, where it has cosmetics, a matching
-  `flavor-text.ts` export merged in at the point of use — don't merge the two concerns
-  into one object. Mutable runtime state derived from that config (wallet amounts,
-  unlock flags, computed rates, timed-action start timestamps) lives in its own service
-  instead — config is static data, not state.
-- Every service holding persisted runtime state exposes `getSnapshot()`/`restore()` (see
-  §9 Save) — this is what makes it possible for `SaveService` to compose/decompose the
-  whole game's state without any service needing to know about any other's shape.
-- UI components should generally not be selectable with the cursor. Implemented via a
-  global `button { user-select: none; }` in `styles.scss` (covers every button-based
-  control) plus explicit `user-select: none` on non-`<button>` clickable chrome (modal
-  close, options toggle rows, expandable resource rows, objective rows). Content meant to
-  be copied (Activity Log entries) opts back in explicitly and should keep doing so.
+- **Config vs. flavor split:** game values/relations (costs, unlock requirements,
+  yields, which character owns what) go in `game-config.ts`; purely cosmetic data
+  (symbols, colors, names, ASCII art) goes in `flavor-text.ts`. Mutable runtime state
+  derived from config lives in its own service — config is static data, never state.
+- **Snapshot/restore convention:** see §10 Save.
+- **`*ngFor` over a getter that returns freshly-built objects needs an explicit
+  `trackBy`** keyed on a stable id. Without one, Angular's default identity-based
+  diffing destroys/recreates DOM nodes on every change-detection cycle (several services
+  tick every 100ms–1s regardless of OnPush), which silently breaks anything relying on
+  DOM identity — hover tooltips, CSS `:hover`, element-tied timers. Reference fix:
+  `ButtonZoneComponent.trackTimedAction`/`trackCraftingAction`,
+  `InventoryPanelComponent.trackByItemId`.
+- UI chrome is not text-selectable (`user-select: none` globally on buttons + explicit
+  on non-button clickable chrome); content meant to be copied (Activity Log entries)
+  opts back in.
 
-### Attention (the "shine" indicator)
+**Attention (the "shine" indicator):** `AttentionService` tracks "there's something new
+here" as a flat set of string keys (e.g. `character:ranger`) — mark unseen at the real
+state transition (not speculatively), mark seen on navigation/selection, suppress the
+glow for the thing currently selected (the underlying flag isn't cleared by suppression,
+only by an explicit select). Two visual states bound off the same `isUnseen(key)` check:
+animated glow by default, a static highlight under `reducedMotion`. Persisted in the
+save.
 
-`AttentionService` (`src/app/shared/attention.service.ts`) is the one place that tracks
-"there's something new here" — a shared flat set of string keys (`tab:objectives`,
-`character:ranger`, ...), not a bespoke boolean per feature:
+**Tooltips:** `TooltipDirective` + `TooltipComponent` — content is a plain data object
+(`{title?, rows: {label, value, color?}[]}`), not markup; the directive only owns
+show/hide/positioning. Numbers shown must be live (computed through the same service
+methods the real action uses), not the bare config value, so a tooltip always matches
+what actually happens next. A ~350ms show delay, `pointer-events: none`, and viewport
+clamping keep it unobtrusive; torn down immediately on `pointerdown`.
 
-- **Two visual states, not one:** `.has-attention` (animated glow,
-  `@keyframes attention-glow` in `styles.scss`) is the default; `.has-attention-static`
-  (a plain constant highlight, no animation) is what components fall back to when
-  `SettingsService.state.reducedMotion` is on. Bind both classes off the same
-  `isUnseen(key)` check — don't just hide the indicator under reduced motion, tone the
-  motion down instead.
-- **Mark unseen at the real transition**, not on every render — e.g.
-  `CharacterSelectService.unlock(id)` calls `markUnseen('character:'+id)` exactly once,
-  the moment that character actually unlocks. `markUnseen` is idempotent (safe to call
-  repeatedly) but only because callers are expected to call it at a genuine state
-  transition, not speculatively.
-- **Mark seen on navigation/selection** — `SidePanelComponent.selectTab()` and
-  `CharacterSelectComponent.select()` both call `markSeen()` for the thing being
-  navigated to, in addition to whatever else that click already did.
-- **Persisted** (`SaveService` includes `AttentionService.getSnapshot()`/`restore()` as
-  `unseenAttention`) — an unseen indicator survives a reload; once cleared, it stays
-  cleared. See §5 Objectives for how a fresh game seeds its initial shine, since there's
-  no real "just unlocked" event for something available from the start.
-- **No shine for the thing you're already looking at.** `SidePanelComponent.hasAttention`
-  and `CharacterSelectComponent.hasAttention` both suppress the glow for the
-  currently-active tab/character (`id !== this.activeTab` / `id !== this.active`, checked
-  before `attention.isUnseen(...)`) — a tab or character that becomes newly-unseen *while
-  already selected* shouldn't flash at something the player is already looking straight
-  at. The underlying unseen flag isn't cleared by this (only an explicit
-  `selectTab`/`select` click does that, via `markSeen`), so switching away and back can
-  still show the shine once it's no longer the active one. Apply the same "suppress
-  while active, don't just always clear" pattern to any future attention-shined element
-  that can be "currently selected."
+**Game action log messages:** every game action logs through `ActivityLogService` in one
+consistent shape: `<flavor sentence, present tense>. ({{resourceId|<signed amount>
+<symbol>}})`. Normal actions log at `'default'` (INFO) — reserve
+`'success'/'warn'/'error'/'rare'` for genuinely noteworthy events, or the INFO filter
+stops being meaningful. Flavor sentences live in `flavor-text.ts`, keyed by the thing's
+own config id. Named exceptions: Dev Tools actions don't log at all; claiming an
+Objective logs at `'success'` with no token.
 
-### Tooltips (hover detail system)
-
-`TooltipDirective` + `TooltipComponent` (`src/app/shared/tooltip/`) — `[appTooltip]="content"`
-on any element shows a small styled detail box after a short hover delay. Built for the
-Button Zone's three button families (primary/timed/crafting) so a player can see a
-button's real numbers — cost, yield, duration (or a min-max range), click count — without
-having to guess or dig through Statistics, but the directive itself is generic and reuses
-freely for any other hover-detail case later.
-
-- **Content is a plain data object, not markup** — `TooltipContent { title?: string; rows:
-  TooltipRow[] }`, each `TooltipRow` a `{ label, value, color? }`. The *directive* only
-  owns show/hide/positioning; building the actual numbers is the consuming component's
-  job (see `ButtonZoneComponent.primaryActionTooltip`/`timedActionTooltip`/
-  `craftingTooltip`) — same "config/behavior vs. presentation" split as everywhere else.
-  `color` (optional) tints a row's value the resource's own accent color (§3/§7), the
-  same colored-token idiom the Activity Log and `resourceAmountToken`/`resourceNameToken`
-  (`shared/resource-token.ts`) already use elsewhere — reuse those two builders for any
-  resource-amount/resource-name row rather than hand-formatting one.
-- **Numbers must be live, not the bare config value.** A button's real yield/duration
-  depends on whatever upgrades are currently leveled — `ButtonZoneComponent`'s tooltip
-  builders call the exact same `UpgradesService` methods (`getActionAmountBonus`,
-  `getTimedActionDurationMs`, `getTimedActionYieldBonus`, `getBonusRewardChance`,
-  `getPayoutDoubleChance`, `getCascadingDoubleChance`) that `onAction()`/
-  `TimedActionsService` themselves use to resolve the real payout — so a tooltip's yield
-  always matches what actually happens on the next click, and an upgrade purchase updates
-  it immediately (content is recomputed every change-detection cycle and pushed into an
-  already-open tooltip via `TooltipDirective.ngOnChanges`, not just read once on hover).
-  A row that's only sometimes relevant (a nonzero double-payout chance, a bonus-reward
-  chance, `requiresCollection`'s "manual collection" note) is omitted entirely rather than
-  shown as "0%" — don't clutter a tooltip with a detail that doesn't currently apply.
-  A `'random'`-duration timed action (Bait Trap) shows a min-max range (each end run
-  through `getTimedActionDurationMs` independently so a duration-shortening upgrade
-  scales both), not the single hidden roll `TimedActionsService` uses internally — see §6
-  on why the roll itself must stay hidden; the *range* is not the roll and is fine to show.
-- **Unobtrusive by construction:**
-  - A ~350ms show delay (`TOOLTIP_SHOW_DELAY_MS`) so sweeping the pointer across several
-    buttons doesn't spam a tooltip after each one.
-  - `pointer-events: none` on the tooltip's own host — it can never itself be hovered,
-    block the button underneath, or intercept a click.
-  - Torn down immediately on `pointerdown`, not just `pointerleave` — a tooltip lingering
-    over an actively-held button (Forge Ingots, the primary hold-to-click button) would
-    be the exact "obtrusive" failure this system exists to avoid.
-  - Positioned above the trigger by default, flipping below if there's no room, and
-    clamped to the viewport on both axes — never rendered partly off-screen.
-  - Content with an empty `rows` array shows nothing at all rather than an empty box.
-- **Not a shared singleton/overlay-service tooltip** — each `[appTooltip]` host gets its
-  own directive instance, and `TooltipComponent` is created fresh via
-  `ViewContainerRef.createComponent` on show and destroyed on hide, rather than a pooled
-  instance moved around. This game only ever has a handful of buttons on screen at once,
-  so the simplicity is worth more than the reuse.
-
-### Game action log messages
-
-Every game action (clicking a button, purchasing an upgrade, a timed action paying out,
-etc.) logs a message through `ActivityLogService`, in this consistent shape:
-
-```
-<flavor sentence, present tense, ends with a period>. ({{resourceId|<signed amount> <symbol>}})
-```
-
-e.g. Fighter's button logs `You put in a hard day's work and earn some gold. ({{gold|+1 G}})`.
-
-- **Log level:** normal actions log at `'default'` (the INFO filter in the Activity Log's
-  filter bar) — reserve `'success'`/`'warn'`/`'error'`/`'rare'` for things that are
-  actually noteworthy, not routine play. This is what makes the INFO filter meaningfully
-  filterable — if routine actions used `'success'`, filtering it out would hide normal
-  play along with the log spam.
-- **Currency formatting:** the numeric delta is always the `{{resourceId|displayText}}`
-  token, with `displayText` built from `formatSigned()` (`shared/number-format.ts`) plus
-  the resource's symbol, e.g. `+1 G`. Never hand-format a bare number into a log string
-  — it won't pick up the currency's color.
-- **Flavor sentence source:** lives in `flavor-text.ts` next to whatever it describes
-  (e.g. `ACTION_FLAVOR`/`UPGRADE_FLAVOR`/`TIMED_ACTION_FLAVOR`/`OBJECTIVE_FLAVOR`, keyed
-  by the thing's own config id) — not inline in the component or service — so the same
-  "config vs. flavor" split applies to log copy as to everything else.
-- **Consistency:** every new action type should follow this exact shape (flavor sentence
-  + parenthesized colored delta, INFO level) rather than inventing a new phrasing
-  pattern — see `ButtonZoneComponent.logAction`/`TimedActionsService.logCompletion` for
-  reference implementations.
-- **Named exceptions** to the shape above, both deliberate: Dev Tools actions (§16)
-  don't log at all (they aren't real game actions a player performed); claiming an
-  Objective (§5) logs at `'success'` with no parenthesized token (the reward is often a
-  character/system unlock, not a currency amount). Don't treat either as license to skip
-  or bend the convention elsewhere — both are scoped to exactly the case described.
+---
 
 ## Testing
 
-Two layers, run after any change that could plausibly touch them — this is a *regression
-suite* meant to be extended alongside every feature, not a one-time exercise:
+Two layers, run after any change that could plausibly touch them:
 
-- **Unit** (Karma/Jasmine): `npm run test:unit` (headless, single run) or `ng test`
-  (interactive watch mode). Specs are co-located (`*.spec.ts` next to the file they test).
-- **E2E/smoke** (Playwright): `npm run test:e2e`, spec files under `e2e/`. Drives the real
-  rendered app in a headless browser against whatever dev server is already up on 4200
-  (or starts one) — reserve this layer for things only observable end-to-end (rendered
-  DOM/CSS state, full click-through flows across multiple components), not for logic a
-  unit test could exercise faster.
+- **Unit** (Karma/Jasmine): `npm run test:unit`. Specs co-located (`*.spec.ts`).
+- **E2E** (Playwright): `npm run test:e2e`, under `e2e/`. Drives the real rendered app —
+  reserve for things only observable end-to-end, not logic a unit test could exercise
+  faster.
 - `npm run test:all` runs both.
 
-### Unit suite
+Key specs to extend rather than re-derive:
 
-- **`src/testing/invariants.ts`** holds small, reusable assertion helpers shared across
-  specs (missing-flavor / duplicate-id / dangling-reference / emoji-symbol checks so far)
-  — add to it rather than re-deriving the same check inline in a new spec.
-- **`src/app/configs/game-config.spec.ts` is the config-integrity suite** — the generic
-  "did I forget to register X" safety net that should be extended for any new
-  resource/action/timed action/crafting action/upgrade/objective: every id cross-references a real target
-  (resourceId, characterId, actionId, timedActionId, upgradeId...), every id has a
-  flavor-text.ts counterpart with non-empty fields, every symbol is checked against the
-  no-emoji rule (§1), a `requiresCollection` timed action has an explicit `readyLabel`,
-  and duration/cost/reward shapes are sane (positive amounts, `minMs < maxMs`, etc). This
-  is what catches a forgotten flavor-text entry before it ships as a blank button label,
-  or a typo'd cross-reference before it silently no-ops at runtime.
-- **`per-second-calculator.service.spec.ts`** guards "per-second rates are accounted
-  for" — every resource returns a finite rate, `activeResourceIds` matches `GENERATORS`
-  exactly, and a resource's rate is the sum of its generators (each bumped by
-  `getGeneratorRateBonus`). `GENERATORS` is still empty (§7), so the one test that needs a
-  real generator to mean anything calls `pending()` rather than faking an assertion —
-  replace that with a real test the moment the first generator is registered, don't leave
-  a placeholder passing for its own sake.
-- **`save.service.spec.ts`** guards "every registered component is reflected in the
-  save" — asserts the exported save has exactly `EXPECTED_SAVE_KEYS` (a hand-maintained
-  checklist mirroring `SaveData`) and that every currently-known service's
-  `getSnapshot()` round-trips through `exportBase64()` byte-for-byte.
-  **`EXPECTED_SAVE_KEYS` must be updated in the same change that adds a new persisted
-  field/service** — nothing can enforce that automatically (there's no service registry
-  to reflect over), so this list is deliberately the forcing function.
-- **"Statistic tracking is present" is guarded in two places, one per action family:**
-  `button-zone.component.spec.ts` loops every `CHARACTER_ACTIONS` entry (not hardcoded by
-  name) and asserts `onAction()` calls `StatisticsService.recordAction` with that exact
-  id; `timed-actions.service.spec.ts` asserts the same for `TIMED_ACTIONS`, but on
-  *completion/collection* (`TimedActionsService.payout()`), not on `start()` — a Guild
-  Contract or Bait Trap only counts toward an `action-count` objective like "Work 15
-  times" once it's actually paid out, the same way a primary-button press only counts
-  once it's actually clicked, not "queued." (This was a real gap until reported and fixed
-  during this suite's construction — `payout()` didn't call `recordAction` at all
-  originally, so timed-action completions silently didn't count.)
+- **`src/testing/invariants.ts`** — reusable assertion helpers (missing-flavor,
+  duplicate-id, dangling-reference, emoji-symbol checks).
+- **`src/app/configs/game-config.spec.ts`** — the config-integrity suite: every id
+  cross-references a real target, every id has a flavor-text counterpart, no-emoji rule,
+  sane duration/cost/reward shapes. Extend for any new resource/action/upgrade/objective
+  type.
+- **`save.service.spec.ts`** — asserts the exported save has exactly
+  `EXPECTED_SAVE_KEYS` and every service's `getSnapshot()` round-trips byte-for-byte.
+  Update `EXPECTED_SAVE_KEYS` in the same change that adds a new persisted field —
+  nothing else enforces it.
+- **`e2e/helpers.ts`** — reusable page interactions; extend rather than re-deriving
+  inline.
+- Locate a timed-action button by `data-testid="timed-action-<id>"`, never by label text
+  (labels change across idle/running/ready phases).
+- Seed exact-amount scenarios via `seedSave` (writes straight to localStorage pre-boot),
+  not Dev Tools' currency grant, whenever a test asserts a specific small amount — Dev
+  Tools grants a uniform million of everything.
 
-### E2E suite (`e2e/`)
-
-- **`e2e/helpers.ts`** has the reusable page interactions (Dev Tools grants, claiming
-  objectives, selecting a character, tracking console errors, locating a timed-action
-  button) — extend it rather than re-deriving a Dev Tools dance inline in a new spec.
-- **Locate a timed-action button by `data-testid="timed-action-<id>"`
-  (`timedActionButton` in helpers.ts, `button-zone.component.html`), never by its current
-  label text.** A timed action's label is exactly what changes across its
-  idle/running/ready phases (e.g. Bait Trap: "Bait Trap" -> "Waiting..." -> "Collect
-  Prey") — a `hasText`-filtered locator stops matching the instant the very state a test
-  is asserting on changes the label. Same reasoning gave the primary button a
-  `primary-action-<id>` test id, for consistency, even though no primary label changes
-  dynamically today.
-- **Seed exact-amount scenarios via `seedRangerUnlockedSave`/`seedSave` (writes a save
-  straight to localStorage before boot), not Dev Tools' currency grant, whenever a test
-  asserts a specific small currency amount.** Dev Tools only grants a million of *every*
-  resource at once — fine for reaching an unlock threshold, but it also pollutes
-  Bait/Raw Meat/Pelt, and `formatAmount`'s 3-significant-digit rounding makes a later +1
-  invisible on top of 1,000,000 (both display as "1M"). `seedSave` writes only the fields
-  a scenario actually cares about — every field is optional from the reader's side per
-  the Save section's forward-compat rule (§9), verified by `save.service.spec.ts` — so
-  the rest defaults to a genuinely empty wallet.
-
-### A real bug this suite already caught
-
-**Any `*ngFor` over a live/computed array needs a `trackBy` if the array's items are
-freshly-constructed objects on every read** — `TimedActionsService.actions` maps to new
-`TimedActionState` objects on every call, so without `trackBy` Angular's default
-identity-based diffing sees a "new" object every change-detection cycle and
-destroys/recreates the DOM node instead of reusing it, including on the periodic
-`TIMED_ACTION_TICK_MS` refresh while a timed action is running. Found via e2e flakiness
-(Playwright's `boundingBox()` intermittently seeing a detached node mid-cycle), not by
-inspection — `ButtonZoneComponent.trackTimedAction` (keyed on `config.id`) is the
-reference fix. Apply the same pattern to any future `*ngFor` over a similarly-shaped live
-getter.
+---
 
 ## Running the app
-- I will typically have the app running on localhost port 4200, try to use that if available. 
+
+The app is typically already running on `localhost:4200` — check there before starting a
+new instance.

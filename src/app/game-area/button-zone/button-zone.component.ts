@@ -11,7 +11,6 @@ import { CharacterSelectService } from '../../character-select/character-select.
 import { WalletService } from '../../economy/wallet.service';
 import { ActivityLogService } from '../../activity-log/activity-log.service';
 import { UnlocksService } from '../../shared/unlocks.service';
-import { HoldHintService } from '../../shared/hold-hint.service';
 import { resolveExcessCount } from '../../shared/chance';
 import { TimedActionsService, TimedActionState } from '../../timed-actions/timed-actions.service';
 import { CraftingService, CraftingActionState } from '../../crafting/crafting.service';
@@ -68,21 +67,11 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
   private unlocks = inject(UnlocksService);
   private timedActions = inject(TimedActionsService);
   private crafting = inject(CraftingService);
-  private holdHint = inject(HoldHintService);
   private cdr = inject(ChangeDetectorRef);
   private sub = new Subscription();
 
   readonly autoClickIntervalMs = AUTOCLICK_INTERVAL_MS;
   activeCharacterId = this.characterService.active;
-
-  /** Once the player has actually held down any hold-to-click button (not just tapped
-   *  it), the "hold to repeat" hint has done its job everywhere — checked across all
-   *  action ids, not just the active character's, so switching characters doesn't bring
-   *  the hint back. Persisted via `HoldHintService` so it stays gone across a reload,
-   *  not just for the session. */
-  get hasHeld(): boolean {
-    return this.holdHint.hasHeldAny();
-  }
 
   get action(): CharacterActionConfig | undefined {
     return CHARACTER_ACTIONS.find(a => a.characterId === this.activeCharacterId);
@@ -144,7 +133,6 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
     this.sub.add(this.timedActions.changes$.subscribe(() => this.cdr.markForCheck()));
     this.sub.add(this.crafting.changes$.subscribe(() => this.cdr.markForCheck()));
     this.sub.add(this.unlocks.state$.subscribe(() => this.cdr.markForCheck()));
-    this.sub.add(this.holdHint.changes$.subscribe(() => this.cdr.markForCheck()));
     // Re-renders the progress fill on the same cadence TimedActionsService/CraftingService
     // check completion on (TIMED_ACTION_TICK_MS) — purely visual, the running/complete
     // state itself never depends on this timer, this just keeps the bar from looking
@@ -182,10 +170,6 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
   onTimedAction(t: TimedActionState): void {
     if (t.ready) this.timedActions.collect(t.config.id);
     else if (!t.running) this.timedActions.start(t.config.id);
-  }
-
-  onHoldRepeat(): void {
-    if (this.action) this.holdHint.markHeld(this.action.id);
   }
 
   craftingLabel(c: CraftingActionState): string {
