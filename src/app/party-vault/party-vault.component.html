@@ -26,10 +26,21 @@
     <app-empty-state *ngIf="filteredResources.length === 0" message="No resources unlocked"></app-empty-state>
 
     <div class="vault-entry" *ngFor="let r of filteredResources">
-      <div
-        class="vault-row"
-        [class.expandable]="r.sources.length > 0"
+      <button
+        *ngIf="r.sources.length > 0; else staticRow"
+        type="button"
+        class="vault-row expandable"
+        [attr.aria-expanded]="r.expanded"
         (click)="toggleExpanded(r.id)">
+        <ng-container *ngTemplateOutlet="rowContent; context: { r: r }"></ng-container>
+      </button>
+      <ng-template #staticRow>
+        <div class="vault-row">
+          <ng-container *ngTemplateOutlet="rowContent; context: { r: r }"></ng-container>
+        </div>
+      </ng-template>
+
+      <ng-template #rowContent let-r="r">
         <span class="vault-symbol" [style.borderColor]="r.color" [style.color]="r.color">{{ r.symbol }}</span>
         <div class="vault-info">
           <div class="vault-name-line" [style.color]="r.color">{{ r.name }}</div>
@@ -43,7 +54,7 @@
             </span>
           </div>
         </div>
-      </div>
+      </ng-template>
 
       <div class="vault-sources" *ngIf="r.expanded && r.sources.length > 0">
         <div class="source-row" *ngFor="let s of r.sources">
