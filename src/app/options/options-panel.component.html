@@ -18,10 +18,16 @@
 
   <div class="section">
     <div class="section-header">// Display</div>
-    <div class="toggle-row" *ngFor="let opt of toggles" (click)="toggle(opt.key)">
-      <span class="toggle-box" [class.on]="settings[opt.key]">{{ settings[opt.key] ? 'X' : ' ' }}</span>
+    <button
+      type="button"
+      class="toggle-row"
+      role="switch"
+      *ngFor="let opt of toggles"
+      [attr.aria-checked]="settings[opt.key]"
+      (click)="toggle(opt.key)">
+      <span class="toggle-box" [class.on]="settings[opt.key]" aria-hidden="true">{{ settings[opt.key] ? 'X' : ' ' }}</span>
       <span class="toggle-label">{{ opt.label }}</span>
-    </div>
+    </button>
   </div>
 
   <div class="section">
