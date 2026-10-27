@@ -20,6 +20,11 @@ describe('CombatControlsComponent', () => {
     expect((buttons[0] as HTMLElement).classList.contains('active')).toBeTrue();
   });
 
+  it('reflects the selected area via aria-pressed, not just the active CSS class', () => {
+    const button = fixture.nativeElement.querySelector('.area-button') as HTMLElement;
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+  });
+
   it('clicking Fight! starts an encounter in the selected area', () => {
     (fixture.nativeElement.querySelector('.fight-button') as HTMLElement).click();
     expect(combat.activeEncounter?.enemyId).toBe('kobold');

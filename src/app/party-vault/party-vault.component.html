@@ -7,6 +7,7 @@
     <button
       class="filter-btn"
       [class.active]="allActive"
+      [attr.aria-pressed]="allActive"
       (click)="toggleAllFilters()">
       ALL
     </button>
@@ -15,6 +16,7 @@
       class="filter-btn"
       *ngFor="let c of characters"
       [class.active]="activeFilters.has(c.id)"
+      [attr.aria-pressed]="activeFilters.has(c.id)"
       [style.color]="activeFilters.has(c.id) ? c.color : null"
       [style.borderColor]="activeFilters.has(c.id) ? c.color : null"
       (click)="toggleFilter(c.id)">

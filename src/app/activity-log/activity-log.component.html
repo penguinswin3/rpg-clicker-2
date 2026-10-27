@@ -11,6 +11,7 @@
       <button
         class="filter-btn"
         [class.active]="allActive"
+        [attr.aria-pressed]="allActive"
         data-type="all"
         (click)="toggleAllFilters()">
         ALL
@@ -20,6 +21,7 @@
         class="filter-btn"
         *ngFor="let f of filters"
         [class.active]="activeFilters.has(f.value)"
+        [attr.aria-pressed]="activeFilters.has(f.value)"
         [attr.data-type]="f.value"
         (click)="toggleFilter(f.value)">
         {{ f.label }}

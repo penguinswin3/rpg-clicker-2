@@ -6,6 +6,7 @@
       *ngFor="let area of areas"
       class="area-button"
       [class.active]="selectedAreaId === area.id"
+      [attr.aria-pressed]="selectedAreaId === area.id"
       [disabled]="inEncounter"
       (click)="selectArea(area.id)">
       {{ areaLabel(area.id) }}
