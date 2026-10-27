@@ -20,3 +20,14 @@
   // the point.
   padding-bottom: 210px;
 }
+
+// header/main/aside are new semantic landmarks (Task 14) added purely for
+// accessibility — display: contents keeps them invisible to :host's flex layout so
+// their children (app-top-bar, .main-layout, etc.) remain direct flex items exactly as
+// before, same technique PartyVaultComponent/TopBarComponent/CharacterSelectComponent
+// already use on their own :host for the same reason.
+header,
+main,
+aside {
+  display: contents;
+}

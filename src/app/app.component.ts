@@ -21,6 +21,7 @@ import { DevToolsPanelComponent } from './dev-tools/dev-tools-panel.component';
 import { ConfirmModalComponent } from './shared/confirm-modal/confirm-modal.component';
 import { LiveAnnouncerComponent } from './shared/live-announcer/live-announcer.component';
 import { SaveService } from './save/save.service';
+import { GAME_TITLE } from './configs/game-config';
 
 @Component({
   selector: 'app-root',
@@ -57,6 +58,8 @@ export class AppComponent {
   private gameLoop = inject(GameLoopService);
 
   modalService = inject(ModalService);
+
+  readonly gameTitle = GAME_TITLE;
 
   modalTitle(id: ModalId): string {
     return MODAL_TITLES[id];

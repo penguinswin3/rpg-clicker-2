@@ -8,7 +8,7 @@
     (click)="$event.stopPropagation()">
     <div class="modal-header">
       <span class="modal-title" [id]="titleId">[ {{ title }} ]</span>
-      <button type="button" class="modal-close" aria-label="Close" (click)="closed.emit()">[x]</button>
+      <button type="button" class="modal-close" aria-label="Close [x]" (click)="closed.emit()">[x]</button>
     </div>
     <div class="modal-body">
       <ng-content></ng-content>

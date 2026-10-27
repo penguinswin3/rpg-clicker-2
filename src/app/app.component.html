@@ -1,14 +1,22 @@
-<app-top-bar></app-top-bar>
-<app-character-select></app-character-select>
+<header>
+  <h1 class="sr-only">{{ gameTitle }}</h1>
+  <app-top-bar></app-top-bar>
+</header>
 
-<div class="main-layout">
-  <app-party-vault></app-party-vault>
-  <app-game-area></app-game-area>
-  <app-side-panel></app-side-panel>
-</div>
+<main>
+  <app-character-select></app-character-select>
 
-<app-activity-log></app-activity-log>
-<app-live-announcer></app-live-announcer>
+  <div class="main-layout">
+    <app-party-vault></app-party-vault>
+    <app-game-area></app-game-area>
+    <app-side-panel></app-side-panel>
+  </div>
+</main>
+
+<aside aria-label="Activity Log">
+  <app-activity-log></app-activity-log>
+  <app-live-announcer></app-live-announcer>
+</aside>
 
 <app-ui-modal
   *ngIf="modalService.active$ | async as active"

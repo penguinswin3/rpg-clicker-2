@@ -97,10 +97,11 @@ describe('UiModalComponent', () => {
     expect(event.defaultPrevented).toBeTrue();
   });
 
-  it('the close control is a real button labelled "Close"', () => {
+  it('the close control is a real button whose accessible name contains its visible text', () => {
     openModal();
     const close: HTMLButtonElement = fixture.nativeElement.querySelector('.modal-close');
     expect(close.tagName).toBe('BUTTON');
-    expect(close.getAttribute('aria-label')).toBe('Close');
+    expect(close.getAttribute('aria-label')).toBe('Close [x]');
+    expect(close.getAttribute('aria-label')).toContain(close.textContent!.trim());
   });
 });
