@@ -1,8 +1,14 @@
 <div class="modal-backdrop" (click)="onBackdropClick()">
-  <div class="modal-panel" (click)="$event.stopPropagation()">
+  <div
+    class="modal-panel"
+    role="dialog"
+    aria-modal="true"
+    [attr.aria-labelledby]="titleId"
+    tabindex="-1"
+    (click)="$event.stopPropagation()">
     <div class="modal-header">
-      <span class="modal-title">[ {{ title }} ]</span>
-      <span class="modal-close" (click)="closed.emit()">[x]</span>
+      <span class="modal-title" [id]="titleId">[ {{ title }} ]</span>
+      <button type="button" class="modal-close" aria-label="Close" (click)="closed.emit()">[x]</button>
     </div>
     <div class="modal-body">
       <ng-content></ng-content>
