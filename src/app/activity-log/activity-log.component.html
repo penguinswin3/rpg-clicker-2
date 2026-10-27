@@ -1,9 +1,9 @@
 <div class="log-panel" [class.minimized]="minimized">
 
-  <div class="log-header" (click)="toggle()">
+  <button type="button" class="log-header" [attr.aria-expanded]="!minimized" (click)="toggle()">
     <span class="log-title">[ ACTIVITY LOG ]</span>
-    <span class="log-toggle">{{ minimized ? '[+]' : '[-]' }}</span>
-  </div>
+    <span class="log-toggle" aria-hidden="true">{{ minimized ? '[+]' : '[-]' }}</span>
+  </button>
 
   <ng-container *ngIf="!minimized">
     <!-- Filter bar -->
