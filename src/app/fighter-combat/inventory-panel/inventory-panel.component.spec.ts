@@ -65,13 +65,23 @@ describe('InventoryPanelComponent', () => {
     expect(equipment.getEquippedItemId('ring-1')).toBe('ring-swift-strike');
   });
 
-  it('does nothing when disabled', () => {
+  it('is a real disabled button when disabled — not just click-guarded', () => {
     equipment.addToInventory('ring-swift-strike');
     fixture.componentInstance.disabled = true;
     fixture.detectChanges();
 
-    (fixture.nativeElement.querySelector('.inventory-slot') as HTMLElement).click();
+    const slot = fixture.nativeElement.querySelector('.inventory-slot') as HTMLButtonElement;
+    expect(slot.disabled).toBeTrue();
 
+    slot.click();
     expect(equipment.getEquippedItemId('ring-1')).toBeUndefined();
+  });
+
+  it('has an aria-label naming the item, since the slot only shows a symbol glyph', () => {
+    equipment.addToInventory('ring-swift-strike', 2);
+    fixture.detectChanges();
+
+    const slot: HTMLElement = fixture.nativeElement.querySelector('.inventory-slot');
+    expect(slot.getAttribute('aria-label')).toBe('Ring of Swift Strikes');
   });
 });

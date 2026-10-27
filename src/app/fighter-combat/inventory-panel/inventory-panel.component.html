@@ -4,14 +4,17 @@
   <app-empty-state *ngIf="entries.length === 0" message="Bag is empty" [compact]="true"></app-empty-state>
 
   <div class="inventory-grid" *ngIf="entries.length > 0">
-    <div
+    <button
+      type="button"
       class="inventory-slot"
       *ngFor="let entry of entries; trackBy: trackByItemId"
       [style.color]="rarityColor(entry.config.rarity)"
       [style.borderColor]="rarityColor(entry.config.rarity)"
       [appTooltip]="tooltip(entry)"
+      [disabled]="disabled"
+      [attr.aria-label]="itemLabel(entry.config.id)"
       (click)="equip(entry.config.id)">
       {{ symbol(entry.config.id) }}
-    </div>
+    </button>
   </div>
 </div>

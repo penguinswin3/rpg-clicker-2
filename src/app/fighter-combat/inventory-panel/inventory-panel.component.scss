@@ -35,4 +35,10 @@
   line-height: 1;
   cursor: pointer;
   user-select: none;
+  background: none;
+  font-family: inherit;
+
+  &:disabled {
+    cursor: default;
+  }
 }

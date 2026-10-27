@@ -53,6 +53,10 @@ export class InventoryPanelComponent implements OnInit, OnDestroy {
     return getEquipmentFlavor(id).symbol;
   }
 
+  itemLabel(id: string): string {
+    return getEquipmentFlavor(id).label;
+  }
+
   rarityColor(rarity: EquipmentConfig['rarity']): string {
     return getRarityFlavor(rarity).color;
   }

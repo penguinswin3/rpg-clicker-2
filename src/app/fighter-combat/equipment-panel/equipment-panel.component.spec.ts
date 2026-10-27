@@ -43,15 +43,17 @@ describe('EquipmentPanelComponent', () => {
     expect(equipment.getEquippedItemId('ring-1')).toBeUndefined();
   });
 
-  it('does nothing when disabled', () => {
+  it('is a real disabled button when disabled — not just click-guarded', () => {
     equipment.addToInventory('ring-swift-strike');
     equipment.equip('ring-swift-strike', 'ring-1');
     fixture.componentInstance.disabled = true;
     fixture.detectChanges();
 
     const slots = fixture.nativeElement.querySelectorAll('.equipment-slot');
-    (slots[5] as HTMLElement).click();
+    const ringSlot = slots[5] as HTMLButtonElement;
+    expect(ringSlot.disabled).toBeTrue();
 
+    ringSlot.click();
     expect(equipment.getEquippedItemId('ring-1')).toBe('ring-swift-strike');
   });
 });
