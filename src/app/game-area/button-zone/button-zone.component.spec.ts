@@ -5,6 +5,7 @@ import { StatisticsService } from '../../statistics/statistics.service';
 import { WalletService } from '../../economy/wallet.service';
 import { UpgradesService } from '../../upgrades/upgrades.service';
 import { TimedActionsService, TimedActionState } from '../../timed-actions/timed-actions.service';
+import { CraftingService } from '../../crafting/crafting.service';
 import { CHARACTER_ACTIONS, TIMED_ACTIONS, CRAFTING_ACTIONS, TimedActionConfig } from '../../configs/game-config';
 import { RESOURCE_FLAVOR } from '../../configs/flavor-text';
 import { formatAmount, formatDurationMs } from '../../shared/number-format';
@@ -77,6 +78,56 @@ describe('ButtonZoneComponent', () => {
       fixture.componentInstance.onTimedAction(fakeState(baitTrap, { ready: true }));
 
       expect(timedActions.collect).toHaveBeenCalledOnceWith('ranger-bait-trap');
+    });
+  });
+
+  describe('onCraftHoldStartKeyboard — Enter/Space parity for the hold-craft button', () => {
+    const forgeIngots = CRAFTING_ACTIONS.find(a => a.id === 'blacksmith-forge-ingots')!;
+    const holdState = { config: forgeIngots, progress: 0 };
+
+    it('drives the same CraftingService.startHold a pointer hold does', () => {
+      const fixture = TestBed.createComponent(ButtonZoneComponent);
+      const crafting = TestBed.inject(CraftingService);
+      spyOn(crafting, 'startHold');
+
+      fixture.componentInstance.onCraftHoldStartKeyboard(new KeyboardEvent('keydown', { key: ' ' }), holdState);
+
+      expect(crafting.startHold).toHaveBeenCalledOnceWith(forgeIngots.id);
+    });
+
+    it("preventDefaults the key event — Angular's (keydown.space) binding doesn't, and Space would scroll", () => {
+      const fixture = TestBed.createComponent(ButtonZoneComponent);
+      const event = new KeyboardEvent('keydown', { key: ' ', cancelable: true });
+
+      fixture.componentInstance.onCraftHoldStartKeyboard(event, holdState);
+
+      expect(event.defaultPrevented).toBeTrue();
+    });
+
+    it('the hold-craft button wires keydown/keyup Enter and Space alongside its pointer events', () => {
+      const fixture = TestBed.createComponent(ButtonZoneComponent);
+      const characters = TestBed.inject(CharacterSelectService);
+      characters.unlock('blacksmith');
+      characters.select('blacksmith');
+      fixture.componentInstance.activeCharacterId = 'blacksmith';
+      fixture.detectChanges();
+
+      const crafting = TestBed.inject(CraftingService);
+      const startHold = spyOn(crafting, 'startHold');
+      const releaseHold = spyOn(crafting, 'releaseHold');
+      const button: HTMLButtonElement = fixture.nativeElement.querySelector('.hold-craft-button');
+      expect(button).withContext('Blacksmith should render a hold-craft button').toBeTruthy();
+
+      for (const key of ['Enter', ' ']) {
+        startHold.calls.reset();
+        releaseHold.calls.reset();
+
+        button.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+        expect(startHold).withContext(`keydown "${key}"`).toHaveBeenCalled();
+
+        button.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true, cancelable: true }));
+        expect(releaseHold).withContext(`keyup "${key}"`).toHaveBeenCalled();
+      }
     });
   });
 

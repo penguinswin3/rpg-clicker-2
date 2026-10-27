@@ -180,6 +180,17 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
     this.crafting.startHold(c.config.id);
   }
 
+  /** Keyboard equivalent of the hold-craft button's `pointerdown` — same handler, so
+   *  Enter/Space held down drives the identical `CraftingService.startHold` progress a
+   *  mouse hold does (AGENTS.md §19 Accessibility). Angular's `(keydown.space)` binding
+   *  doesn't call `preventDefault()` for us, and without it Space scrolls the page (and
+   *  the browser synthesizes a `click`) while the player is mid-hold. `startHold` is
+   *  idempotent when already holding, so the OS's own key auto-repeat is harmless. */
+  onCraftHoldStartKeyboard(event: Event, c: CraftingActionState): void {
+    event.preventDefault();
+    this.onCraftHoldStart(c);
+  }
+
   onCraftHoldEnd(c: CraftingActionState): void {
     this.crafting.releaseHold(c.config.id);
   }

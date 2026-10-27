@@ -13,6 +13,23 @@ test.describe('Fighter', () => {
     await expect(goldRow.locator('.vault-amount')).toHaveText('1');
   });
 
+  // Keyboard parity for the primary button, end-to-end: the unit spec
+  // (hold-to-click.directive.spec.ts) proves the handlers do the right thing with
+  // synthetic events, but only a real browser proves the key actually reaches a focused
+  // native <button> and isn't swallowed by preventDefault/scroll handling. AGENTS.md §19.
+  for (const key of ['Enter', 'Space'] as const) {
+    test(`Hard Labor grants gold on ${key} with the primary button focused`, async ({ page }) => {
+      await gotoFreshGame(page);
+      const goldRow = page.locator('.vault-row', { hasText: 'GOLD' });
+
+      await page.focus('button.primary-button');
+      await page.keyboard.press(key);
+
+      await expect(goldRow).toBeVisible();
+      await expect(goldRow.locator('.vault-amount')).toHaveText('1');
+    });
+  }
+
   test('Guild Contract: fixed 10s duration, shows a progress fill, disables while running, then auto pays out', async ({
     page,
   }) => {
