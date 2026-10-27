@@ -3,9 +3,9 @@
     <button class="nav-btn" *ngFor="let b of leftButtons; trackBy: trackNavButton" (click)="open(b.id)">{{ b.label }}</button>
   </div>
 
-  <!-- Decorative: app.component.html has the real, properly-exposed <h1>{{ gameTitle }}</h1>
+  <!-- Decorative: app.component.html owns the real, properly-exposed h1 naming the game
        now, so this is pure ASCII art — hidden rather than aria-labelled (an aria-label on a
-       <pre> isn't reliably exposed anyway), same treatment .combatant-ascii gets. -->
+       pre isn't reliably exposed anyway), same treatment .combatant-ascii gets. -->
   <pre class="title" aria-hidden="true">{{ gameTitleAscii }}</pre>
 
   <div class="nav-group right">
