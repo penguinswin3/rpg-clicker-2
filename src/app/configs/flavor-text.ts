@@ -1,6 +1,8 @@
 // Cosmetic/flavor values — names, colors, symbols, decorative art. Game values
 // (costs, unlock requirements, resource yields, relations) belong in game-config.ts instead.
 
+import { GLYPHS } from '../shared/glyphs';
+
 export interface CharacterFlavor {
   label: string;
   color: string;
@@ -13,7 +15,8 @@ export const CHARACTER_FLAVOR: Record<string, CharacterFlavor> = {
   brewmaster: { label: 'Brewmaster', color: '#d4c46a' },
 };
 
-// Symbols are plain Unicode text glyphs, never emoji — see AGENTS.md's "No emojis, ever" rule.
+// Symbols are plain Unicode text glyphs, never emoji — see AGENTS.md's "No emojis, ever" rule —
+// or a custom pixel-art glyph from GLYPHS (glyphs/, `npm run build:glyphs`).
 export const RESOURCE_FLAVOR: Record<string, ResourceFlavor> = {
   'gold': { name: 'GOLD', color: '#ffd700', symbol: '$' },
   'herbs': { name: 'HERBS', color: '#0f0', symbol: '§' },
@@ -23,7 +26,7 @@ export const RESOURCE_FLAVOR: Record<string, ResourceFlavor> = {
   'pelt': { name: 'PELT', color: '#967048', symbol: '‡' },
   'ore': { name: 'ORE', color: '#af5b46', symbol: '⎐' },
   'ingot': { name: 'INGOT', color: '#4e4f55', symbol: '=' },
-  'ironmongery': { name: 'IRONMONGERY', color: '#6699cc', symbol: '⛭' },
+  'ironmongery': { name: 'IRONMONGERY', color: '#6699cc', symbol: GLYPHS['ironmongery'] },
 };
 
 const DEFAULT_CHARACTER_FLAVOR: CharacterFlavor = { label: '', color: '#444' };

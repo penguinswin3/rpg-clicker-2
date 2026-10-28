@@ -8,7 +8,7 @@
 .collection-log-panel {
   width: min(640px, 85vw);
   height: min(420px, 65vh);
-  font-family: 'Courier New', Courier, monospace;
+  font-family: var(--font-mono);
   display: flex;
   flex-direction: column;
   gap: 8px;

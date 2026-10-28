@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  font-family: 'Courier New', Courier, monospace;
+  font-family: var(--font-mono);
   padding: 6px;
   border: 1px solid #222;
 }
@@ -20,7 +20,7 @@
 }
 
 .area-button {
-  font-family: 'Courier New', Courier, monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   text-transform: uppercase;
   padding: 4px 8px;
@@ -60,7 +60,7 @@
   padding: 0 4px;
   background: none;
   border: none;
-  font-family: 'Courier New', Courier, monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: #aaa;
   cursor: pointer;
@@ -84,7 +84,7 @@
 
 .fight-button,
 .flee-button {
-  font-family: 'Courier New', Courier, monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   padding: 8px;
   border: 1px solid #fff;

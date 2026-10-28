@@ -42,14 +42,24 @@ const EMOJI_PATTERN = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{
  *  selector needed), so they render as plain monochrome glyphs everywhere this game uses
  *  them. Add a codepoint here only when it's a genuine false positive, with a one-line note
  *  on which flavor entry uses it — this is an exception list, not a way around the ban. */
-const TEXT_PRESENTATION_EXCEPTIONS = new Set<string>([
-  '⛭', // U+26ED GEAR WITHOUT HUB — RESOURCE_FLAVOR['ironmongery'], text-presentation by default
-]);
+const TEXT_PRESENTATION_EXCEPTIONS = new Set<string>([]);
 
 /** Every [id, symbol] pair whose symbol looks like an emoji rather than a plain Unicode
  *  text glyph. Empty result means the invariant holds. */
 export function emojiSymbols(symbols: Record<string, string>): [string, string][] {
   return Object.entries(symbols).filter(
     ([, symbol]) => EMOJI_PATTERN.test(symbol) && !TEXT_PRESENTATION_EXCEPTIONS.has(symbol)
+  );
+}
+
+const PRIVATE_USE_PATTERN = /[-]/gu;
+
+/** Every [id, symbol] pair using a Private Use Area character that isn't one of `glyphs`
+ *  (GLYPHS, the built symbol font) — it would render as an empty box. Empty result means
+ *  the invariant holds. */
+export function unknownGlyphSymbols(symbols: Record<string, string>, glyphs: Record<string, string>): [string, string][] {
+  const known = new Set(Object.values(glyphs));
+  return Object.entries(symbols).filter(
+    ([, symbol]) => (symbol.match(PRIVATE_USE_PATTERN) ?? []).some(char => !known.has(char))
   );
 }

@@ -3,6 +3,22 @@
   box-sizing: border-box;
 }
 
+// Custom symbol glyphs (GLYPHS, built by `npm run build:glyphs`). The unicode-range keeps
+// this font to the Private Use Area only, so it never replaces a Courier New character —
+// and the browser only downloads it once a page actually shows one of its glyphs.
+@font-face {
+  font-family: 'Game Glyphs';
+  src: url('./assets/fonts/game-glyphs.woff') format('woff');
+  unicode-range: U+E000-F8FF;
+  font-display: block;
+}
+
+// The one font stack — every component uses `font-family: var(--font-mono)`, so a glyph
+// symbol renders wherever plain text does.
+:root {
+  --font-mono: 'Courier New', Courier, 'Game Glyphs', monospace;
+}
+
 html, body {
   height: 100%;
   margin: 0;

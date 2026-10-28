@@ -2,8 +2,6 @@
 
 ## Systems
 - Basic Sword should cost 5 ingots, 1 pelt, 1 ironmongery
-- Objective: Craft all of the basic gear for the fighter -> Unlocks the Collection Log
-- Objective: Kill 10 Kobolds - > Unlocks the Jacks Screen
 - How should the gear that the fighter uses be related to the jacks system? 
  - Should you have to craft duplicates to equip jacks? 
  - Should jacks have their own patterns and gear?

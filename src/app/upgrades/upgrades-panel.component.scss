@@ -8,7 +8,7 @@
   // (see AGENTS.md §4 Upgrades) — real cards slot into this grid later.
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 6px;
-  font-family: 'Courier New', Courier, monospace;
+  font-family: var(--font-mono);
   font-size: 14px;
 }
 

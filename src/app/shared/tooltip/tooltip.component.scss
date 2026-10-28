@@ -23,7 +23,7 @@
   background: #0a0a0a;
   border: 1px solid #444;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
-  font-family: 'Courier New', Courier, monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.5;
   animation: tooltip-fade-in 0.1s ease-out;

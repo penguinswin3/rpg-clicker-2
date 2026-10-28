@@ -749,7 +749,7 @@ export const PATTERNS: PatternConfig[] = [
     slotType: 'weapon',
     rarity: 'common',
     equipmentId: 'forged-sword',
-    cost: [{ resourceId: 'ironmongery', amount: 5 }, { resourceId: 'ingot', amount: 5 }],
+    cost: [{ resourceId: 'ironmongery', amount: 5 }, { resourceId: 'ingot', amount: 3 }, { resourceId: 'pelt', amount: 3 }],
     durationMs: 60_000,
     unlocked: true,
   },

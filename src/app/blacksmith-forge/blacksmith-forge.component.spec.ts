@@ -90,7 +90,7 @@ describe('BlacksmithForgeComponent', () => {
     const costEntries = weaponRow.querySelectorAll<HTMLElement>('.cost-entry');
 
     expect(costEntries.length).toBe(2);
-    expect(costEntries[0].textContent?.trim()).toBe('5 ⛭');
+    expect(costEntries[0].textContent?.trim()).toBe(`5 ${RESOURCE_FLAVOR['ironmongery'].symbol}`);
     expect(costEntries[0].style.color).toBeTruthy();
     expect(costEntries[1].textContent?.trim()).toBe('5 =');
     expect(costEntries[1].style.color).toBeTruthy();

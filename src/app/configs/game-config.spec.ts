@@ -34,7 +34,8 @@ import {
   COLLECTION_LOG_SET_FLAVOR,
   COLLECTION_LOG_CATEGORY_FLAVOR,
 } from './flavor-text';
-import { idsMissingFlavor, duplicateIds, danglingReferences, emojiSymbols } from '../../testing/invariants';
+import { idsMissingFlavor, duplicateIds, danglingReferences, emojiSymbols, unknownGlyphSymbols } from '../../testing/invariants';
+import { GLYPHS } from '../shared/glyphs';
 
 /**
  * Config-integrity checks — the generic "did I forget to register X" safety net.
@@ -85,6 +86,11 @@ describe('game-config integrity', () => {
     it('every RESOURCE_FLAVOR symbol is a plain Unicode glyph, never an emoji (AGENTS.md)', () => {
       const symbols = Object.fromEntries(Object.entries(RESOURCE_FLAVOR).map(([id, f]) => [id, f.symbol]));
       expect(emojiSymbols(symbols)).toEqual([]);
+    });
+
+    it('every custom-glyph RESOURCE_FLAVOR symbol exists in the built glyph font', () => {
+      const symbols = Object.fromEntries(Object.entries(RESOURCE_FLAVOR).map(([id, f]) => [id, f.symbol]));
+      expect(unknownGlyphSymbols(symbols, GLYPHS)).toEqual([]);
     });
 
     it('every RESOURCE_FLAVOR entry has a non-empty name and color', () => {
@@ -421,6 +427,11 @@ describe('game-config integrity', () => {
     it('every EQUIPMENT_FLAVOR symbol is a plain Unicode glyph, never an emoji (AGENTS.md)', () => {
       const symbols = Object.fromEntries(Object.entries(EQUIPMENT_FLAVOR).map(([id, f]) => [id, f.symbol]));
       expect(emojiSymbols(symbols)).toEqual([]);
+    });
+
+    it('every custom-glyph EQUIPMENT_FLAVOR symbol exists in the built glyph font', () => {
+      const symbols = Object.fromEntries(Object.entries(EQUIPMENT_FLAVOR).map(([id, f]) => [id, f.symbol]));
+      expect(unknownGlyphSymbols(symbols, GLYPHS)).toEqual([]);
     });
 
     it("every equipment item's slotType is a real slot type in EQUIPMENT_SLOTS", () => {

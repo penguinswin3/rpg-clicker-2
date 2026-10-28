@@ -16,6 +16,13 @@ CSS/markup patterns for new components rather than inventing new ones.
   decorative fonts.
 - **No emojis, anywhere.** Use plain Unicode text glyphs for symbols (`ᱛ`, `§`, `<`, `~`,
   `¤`, `‡`), never pictographs.
+- **Custom pixel-art symbols** are glyphs in a generated font, so a `symbol` stays a plain
+  string that works anywhere text does (tooltips, log tokens, vault). Drop a `.png` (or an
+  `.svg` wrapping an embedded PNG) in `glyphs/`, run `npm run build:glyphs`, then use
+  `GLYPHS['name']` as the symbol. The art is traced to a one-color outline tinted by the text
+  color. Codepoints in `glyphs/codepoints.json` are permanent. Every component's font stack
+  is `var(--font-mono)` (`styles.scss`) — never redeclare the Courier list, or glyphs won't
+  render there.
 - **Backgrounds:** near-black (`#000`/`#0a0a0a`/`#111`), panels darker than headers,
   headers darker than hover states.
 - **Borders:** thin 1px, `#222`–`#333` for internal dividers; `#fff` only for the
