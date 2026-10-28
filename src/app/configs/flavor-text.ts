@@ -91,16 +91,42 @@ export const UPGRADE_FLAVOR: Record<string, UpgradeFlavor> = {
   'better-offcuts': {
     label: 'Better Offcuts',
     description:
-      "+5% chance per level to double Cut Bait's yield — over 100% guarantees a double and rolls the remainder for another.",
+      "+5% chance per level to double Cut Bait's yield.",
   },
   'extra-baiting': {
     label: 'Extra Baiting',
-    description: '+1 Raw Meat per Bait Trap collection, per level.',
+    description: '+1 Raw Meat per Bait Trap, per level. Toggleable.',
   },
   'clean-traps': {
     label: 'Clean Traps',
     description:
-      '+5% chance per level of a Pelt from Bait Trap — over 100% guarantees one and rolls the remainder for another.',
+      '+5% chance per level of a Pelt from Bait Traps.',
+  },
+  multitasking: {
+    label: 'Multitasking',
+    description: '+5% chance per level that Hard Labor also starts a Guild Contract, if one isn\'t already running.',
+  },
+  subcontract: {
+    label: 'Subcontract',
+    description: '+1 Gold per second, per level.',
+  },
+  'dense-ore': {
+    label: 'Dense Ore',
+    description: '5% chance per Mine Ore click to find extra Ore equal to this upgrade\'s level.',
+  },
+  'faster-smelting': {
+    label: 'Faster Smelting',
+    description: '+10% Smelt Ingots charge speed per level.',
+  },
+  'auto-fight': {
+    label: 'Auto Fight',
+    description:
+      'Allows for auto restarting of fights.',
+  },
+  'scrappy-resourcefulness': {
+    label: 'Scrappy Resourcefulness',
+    description:
+      '+5% chance per level to refund an Ingot when Smith Metal finishes.',
   },
 };
 
@@ -121,8 +147,8 @@ export interface CraftingFlavor {
 
 // Keyed by CraftingActionConfig.id (game-config.ts).
 export const CRAFTING_FLAVOR: Record<string, CraftingFlavor> = {
-  'blacksmith-forge-ingots': {
-    label: 'Forge Ingots',
+  'blacksmith-smelt-ingots': {
+    label: 'Smelt Ingots',
     logMessage: 'You hold the ore against the heat until it slumps into a fresh ingot.',
   },
   'blacksmith-smith-metal': {
@@ -197,6 +223,14 @@ export interface TimedActionFlavor {
   /** Flavor sentence logged (INFO level) when the reward pays out — on completion for an
    *  auto-completing action, on collection for one that `requiresCollection`. */
   logMessage: string;
+  /** Logged (INFO level) if the run is cut short before it completes (see
+   *  TimedActionsService.cancel) — falls back to a generic "<label> interrupted." */
+  interruptLogMessage?: string;
+  /** Logged (INFO level) when an 'auto-start-timed-action' upgrade (Multitasking)
+   *  starts this for free — falls back to a generic "<label> started." */
+  autoStartLogMessage?: string;
+  /** Label beside the batch on/off checkbox of a `costScalesWithYield` action. */
+  batchLabel?: string;
 }
 
 // Keyed by TimedActionConfig.id (game-config.ts).
@@ -204,6 +238,8 @@ export const TIMED_ACTION_FLAVOR: Record<string, TimedActionFlavor> = {
   'fighter-guild-contract': {
     label: 'Guild Contract',
     logMessage: 'You complete your Fighter Guild contract and are rewarded for a job well done.',
+    interruptLogMessage: 'You walk away from your Guild Contract to rest, leaving the job unfinished.',
+    autoStartLogMessage: 'Between jobs, you pick up another Guild Contract on the side.',
   },
   'ranger-bait-trap': {
     label: 'Bait Trap',
@@ -212,6 +248,7 @@ export const TIMED_ACTION_FLAVOR: Record<string, TimedActionFlavor> = {
     // so this is a "still working" pulse rather than a real progress readout).
     runningLabel: 'Waiting',
     readyLabel: 'Collect Prey',
+    batchLabel: 'Extra Bait',
     logMessage: 'You check your trap and haul in the catch.',
   },
 };

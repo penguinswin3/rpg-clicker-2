@@ -5,6 +5,7 @@ import { EmptyStateComponent } from '../shared/empty-state/empty-state.component
 import { formatAmount } from '../shared/number-format';
 import { RESOURCE_FLAVOR, getObjectiveFlavor } from '../configs/flavor-text';
 import { ObjectivesService, ObjectiveState } from './objectives.service';
+import { SettingsService } from '../options/settings.service';
 
 /** How long the completion flash plays — must match the `.flashing` keyframe duration
  *  in objectives-panel.component.scss, since the class is removed on this timer rather
@@ -24,6 +25,7 @@ const FLASH_DURATION_MS = 1000;
 })
 export class ObjectivesPanelComponent implements OnInit, OnDestroy {
   private objectivesService = inject(ObjectivesService);
+  private settings = inject(SettingsService);
   private cdr = inject(ChangeDetectorRef);
   private sub = new Subscription();
 
@@ -33,8 +35,15 @@ export class ObjectivesPanelComponent implements OnInit, OnDestroy {
   private previousCompletedIds = new Set<string>();
   private flashingIds = new Set<string>();
 
+  /** Options -> "Hide completed objectives". */
+  hideCompleted = this.settings.state.hideCompletedObjectives;
+
+  /** A just-claimed objective stays visible until its claim flash finishes, even with
+   *  hideCompleted on — otherwise the flash (the only confirmation of the claim) would
+   *  never be seen. */
   get objectives(): ObjectiveState[] {
-    return this.objectivesService.objectives;
+    const all = this.objectivesService.objectives;
+    return this.hideCompleted ? all.filter(o => !o.completed || this.flashingIds.has(o.config.id)) : all;
   }
 
   ngOnInit(): void {
@@ -43,6 +52,10 @@ export class ObjectivesPanelComponent implements OnInit, OnDestroy {
     );
     this.sub.add(this.objectivesService.changes$.subscribe(() => {
       this.detectNewlyCompleted();
+      this.cdr.markForCheck();
+    }));
+    this.sub.add(this.settings.state$.subscribe(s => {
+      this.hideCompleted = s.hideCompletedObjectives;
       this.cdr.markForCheck();
     }));
   }

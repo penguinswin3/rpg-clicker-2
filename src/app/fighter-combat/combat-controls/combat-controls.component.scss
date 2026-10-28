@@ -40,6 +40,48 @@
   }
 }
 
+.fight-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+
+  .fight-button,
+  .flee-button {
+    flex: 1 1 auto;
+  }
+}
+
+// Same "[X]" checkbox look as the Options toggles / Bait Trap's Extra Bait.
+.auto-fight {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+  background: none;
+  border: none;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  color: #aaa;
+  cursor: pointer;
+
+  &:hover { color: #fff; }
+}
+
+.auto-box {
+  width: 12px;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #555;
+  font-size: 10px;
+  line-height: 1;
+  color: #0ff;
+
+  &.on { border-color: #0ff; }
+}
+
 .fight-button,
 .flee-button {
   font-family: 'Courier New', Courier, monospace;

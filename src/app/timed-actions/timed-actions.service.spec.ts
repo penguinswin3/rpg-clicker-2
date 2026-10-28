@@ -1,8 +1,9 @@
 import { TestBed } from '@angular/core/testing';
-import { TimedActionsService, TimedActionsSnapshot } from './timed-actions.service';
+import { TimedActionsService, TimedActionsSnapshot, LegacyTimedActionsSnapshot } from './timed-actions.service';
 import { WalletService } from '../economy/wallet.service';
 import { UnlocksService } from '../shared/unlocks.service';
 import { StatisticsService } from '../statistics/statistics.service';
+import { UpgradesService } from '../upgrades/upgrades.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { TIMED_ACTION_TICK_MS, TIMED_ACTIONS } from '../configs/game-config';
 
@@ -224,6 +225,44 @@ describe('TimedActionsService', () => {
     });
   });
 
+  describe('cancel()', () => {
+    function stateOf(id: string) {
+      return timedActions.actions.find(a => a.config.id === id)!;
+    }
+
+    it('abandons a running Guild Contract with no payout, and it can be started again', () => {
+      unlocks.unlock('guildContract');
+      timedActions.start(GUILD_CONTRACT);
+      jasmine.clock().tick(5_000);
+      timedActions.cancel(GUILD_CONTRACT);
+
+      expect(stateOf(GUILD_CONTRACT).running).toBeFalse();
+      jasmine.clock().tick(20_000);
+      expect(wallet.getAmount('gold')).toBe(0);
+
+      timedActions.start(GUILD_CONTRACT);
+      expect(stateOf(GUILD_CONTRACT).running).toBeTrue();
+    });
+
+    it('does not refund a cost (Bait Trap)', () => {
+      wallet.add('bait', 1);
+      timedActions.start(BAIT_TRAP);
+      timedActions.cancel(BAIT_TRAP);
+      expect(wallet.getAmount('bait')).toBe(0);
+    });
+
+    it('is a no-op on an idle action, and leaves a ready-to-collect one alone', () => {
+      expect(() => timedActions.cancel(GUILD_CONTRACT)).not.toThrow();
+
+      wallet.add('bait', 1);
+      timedActions.start(BAIT_TRAP);
+      jasmine.clock().tick(20_000 + 1_000); // past the max random duration
+      expect(stateOf(BAIT_TRAP).ready).toBeTrue();
+      timedActions.cancel(BAIT_TRAP);
+      expect(stateOf(BAIT_TRAP).ready).toBeTrue();
+    });
+  });
+
   describe('changes$', () => {
     it('fires on start(), on the running->ready transition, and on collect()', () => {
       let emissions = 0;
@@ -280,7 +319,7 @@ describe('TimedActionsService', () => {
 
     it('accepts a pre-requiresCollection save (a bare startedAt number, not {startedAt, rolledMs})', () => {
       unlocks.unlock('guildContract');
-      const legacySnapshot = { [GUILD_CONTRACT]: Date.now() - 4_000 } as unknown as TimedActionsSnapshot;
+      const legacySnapshot: LegacyTimedActionsSnapshot = { [GUILD_CONTRACT]: Date.now() - 4_000 };
 
       timedActions.restore(legacySnapshot);
 
@@ -290,12 +329,80 @@ describe('TimedActionsService', () => {
     });
 
     it('restoring an already-elapsed requiresCollection action lands directly in "ready", not "running"', () => {
-      const snapshot: TimedActionsSnapshot = { [BAIT_TRAP]: { startedAt: Date.now() - 25_000, rolledMs: 20_000 } };
+      const snapshot: TimedActionsSnapshot = {
+        instances: { [BAIT_TRAP]: { startedAt: Date.now() - 25_000, rolledMs: 20_000 } },
+        singleModeIds: [],
+      };
       timedActions.restore(snapshot);
 
       const state = stateFor(BAIT_TRAP);
       expect(state.ready).toBeTrue();
       expect(state.running).toBeFalse();
+    });
+  });
+
+  describe('Extra Baiting cost scaling + x1/xN toggle (costScalesWithYield)', () => {
+    let upgrades: UpgradesService;
+    beforeEach(() => {
+      upgrades = TestBed.inject(UpgradesService);
+      upgrades.unlock('extra-baiting');
+      wallet.add('bait', 1_000);
+      for (let i = 0; i < 3; i++) upgrades.purchase('extra-baiting'); // +3 Raw Meat
+    });
+
+    function collectTrap(): void {
+      jasmine.clock().tick(20_000 + 1_000);
+      timedActions.collect(BAIT_TRAP);
+    }
+
+    it('batch (default): costs 1+L Bait and pays 1+L Raw Meat', () => {
+      const bait = wallet.getAmount('bait');
+      timedActions.start(BAIT_TRAP);
+      expect(bait - wallet.getAmount('bait')).toBe(4);
+      spyOn(Math, 'random').and.returnValue(0.99); // no double, no pelt
+      collectTrap();
+      expect(wallet.getAmount('raw-meat')).toBe(4);
+    });
+
+    it('x1 mode: costs 1 Bait and pays 1 Raw Meat, ignoring the upgrade', () => {
+      timedActions.setSingleMode(BAIT_TRAP, true);
+      const bait = wallet.getAmount('bait');
+      timedActions.start(BAIT_TRAP);
+      expect(bait - wallet.getAmount('bait')).toBe(1);
+      spyOn(Math, 'random').and.returnValue(0.99);
+      collectTrap();
+      expect(wallet.getAmount('raw-meat')).toBe(1);
+    });
+
+    it('a run keeps what it paid for — toggling or buying more mid-run changes nothing', () => {
+      timedActions.setSingleMode(BAIT_TRAP, true);
+      timedActions.start(BAIT_TRAP); // paid 1
+      timedActions.setSingleMode(BAIT_TRAP, false);
+      upgrades.purchase('extra-baiting');
+      spyOn(Math, 'random').and.returnValue(0.99);
+      collectTrap();
+      expect(wallet.getAmount('raw-meat')).toBe(1);
+    });
+
+    it('logs an error rather than starting when the scaled cost is unaffordable', () => {
+      wallet.add('bait', -wallet.getAmount('bait') + 3); // 3 < 4
+      timedActions.start(BAIT_TRAP);
+      expect(stateFor(BAIT_TRAP).running).toBeFalse();
+      expect(wallet.getAmount('bait')).toBe(3);
+    });
+
+    it('Guild Contract (no costScalesWithYield) ignores setSingleMode', () => {
+      timedActions.setSingleMode(GUILD_CONTRACT, true);
+      expect(timedActions.isSingleMode(GUILD_CONTRACT)).toBeFalse();
+    });
+
+    it('the mode round-trips through a snapshot, and a legacy flat snapshot restores in batch mode', () => {
+      timedActions.setSingleMode(BAIT_TRAP, true);
+      const snapshot = timedActions.getSnapshot();
+      timedActions.restore({});
+      expect(timedActions.isSingleMode(BAIT_TRAP)).toBeFalse();
+      timedActions.restore(snapshot);
+      expect(timedActions.isSingleMode(BAIT_TRAP)).toBeTrue();
     });
   });
 });

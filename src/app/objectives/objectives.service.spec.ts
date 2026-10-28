@@ -100,12 +100,15 @@ describe('ObjectivesService', () => {
   });
 
   describe('unlock-brewmaster', () => {
-    it('appears once Blacksmith is unlocked, reaches at 50,000 lifetime Gold, and unlocks Brewmaster', () => {
+    it('appears once Blacksmith is unlocked, reaches at 75,000 lifetime Gold (not before), and unlocks Brewmaster', () => {
       expect(state('unlock-brewmaster')).toBeUndefined();
       characters.unlock('blacksmith');
       expect(state('unlock-brewmaster')).toBeDefined();
 
-      TestBed.inject(WalletService).add('gold', 50_000);
+      const wallet = TestBed.inject(WalletService);
+      wallet.add('gold', 74_999);
+      expect(state('unlock-brewmaster')!.claimable).toBeFalse();
+      wallet.add('gold', 1);
       expect(state('unlock-brewmaster')!.claimable).toBeTrue();
 
       service.claim('unlock-brewmaster');

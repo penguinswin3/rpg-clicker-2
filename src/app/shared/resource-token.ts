@@ -17,7 +17,7 @@ export function resourceAmountToken(resourceId: string, amount: number): string 
 }
 
 /** A bare reference to a resource by name, no amount — e.g. "Not enough {{ore|° ORE}}
- *  to start Forge Ingots." — so a log message that just *names* a resource still gets
+ *  to start Smelt Ingots." — so a log message that just *names* a resource still gets
  *  its symbol + color instead of reading as a colorless plain word. */
 export function resourceNameToken(resourceId: string): string {
   const flavor = RESOURCE_FLAVOR[resourceId];

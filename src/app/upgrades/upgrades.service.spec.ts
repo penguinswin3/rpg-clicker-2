@@ -1,7 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { UpgradesService } from './upgrades.service';
 import { WalletService } from '../economy/wallet.service';
-import { UPGRADES, TIMED_ACTIONS } from '../configs/game-config';
+import { UPGRADES, TIMED_ACTIONS, CRAFTING_ACTIONS } from '../configs/game-config';
+import { UnlocksService } from '../shared/unlocks.service';
+import { CharacterSelectService } from '../character-select/character-select.service';
 
 describe('UpgradesService', () => {
   let upgrades: UpgradesService;
@@ -30,12 +32,22 @@ describe('UpgradesService', () => {
   describe('cost curve', () => {
     it('costFor() follows ceil(baseCost * costScalingFactor^level)', () => {
       const config = UPGRADES.find(u => u.id === 'hard-work')!;
-      expect(upgrades.costFor(config)).toBe(config.baseCost);
+      const [gold] = config.costs;
+      expect(upgrades.costFor(config)).toEqual([{ resourceId: 'gold', amount: gold.baseCost }]);
 
       wallet.add('gold', 1_000_000);
       upgrades.purchase('hard-work');
-      const expectedLevel1Cost = Math.ceil(config.baseCost * Math.pow(config.costScalingFactor, 1));
-      expect(upgrades.costFor(config)).toBe(expectedLevel1Cost);
+      const expectedLevel1Cost = Math.ceil(gold.baseCost * Math.pow(gold.costScalingFactor, 1));
+      expect(upgrades.costFor(config)).toEqual([{ resourceId: 'gold', amount: expectedLevel1Cost }]);
+    });
+
+    it('a multi-currency upgrade scales each currency on its own curve', () => {
+      const config = UPGRADES.find(u => u.id === 'dense-ore')!;
+      for (const c of config.costs) wallet.add(c.resourceId, 1_000_000);
+      for (let i = 0; i < 5; i++) upgrades.purchase('dense-ore');
+      expect(upgrades.costFor(config)).toEqual(
+        config.costs.map(c => ({ resourceId: c.resourceId, amount: Math.ceil(c.baseCost * Math.pow(c.costScalingFactor, 5)) }))
+      );
     });
 
     it('returns undefined once maxLevel is reached', () => {
@@ -66,9 +78,24 @@ describe('UpgradesService', () => {
       const before = wallet.getAmount('gold');
       const charged = upgrades.purchase('hard-work');
 
-      expect(charged).toBe(10); // baseCost at level 0
+      expect(charged).toEqual([{ resourceId: 'gold', amount: 10 }]); // baseCost at level 0
       expect(wallet.getAmount('gold')).toBe(before - 10);
       expect(upgrades.getLevel('hard-work')).toBe(1);
+    });
+
+    it('a multi-currency purchase is all-or-nothing — short on one currency charges neither', () => {
+      // Read from config, not hardcoded — Dense Ore's currencies are a tuning knob.
+      const [first, second] = UPGRADES.find(u => u.id === 'dense-ore')!.costs;
+      wallet.add(first.resourceId, 1_000_000); // none of the second currency
+      expect(upgrades.purchase('dense-ore')).toBeUndefined();
+      expect(wallet.getAmount(first.resourceId)).toBe(1_000_000);
+
+      wallet.add(second.resourceId, second.baseCost);
+      expect(upgrades.purchase('dense-ore')).toEqual([
+        { resourceId: first.resourceId, amount: first.baseCost },
+        { resourceId: second.resourceId, amount: second.baseCost },
+      ]);
+      expect(wallet.getAmount(second.resourceId)).toBe(0);
     });
   });
 
@@ -179,6 +206,64 @@ describe('UpgradesService', () => {
       // Falls back to each upgrade's config default for unlock state, same as a fresh game.
       expect(upgrades.isUnlocked('hard-work')).toBeTrue();
       expect(upgrades.isUnlocked('better-offcuts')).toBeFalse();
+    });
+  });
+
+  describe('prerequisite (live gate)', () => {
+    it('Subcontract is unavailable (and unpurchasable) until Ranger is unlocked', () => {
+      wallet.add('raw-meat', 1_000);
+      expect(upgrades.isAvailable('subcontract')).toBeFalse();
+      expect(upgrades.purchase('subcontract')).toBeUndefined();
+
+      TestBed.inject(CharacterSelectService).unlock('ranger');
+      expect(upgrades.isAvailable('subcontract')).toBeTrue();
+      expect(upgrades.purchase('subcontract')).toBeDefined();
+    });
+
+    it('Multitasking is unavailable until Guild Contract is unlocked', () => {
+      expect(upgrades.isAvailable('multitasking')).toBeFalse();
+      TestBed.inject(UnlocksService).unlock('guildContract');
+      expect(upgrades.isAvailable('multitasking')).toBeTrue();
+    });
+  });
+
+  it('restore() keeps config-default-unlocked upgrades a save written before they existed never listed', () => {
+    upgrades.restore({ levels: {}, unlockedIds: ['hard-work'] });
+    expect(upgrades.isUnlocked('dense-ore')).toBeTrue();
+    expect(upgrades.isUnlocked('better-offcuts')).toBeFalse(); // still objective-gated
+  });
+
+  describe('new effect getters', () => {
+    beforeEach(() => {
+      // Every currency any upgrade costs — robust to price tweaks in config.
+      for (const id of new Set(UPGRADES.flatMap(u => u.costs.map(c => c.resourceId)))) wallet.add(id, 100_000_000);
+      TestBed.inject(UnlocksService).unlock('guildContract');
+    });
+
+    it('getAutoStartChances: 5% per Multitasking level, nothing at level 0', () => {
+      expect(upgrades.getAutoStartChances('fighter-hard-labor')).toEqual([]);
+      upgrades.purchase('multitasking');
+      upgrades.purchase('multitasking');
+      const [roll] = upgrades.getAutoStartChances('fighter-hard-labor');
+      expect(roll.timedActionId).toBe('fighter-guild-contract');
+      expect(roll.chance).toBeCloseTo(0.1, 5);
+    });
+
+    it('getBonusAmountRolls: flat 5% chance, extra amount equal to Dense Ore level', () => {
+      for (let i = 0; i < 7; i++) upgrades.purchase('dense-ore');
+      expect(upgrades.getBonusAmountRolls('blacksmith-mine-ore')).toEqual([{ chance: 0.05, amount: 7 }]);
+    });
+
+    it('getCraftingSpeedMultiplier: 1 base, 2 at max Faster Smelting (+100%)', () => {
+      const smelt = CRAFTING_ACTIONS.find(a => a.id === 'blacksmith-smelt-ingots')!;
+      expect(upgrades.getCraftingSpeedMultiplier(smelt)).toBe(1);
+      for (let i = 0; i < 10; i++) upgrades.purchase('faster-smelting');
+      expect(upgrades.getCraftingSpeedMultiplier(smelt)).toBeCloseTo(2, 5);
+    });
+
+    it('getCraftingRefundChance: 5% per level, reaching 500% at max', () => {
+      upgrades.maxAll();
+      expect(upgrades.getCraftingRefundChance('blacksmith-smith-metal')).toBeCloseTo(5, 5);
     });
   });
 });

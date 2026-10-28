@@ -23,10 +23,15 @@ test.describe('Blacksmith Forge minigame', () => {
     });
     await gotoFreshGame(page);
 
-    await patternCraftButton(page, 'pattern-common-weapon').click();
+    const weapon = patternCraftButton(page, 'pattern-common-weapon');
+    // Unaffordable rows are grayed with aria-disabled (announced as dimmed) but stay
+    // genuinely clickable so the click can explain *why* — Playwright's actionability
+    // check treats aria-disabled as disabled, hence `force`.
+    await expect(weapon).toHaveAttribute('aria-disabled', 'true');
+    await weapon.click({ force: true });
 
     await expect(page.locator('.log-entry', { hasText: 'Not enough' })).toBeVisible();
-    await expect(patternCraftButton(page, 'pattern-common-weapon')).toBeEnabled(); // never started
+    await expect(weapon).toHaveText('Craft'); // never started
   });
 
   test('starting a craft charges the cost immediately and disables every other pattern row', async ({ page }) => {

@@ -5,6 +5,7 @@ import { StatisticsService } from '../statistics/statistics.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { EquipmentService } from './equipment.service';
 import { PatternCraftingService } from '../blacksmith-forge/pattern-crafting.service';
+import { UpgradesService } from '../upgrades/upgrades.service';
 import { CollectionLogService, CollectionLogDropItem } from '../collection-log/collection-log.service';
 import { CombatCombatant, CombatTurnResult, resolveTurn, rollInitiative } from './combat-resolution';
 import { getMaxHp } from '../shared/six-stats';
@@ -36,6 +37,8 @@ export interface CombatSnapshot {
   activeEncounter: ActiveEncounter | null;
   /** Optional for forward-compat with saves from before Short Rest existed. */
   resting?: boolean;
+  /** The Auto Fight checkbox. Optional for saves from before it existed. */
+  autoFight?: boolean;
 }
 
 /**
@@ -66,6 +69,7 @@ export class CombatService {
   private equipment = inject(EquipmentService);
   private patternCrafting = inject(PatternCraftingService);
   private collectionLog = inject(CollectionLogService);
+  private upgrades = inject(UpgradesService);
   private statistics = inject(StatisticsService);
   private activityLog = inject(ActivityLogService);
 
@@ -74,6 +78,10 @@ export class CombatService {
   private encounter: ActiveEncounter | null = null;
   private nextTurnAt = 0;
   private restingState = false;
+  /** The player's Auto Fight checkbox — only acted on while the Auto Fight upgrade is
+   *  owned (see `autoFightActive`), so the preference survives without the upgrade
+   *  rather than being cleared. */
+  private autoFightEnabled = false;
   private restAnchorAt = 0;
 
   private changesSource = new Subject<void>();
@@ -105,6 +113,21 @@ export class CombatService {
 
   get activeEncounter(): ActiveEncounter | null {
     return this.encounter;
+  }
+
+  get autoFight(): boolean {
+    return this.autoFightEnabled;
+  }
+
+  /** Checkbox on *and* the upgrade owned — what actually decides a restart. */
+  get autoFightActive(): boolean {
+    return this.autoFightEnabled && this.upgrades.hasFeature('auto-fight');
+  }
+
+  setAutoFight(enabled: boolean): void {
+    if (this.autoFightEnabled === enabled) return;
+    this.autoFightEnabled = enabled;
+    this.changesSource.next();
   }
 
   get resting(): boolean {
@@ -265,6 +288,7 @@ export class CombatService {
   }
 
   private resolveVictory(enemyConfig: EnemyConfig): void {
+    const areaId = this.encounter?.areaId;
     this.encounter = null;
     this.statistics.recordAction(enemyDefeatActionId(enemyConfig.id));
 
@@ -294,6 +318,12 @@ export class CombatService {
     // consequence rather than preceding the fight's own outcome.
     this.collectionLog.recordKill(enemyConfig.id);
     for (const item of collected) this.collectionLog.recordDrop(enemyConfig.id, item);
+
+    // Auto Fight: straight into the next encounter in the same area, through the normal
+    // start() (so canFight etc. still apply). Victory only — resolveDefeat and flee()
+    // never get here, so a loss or a deliberate retreat always stops the chain. HP is
+    // *not* topped up; the chain can absolutely walk the Fighter into a defeat.
+    if (this.autoFightActive && areaId) this.start(areaId);
     this.changesSource.next();
   }
 
@@ -317,6 +347,7 @@ export class CombatService {
       // kept ticking after the snapshot was taken.
       activeEncounter: this.encounter ? { ...this.encounter } : null,
       resting: this.restingState,
+      autoFight: this.autoFightEnabled,
     };
   }
 
@@ -338,6 +369,7 @@ export class CombatService {
     // once (start() ends the rest), but guard it anyway rather than heal mid-fight.
     this.restingState = !!snapshot?.resting && this.encounter === null;
     this.restAnchorAt = Date.now();
+    this.autoFightEnabled = snapshot?.autoFight ?? false;
     this.changesSource.next();
   }
 }

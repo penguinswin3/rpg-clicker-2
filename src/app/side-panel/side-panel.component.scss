@@ -41,6 +41,9 @@
   overflow-y: auto;
   padding: 10px;
 
+  &:focus { outline: none; }
+  &:focus-visible { outline: 1px solid #555; outline-offset: -1px; }
+
   &::-webkit-scrollbar { width: 6px; }
   &::-webkit-scrollbar-track { background: #000; }
   &::-webkit-scrollbar-thumb { background: #333; }

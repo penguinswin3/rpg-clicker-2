@@ -87,16 +87,29 @@ Collapse/expand affordances use `[-]`/`[+]` (state-based) everywhere, project-wi
   (§5).
 - Layout: multi-column card grid, not single-column.
 - No hard level cap by default.
-- **`UpgradeConfig.effect` is a discriminated union**: `action-amount`, `generator-rate`,
-  `timed-action-yield`, `timed-action-duration`, `payout-double-chance`. Every tunable
-  number (cost, cost curve, cap, magnitude) lives in `game-config.ts`, never hardcoded in
-  the service/component.
+- **`UpgradeConfig.effect` is a discriminated union** (`action-amount`, `generator-rate`,
+  `timed-action-*`, the chance effects, `auto-start-timed-action`, `bonus-amount-chance`,
+  `crafting-speed`, `crafting-refund-chance`, ...). Every tunable number (cost, cost
+  curve, cap, magnitude) lives in `game-config.ts`, never hardcoded in the
+  service/component.
+- **`UpgradeConfig.costs` is a list** — one entry per currency, each on its own curve;
+  purchase is all-or-nothing (never a partial charge).
+- **`UpgradeConfig.prerequisite`** (a system or character) is a *live* gate on top of
+  `unlocked`, checked by `UpgradesService.isAvailable` — prefer it over an objective
+  reward when the gate is "this other thing exists", so existing saves that already meet
+  it see the upgrade immediately. `restore()` always unions config-default-unlocked ids
+  into the saved list, so a newly added `unlocked: true` upgrade shows up for old saves.
 - `timed-action-duration` decays multiplicatively (`durationMs *= (1 - decayPerLevel) ^
   level`), never a flat per-level subtraction, so it approaches but never reaches zero.
 - Cost curve: `cost(level) = ceil(baseCost * costScalingFactor^level)`, tuned per upgrade.
-- `UpgradesService` only depends on `WalletService`; consumers (`ButtonZoneComponent`,
-  `PerSecondCalculatorService`) ask it for a bonus by id — never a two-way dependency
-  between services (circular DI).
+- `UpgradesService` depends only on `WalletService` plus the read-only unlock-state
+  services its prerequisites check (`UnlocksService`, `CharacterSelectService`);
+  consumers (`ButtonZoneComponent`, `PerSecondCalculatorService`, `CraftingService`,
+  `TimedActionsService`) ask it for a bonus by id — never a two-way dependency between
+  services (circular DI).
+- A rate/speed bonus that can change mid-run (e.g. Faster Smelting during a hold)
+  re-anchors in-progress state on `upgrades.changes$` rather than applying
+  retroactively — same absolute-anchor convention as Timed Actions (§6).
 - Every upgrade belongs to exactly one character (`UpgradeConfig.characterId`) and is
   filtered to the active character, same convention as Button Zone actions.
 
@@ -143,6 +156,11 @@ never a one-off component timer.
   land within one tick of each other.
 - Progress renders as a low-opacity fill *behind* the button's own label, not a separate
   bar underneath.
+- `costScalesWithYield` (Bait Trap): a yield upgrade raises the cost proportionally, and
+  an "Extra Bait [X]" checkbox above the button (absolutely positioned — it must never
+  shift the button out of line) picks the full batch vs one-at-a-time. What a run
+  paid for (`yieldBonus`) is locked in at start(), so toggling or buying mid-run never
+  changes that run's payout.
 - A `'random'`-duration action (Bait Trap) never shows the progress fill (would leak the
   hidden range) — cycles trailing dots instead. A `'fixed'`-duration action keeps the
   real fill.
@@ -165,8 +183,10 @@ wait). Built on `CraftingService`, config in `CraftingActionConfig`.
   consumes the staged payment.
 - Progress renders as the button's own background fill, same convention as Timed Actions
   (§6). A staged-but-unconsumed payment (`CraftingActionState.costPaid`) shows as a
-  dashed border tinted the cost resource's color, plus "Paid" in the tooltip's Cost row — the fill alone can't show it
-  once a hold has decayed back to 0.
+  dashed border tinted the cost resource's color, plus "Paid" in the tooltip's Cost row —
+  the fill alone can't show it once a hold has decayed back to 0. The same cue marks a
+  ready-to-collect timed action (§6), tinted the reward resource's color: "dashed border
+  + resource color" means "waiting on you" across the Button Zone.
 - Persisted via the usual `getSnapshot()`/`restore()` pair; a `'hold'` instance's decay
   is replayed on restore using real elapsed time, same convention as Timed Actions.
 
@@ -187,7 +207,9 @@ resources/generators grow:
 - **Partial updates, not full recomputes** — `PerSecondCalculatorService` caches a
   per-resource `{total, sources}` aggregate; `recompute(resourceId)` only touches that
   resource's own generators. Must stay O(generators for that resource), never
-  O(everything).
+  O(everything). An upgrade change only recomputes the resources a `generator-rate`
+  upgrade can reach (precomputed once), and `activeResourceIds` is a fixed array built
+  at construction — a game-loop tick allocates nothing.
 - **Change-pulse, not snapshot cloning** — `WalletService.changes$` emits the *id* that
   changed, not a cloned wallet. Components read values imperatively and call
   `markForCheck()` (OnPush throughout).
@@ -226,6 +248,10 @@ resources/generators grow:
   composes/decomposes these into `SaveData` — a new persisted system means a
   getSnapshot/restore pair + one `SaveData` field + one line each in `SaveService`, never
   teaching one service about another's shape.
+- **Renaming a config id** (they're save keys): add old -> new to `RENAMED_IDS`
+  (`shared/renamed-ids.ts`) — every `restore()` reading id-keyed data runs it through
+  `migrateId`/`migrateKeys`. Never remove an entry. A service that newly starts storing
+  id-keyed data must migrate the same way.
 - Storage: a single localStorage key, base64-encoded JSON (for safe copy/paste export,
   not encryption).
 - Import/Reset both write to localStorage then `location.reload()` rather than
@@ -297,7 +323,9 @@ Comprehensive "everything found" checklist (`COLLECTION_LOG_SETS`, `CollectionLo
 - Tracking runs from game start regardless of the `collectionLog` unlock (which only
   gates the modal). No backfill from before the system existed.
 - Counts are always kept; `showCount` only controls display (monster drops yes, a
-  once-ever crafted piece no). A first collection logs at `'rare'`.
+  once-ever crafted piece no). A first collection logs at `'rare'` — but only once
+  the `collectionLog` system is unlocked; entries collected before that are recorded
+  silently and never announced retroactively.
 - Future rewards (per entry, per complete set, per overall %) should key off these ids
   and `CollectionLogService`'s progress methods.
 - Fixed-size modal: tabs/overall pinned, only the body scrolls — new content scrolls,
@@ -354,8 +382,13 @@ First minigame: turn-based fight vs. a single enemy, built to extend as pure con
   Fighter Button Zone toggle, revealed with minigames, that regens a flat HP/s
   (meant to be upgradeable). Exclusive with fighting (Fight! ends it; can't start mid-fight or at full
   HP), auto-off at full HP, and disables the Fighter's other buttons while on (UI-layer
-  enforcement, like gear-lock). Its on/off state persists, but regen does *not* honor
+  enforcement, like gear-lock). Starting a rest interrupts the Fighter's running timed
+  actions via `TimedActionsService.cancel` — no reward, no cost refund. Its on/off state persists, but regen does *not* honor
   closed-tab time — a deliberate choice, not an oversight.
+- **Auto Fight** (a `'feature'` upgrade — `UpgradesService.hasFeature`): a checkbox beside
+  Fight!/Flee that restarts the next encounter in the same area after a *victory* only.
+  Defeat and Flee always break the chain; it never heals or protects the Fighter. The
+  checkbox preference is saved on `CombatSnapshot.autoFight` independent of ownership.
 - **Equipment items are fungible by id** (`EquipmentService`) — a bag count, never an
   individually-rolled instance. Slots are typed instances (not just types), since Ring
   needs two concurrent positions.
@@ -448,6 +481,10 @@ all UI, present and future, not just what the initial retrofit covered.
   bars, Character Select, Options toggles, the combat area-select for reference
   implementations) in addition to its `.active`/`.on`-style CSS class — color/border
   alone never conveys state to a screen reader.
+- **"Can't afford it" ≠ disabled** when a click has something useful to say: a Blacksmith
+  Forge Craft button you can't pay for is grayed via a class + `aria-disabled="true"` but
+  stays clickable, so the click logs which resource is short and the tooltip still works.
+  (Playwright treats `aria-disabled` as disabled — e2e clicks it with `force`.)
 - **`@axe-core/playwright` runs in e2e** (`e2e/accessibility.spec.ts`, §Testing) as a
   regression gate, not the primary design tool — fix a violation at the component level
   per the conventions above, not by suppressing the check. It deliberately excludes the

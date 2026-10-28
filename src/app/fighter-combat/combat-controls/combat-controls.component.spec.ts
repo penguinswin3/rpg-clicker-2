@@ -1,6 +1,9 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CombatControlsComponent } from './combat-controls.component';
 import { CombatService } from '../combat.service';
+import { UpgradesService } from '../../upgrades/upgrades.service';
+import { UnlocksService } from '../../shared/unlocks.service';
+import { WalletService } from '../../economy/wallet.service';
 
 describe('CombatControlsComponent', () => {
   let fixture: ComponentFixture<CombatControlsComponent>;
@@ -54,5 +57,40 @@ describe('CombatControlsComponent', () => {
     const fightButton = fixture.nativeElement.querySelector('.fight-button') as HTMLButtonElement;
     expect(fightButton.disabled).toBeTrue();
     expect(fightButton.textContent).toContain('Recovering');
+  });
+
+  describe('Auto Fight checkbox', () => {
+    const box = () => (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('[data-testid="auto-fight"]');
+
+    function buyAutoFight(): void {
+      TestBed.inject(UnlocksService).unlock('minigames');
+      TestBed.inject(WalletService).add('kobold-ears', 10);
+      TestBed.inject(UpgradesService).purchase('auto-fight');
+      fixture.detectChanges();
+    }
+
+    it('is absent until the upgrade is bought, then appears live', () => {
+      expect(box()).toBeNull();
+      buyAutoFight();
+      expect(box()).not.toBeNull();
+    });
+
+    it('is a real checkbox that toggles CombatService.autoFight', () => {
+      buyAutoFight();
+      expect(box()!.getAttribute('role')).toBe('checkbox');
+      expect(box()!.getAttribute('aria-checked')).toBe('false');
+      box()!.click();
+      fixture.detectChanges();
+      expect(combat.autoFight).toBeTrue();
+      expect(box()!.getAttribute('aria-checked')).toBe('true');
+    });
+
+    it('stays beside Flee during a fight so the chain can be switched off', () => {
+      buyAutoFight();
+      combat.start('kobold-den');
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.flee-button')).not.toBeNull();
+      expect(box()).not.toBeNull();
+    });
   });
 });

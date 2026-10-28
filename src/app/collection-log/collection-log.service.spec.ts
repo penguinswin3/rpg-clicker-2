@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { CollectionLogService, entryDisplayName } from './collection-log.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
+import { UnlocksService } from '../shared/unlocks.service';
 import { COLLECTION_LOG_SETS } from '../configs/game-config';
 
 describe('CollectionLogService', () => {
@@ -48,7 +49,20 @@ describe('CollectionLogService', () => {
     expect(service.overallProgress.collected).toBe(0);
   });
 
-  it('logs a new entry once, at rare level, and not on repeats', () => {
+  it('records but does not log a new entry while the Collection Log is still locked', () => {
+    const log = spyOn(activityLog, 'log');
+    service.recordDrop('kobold', { type: 'equipment', equipmentId: 'ring-swift-strike' });
+    expect(service.isCollected('kobold-ring-swift-strike')).toBeTrue();
+    expect(log).not.toHaveBeenCalled();
+
+    // Unlocking later doesn't replay the backlog, and a repeat isn't "new" either.
+    TestBed.inject(UnlocksService).unlock('collectionLog');
+    service.recordDrop('kobold', { type: 'equipment', equipmentId: 'ring-swift-strike' });
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  it('once unlocked, logs a new entry once, at rare level, and not on repeats', () => {
+    TestBed.inject(UnlocksService).unlock('collectionLog');
     const log = spyOn(activityLog, 'log');
     service.recordDrop('kobold', { type: 'equipment', equipmentId: 'ring-swift-strike' });
     service.recordDrop('kobold', { type: 'equipment', equipmentId: 'ring-swift-strike' });

@@ -14,8 +14,9 @@
       Buy —
       <span
         class="upgrade-cost"
-        [style.color]="resourceColor(u.config.resourceId)"
-        [title]="resourceName(u.config.resourceId)">{{ formatAmount(u.cost) }} {{ resourceSymbol(u.config.resourceId) }}</span>
+        *ngFor="let c of u.costs"
+        [style.color]="resourceColor(c.resourceId)"
+        [title]="resourceName(c.resourceId)">{{ formatAmount(c.amount) }} {{ resourceSymbol(c.resourceId) }}</span>
     </button>
     <ng-template #maxedLabel>
       <div class="upgrade-maxed">MAXED</div>

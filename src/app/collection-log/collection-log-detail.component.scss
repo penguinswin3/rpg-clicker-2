@@ -69,27 +69,29 @@
 }
 
 .detail-info {
-  flex: 1 1 auto;
+  flex: 0 1 300px;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
+// Label column fixed, value right next to it — same compact pairing as the stat block
+// beneath it, rather than pushed to opposite edges.
 .detail-row {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
+  padding: 0 4px;
+  font-size: 11px;
 }
 
 .detail-label {
   color: #888;
-  flex: 0 0 auto;
+  flex: 0 0 7ch;
 }
 
 .detail-value {
   color: #fff;
-  text-align: right;
 }
 
 .loot-table {

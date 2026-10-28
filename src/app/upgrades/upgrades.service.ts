@@ -1,13 +1,22 @@
 import { Injectable, inject } from '@angular/core';
 import { Subject } from 'rxjs';
 import { WalletService } from '../economy/wallet.service';
-import { UPGRADES, UpgradeConfig, TimedActionConfig } from '../configs/game-config';
+import { UnlocksService } from '../shared/unlocks.service';
+import { CharacterSelectService } from '../character-select/character-select.service';
+import { migrateId, migrateKeys } from '../shared/renamed-ids';
+import { UPGRADES, UpgradeConfig, TimedActionConfig, CraftingActionConfig, UpgradeFeatureId } from '../configs/game-config';
+
+/** One currency's share of the next level's price. */
+export interface UpgradeCostAmount {
+  resourceId: string;
+  amount: number;
+}
 
 export interface UpgradeState {
   config: UpgradeConfig;
   level: number;
-  /** Cost to buy the next level, in `config.resourceId`. 0 once maxed — check `maxed`. */
-  cost: number;
+  /** Every currency the next level costs. Empty once maxed — check `maxed`. */
+  costs: UpgradeCostAmount[];
   maxed: boolean;
 }
 
@@ -28,11 +37,15 @@ function isUpgradesSnapshot(
  * `getActionAmountBonus(actionId)`, `PerSecondCalculatorService` asks for
  * `getGeneratorRateBonus(generatorId)`, `TimedActionsService` asks for the three
  * timed-action bonuses below. Neither of those services is asked about in
- * return (no circular dependency) — this service only ever depends on `WalletService`.
+ * return (no circular dependency) — this service depends only on `WalletService` plus
+ * the two read-only unlock-state services (`UnlocksService`, `CharacterSelectService`)
+ * that `UpgradeConfig.prerequisite` is checked against, none of which depend back on it.
  */
 @Injectable({ providedIn: 'root' })
 export class UpgradesService {
   private wallet = inject(WalletService);
+  private systemUnlocks = inject(UnlocksService);
+  private characters = inject(CharacterSelectService);
 
   private levels = new Map<string, number>();
   private unlockedIds = new Set<string>(UPGRADES.filter(u => u.unlocked).map(u => u.id));
@@ -48,6 +61,17 @@ export class UpgradesService {
     return this.unlockedIds.has(upgradeId);
   }
 
+  /** Unlocked *and* its live `prerequisite` (if any) is met — what decides whether the
+   *  Upgrades panel shows it at all, and whether `purchase` will go through. */
+  isAvailable(upgradeId: string): boolean {
+    if (!this.isUnlocked(upgradeId)) return false;
+    const prerequisite = UPGRADES.find(u => u.id === upgradeId)?.prerequisite;
+    if (!prerequisite) return true;
+    return prerequisite.type === 'system'
+      ? this.systemUnlocks.isUnlocked(prerequisite.systemId)
+      : this.characters.isUnlocked(prerequisite.characterId);
+  }
+
   /** Idempotent — unlocking an already-unlocked upgrade is a no-op. */
   unlock(upgradeId: string): void {
     if (this.unlockedIds.has(upgradeId)) return;
@@ -55,34 +79,42 @@ export class UpgradesService {
     this.changesSource.next();
   }
 
-  /** Cost to buy the next level of this upgrade — undefined once `maxLevel` is reached. */
-  costFor(upgrade: UpgradeConfig): number | undefined {
+  /** Every currency the next level costs, each on its own curve
+   *  (ceil(baseCost * costScalingFactor^level)) — undefined once `maxLevel` is reached. */
+  costFor(upgrade: UpgradeConfig): UpgradeCostAmount[] | undefined {
     const level = this.getLevel(upgrade.id);
     if (level >= upgrade.maxLevel) return undefined;
-    return Math.ceil(upgrade.baseCost * Math.pow(upgrade.costScalingFactor, level));
+    return upgrade.costs.map(c => ({
+      resourceId: c.resourceId,
+      amount: Math.ceil(c.baseCost * Math.pow(c.costScalingFactor, level)),
+    }));
+  }
+
+  canAfford(costs: UpgradeCostAmount[]): boolean {
+    return costs.every(c => this.wallet.getAmount(c.resourceId) >= c.amount);
   }
 
   get upgrades(): UpgradeState[] {
     return UPGRADES.map(config => {
-      const cost = this.costFor(config);
-      return { config, level: this.getLevel(config.id), cost: cost ?? 0, maxed: cost === undefined };
+      const costs = this.costFor(config);
+      return { config, level: this.getLevel(config.id), costs: costs ?? [], maxed: costs === undefined };
     });
   }
 
-  /** Buys one level if unlocked and affordable. Returns the cost charged (for logging
-   *  the exact amount spent), or undefined if the purchase didn't happen (locked /
-   *  maxed / can't afford). */
-  purchase(upgradeId: string): number | undefined {
+  /** Buys one level if available and *every* cost is affordable — all-or-nothing, never
+   *  a partial charge. Returns what was charged, or undefined if the purchase didn't
+   *  happen (locked / prerequisite unmet / maxed / can't afford). */
+  purchase(upgradeId: string): UpgradeCostAmount[] | undefined {
     const config = UPGRADES.find(u => u.id === upgradeId);
-    if (!config || !this.isUnlocked(upgradeId)) return undefined;
+    if (!config || !this.isAvailable(upgradeId)) return undefined;
 
-    const cost = this.costFor(config);
-    if (cost === undefined || this.wallet.getAmount(config.resourceId) < cost) return undefined;
+    const costs = this.costFor(config);
+    if (!costs || !this.canAfford(costs)) return undefined;
 
-    this.wallet.add(config.resourceId, -cost);
+    for (const c of costs) this.wallet.add(c.resourceId, -c.amount);
     this.levels.set(upgradeId, this.getLevel(upgradeId) + 1);
     this.changesSource.next();
-    return cost;
+    return costs;
   }
 
   /** Bonus added on top of a `CharacterActionConfig.amountPerAction`, summed across every
@@ -97,9 +129,8 @@ export class UpgradesService {
     return bonus;
   }
 
-  /** Bonus added on top of a `GeneratorConfig.ratePerSecond` — not exercised by any
-   *  generator yet (`GENERATORS` is empty), but `PerSecondCalculatorService` already
-   *  reads this and reacts to `changes$`, so wiring up a real generator later just works. */
+  /** Bonus added on top of a `GeneratorConfig.ratePerSecond` (e.g. Subcontract) —
+   *  read by `PerSecondCalculatorService` whenever it recomputes a resource. */
   getGeneratorRateBonus(generatorId: string): number {
     let bonus = 0;
     for (const upgrade of UPGRADES) {
@@ -182,6 +213,64 @@ export class UpgradesService {
     return chance;
   }
 
+  /** Every timed action `actionId` may auto-start (Multitasking), with its chance
+   *  (0..1, clamped) — summed per target across 'auto-start-timed-action' upgrades. */
+  getAutoStartChances(actionId: string): { timedActionId: string; chance: number }[] {
+    const byTarget = new Map<string, number>();
+    for (const upgrade of UPGRADES) {
+      const effect = upgrade.effect;
+      if (effect.type !== 'auto-start-timed-action' || effect.triggerActionId !== actionId) continue;
+      const level = this.getLevel(upgrade.id);
+      if (level === 0) continue;
+      byTarget.set(effect.timedActionId, (byTarget.get(effect.timedActionId) ?? 0) + effect.chancePerLevel * level);
+    }
+    return [...byTarget].map(([timedActionId, chance]) => ({ timedActionId, chance: Math.min(chance, 1) }));
+  }
+
+  /** Every 'bonus-amount-chance' roll `actionId` gets (Dense Ore) — each a flat chance
+   *  for a level-scaled extra amount. Unleveled upgrades are omitted. */
+  getBonusAmountRolls(actionId: string): { chance: number; amount: number }[] {
+    const rolls: { chance: number; amount: number }[] = [];
+    for (const upgrade of UPGRADES) {
+      const effect = upgrade.effect;
+      if (effect.type !== 'bonus-amount-chance' || effect.actionId !== actionId) continue;
+      const level = this.getLevel(upgrade.id);
+      if (level > 0) rolls.push({ chance: effect.chance, amount: effect.amountPerLevel * level });
+    }
+    return rolls;
+  }
+
+  /** Charge-speed multiplier for a 'hold' crafting action (Faster Smelting) — 1 with no
+   *  levels, 2 at +100%. */
+  getCraftingSpeedMultiplier(config: CraftingActionConfig): number {
+    let bonus = 0;
+    for (const upgrade of UPGRADES) {
+      if (upgrade.effect.type === 'crafting-speed' && upgrade.effect.craftingActionId === config.id) {
+        bonus += upgrade.effect.speedPerLevel * this.getLevel(upgrade.id);
+      }
+    }
+    return 1 + bonus;
+  }
+
+  /** Uncapped chance fraction that a crafting action's completion refunds one unit of
+   *  its cost (Scrappy Resourcefulness) — resolve via `resolveExcessCount`. */
+  getCraftingRefundChance(craftingActionId: string): number {
+    let chance = 0;
+    for (const upgrade of UPGRADES) {
+      if (upgrade.effect.type === 'crafting-refund-chance' && upgrade.effect.craftingActionId === craftingActionId) {
+        chance += upgrade.effect.chancePerLevel * this.getLevel(upgrade.id);
+      }
+    }
+    return chance;
+  }
+
+  /** Whether any owned upgrade turns `featureId` on (a 'feature' effect, e.g. Auto Fight). */
+  hasFeature(featureId: UpgradeFeatureId): boolean {
+    return UPGRADES.some(
+      u => u.effect.type === 'feature' && u.effect.featureId === featureId && this.getLevel(u.id) > 0
+    );
+  }
+
   // ── Dev tools ─────────────────────────────────────────────────
 
   maxAll(): void {
@@ -210,12 +299,19 @@ export class UpgradesService {
     // flat shape, so an old save still restores its levels, just with every upgrade's
     // unlock state reset to its config default (there was nothing else to read) rather
     // than crashing or silently dropping the whole field.
+    //
+    // Config-default-unlocked ids are always unioned in: an upgrade added later with
+    // `unlocked: true` (Dense Ore, ...) must show up for a save written before it existed,
+    // whose stored list naturally can't contain it.
+    // Upgrade ids renamed since a save was written (RENAMED_IDS) are migrated, so a
+    // rename never silently resets a purchased level.
+    const defaults = UPGRADES.filter(u => u.unlocked).map(u => u.id);
     if (isUpgradesSnapshot(snapshot)) {
-      this.levels = new Map(Object.entries(snapshot.levels ?? {}));
-      this.unlockedIds = new Set(snapshot.unlockedIds ?? UPGRADES.filter(u => u.unlocked).map(u => u.id));
+      this.levels = new Map(Object.entries(migrateKeys(snapshot.levels ?? {})));
+      this.unlockedIds = new Set([...defaults, ...(snapshot.unlockedIds ?? []).map(migrateId)]);
     } else {
-      this.levels = new Map(Object.entries(snapshot ?? {}));
-      this.unlockedIds = new Set(UPGRADES.filter(u => u.unlocked).map(u => u.id));
+      this.levels = new Map(Object.entries(migrateKeys(snapshot ?? {})));
+      this.unlockedIds = new Set(defaults);
     }
     this.changesSource.next();
   }

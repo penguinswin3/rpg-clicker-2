@@ -1,13 +1,17 @@
 <div class="blacksmith-forge">
   <div class="zone-header">[ BLACKSMITH FORGE ]</div>
+  <div class="forge-empty" *ngIf="visiblePatterns.length === 0">-- everything crafted --</div>
+  <div class="pattern-grid">
   <div class="pattern-row" *ngFor="let p of visiblePatterns; trackBy: trackPattern">
-    <div class="pattern-slot-label">{{ slotLabel(p) }}</div>
-    <div class="pattern-owned" *ngIf="p.owned; else notForged" [style.color]="rarityColor(p)">
-      {{ rarityLabel(p) }}
+    <div class="pattern-info">
+      <div class="pattern-slot-label">{{ slotLabel(p) }}</div>
+      <div class="pattern-owned" *ngIf="p.owned; else notForged" [style.color]="rarityColor(p)">
+        {{ rarityLabel(p) }}
+      </div>
+      <ng-template #notForged>
+        <div class="pattern-owned pattern-none">-- not forged --</div>
+      </ng-template>
     </div>
-    <ng-template #notForged>
-      <div class="pattern-owned pattern-none">-- not forged --</div>
-    </ng-template>
     <div class="pattern-cost" *ngIf="!p.owned">
       <span class="cost-entry" *ngFor="let c of costEntries(p.config)" [style.color]="c.color" [title]="c.name">{{ c.text }}</span>
     </div>
@@ -17,9 +21,12 @@
       [style.min-width]="craftButtonMinWidthPx"
       [appTooltip]="tooltip(p.config)"
       [disabled]="craftDisabled(p)"
+      [class.unaffordable]="isUnaffordable(p)"
+      [attr.aria-disabled]="isUnaffordable(p) ? 'true' : null"
       (click)="craft(p)">
       <div class="craft-button-fill" *ngIf="p.active" aria-hidden="true" [style.width.%]="p.progress * 100"></div>
       <span class="craft-button-label">{{ statusLabel(p) }}</span>
     </button>
+  </div>
   </div>
 </div>

@@ -17,9 +17,22 @@
 
       <div class="timed-action-wrap" *ngFor="let t of timedActionsForActiveCharacter; trackBy: trackTimedAction">
         <button
+          type="button"
+          class="batch-checkbox"
+          role="checkbox"
+          *ngIf="batchSize(t) > 1"
+          [attr.data-testid]="'batch-toggle-' + t.config.id"
+          [attr.aria-checked]="!isSingleMode(t)"
+          (click)="setSingleMode(t, !isSingleMode(t))">
+          <span class="batch-label">{{ batchLabel(t) }}</span>
+          <span class="batch-box" [class.on]="!isSingleMode(t)" aria-hidden="true">{{ isSingleMode(t) ? ' ' : 'X' }}</span>
+        </button>
+        <button
           class="timed-button"
           [attr.data-testid]="'timed-action-' + t.config.id"
           [style.min-width]="timedActionMinWidthPx(t)"
+          [class.ready-to-collect]="t.ready"
+          [style.border-color]="t.ready ? rewardColor(t.config) : null"
           [appTooltip]="timedActionTooltip(t.config)"
           [disabled]="t.running || otherButtonsBlockedByRest"
           (click)="onTimedAction(t)">

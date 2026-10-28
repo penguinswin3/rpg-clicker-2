@@ -94,6 +94,13 @@ test.describe('Ranger', () => {
 
       const color = await trap.evaluate(el => getComputedStyle(el).color);
       expect(color).toBe('rgb(255, 255, 255)'); // plain white, not the gold claimable-reward color
+      // Dashed border in Raw Meat's own color (RESOURCE_FLAVOR 'raw-meat' #e98bca) — same
+      // "waiting on you" cue as Smelt Ingots' staged cost.
+      const border = await trap.evaluate(el => {
+        const s = getComputedStyle(el);
+        return { style: s.borderTopStyle, color: s.borderTopColor };
+      });
+      expect(border).toEqual({ style: 'dashed', color: 'rgb(233, 139, 202)' });
 
       await expect(page.locator('.vault-row', { hasText: 'RAW MEAT' })).toHaveCount(0); // not unlocked yet
 

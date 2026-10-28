@@ -2,14 +2,11 @@ import { TestBed } from '@angular/core/testing';
 import { PerSecondCalculatorService } from './per-second-calculator.service';
 import { UpgradesService } from '../upgrades/upgrades.service';
 import { RESOURCES, GENERATORS } from '../configs/game-config';
+import { WalletService } from './wallet.service';
+import { GameLoopService } from './game-loop.service';
+import { CharacterSelectService } from '../character-select/character-select.service';
 
-/**
- * "Per-second rates are accounted for" — the invariant this file exists to guard.
- * GENERATORS is empty today (see AGENTS.md §7) so most of this is necessarily about
- * shape/coverage rather than real numbers; the moment a real generator is registered,
- * `getRate`/`getSources` on its resource should start returning something non-trivial and
- * these same assertions keep holding without changes.
- */
+/** "Per-second rates are accounted for" — the invariant this file exists to guard. */
 describe('PerSecondCalculatorService', () => {
   let calculator: PerSecondCalculatorService;
 
@@ -39,13 +36,6 @@ describe('PerSecondCalculatorService', () => {
   });
 
   it('a resource\'s rate is the sum of every generator targeting it, each bumped by getGeneratorRateBonus', () => {
-    if (GENERATORS.length === 0) {
-      // Nothing to exercise yet (see AGENTS.md §7) — `pending()` rather than a fake
-      // assertion, so this reads as "not yet applicable," not a false pass. Revisit the
-      // instant the first real generator is registered.
-      pending('GENERATORS is currently empty — no generator exists yet to sum rates for.');
-    }
-
     const upgrades = TestBed.inject(UpgradesService);
     for (const resourceId of calculator.activeResourceIds) {
       const generatorsForResource = GENERATORS.filter(g => g.resourceId === resourceId);
@@ -57,9 +47,37 @@ describe('PerSecondCalculatorService', () => {
     }
   });
 
-  // No 'generator-rate' upgrade or populated GENERATORS exists yet to exercise the
-  // "recompute live when upgrades change" behavior end-to-end (see AGENTS.md §7) — add a
-  // real test here (start from a fake/real generator + matching upgrade, buy a level,
-  // assert getRate changes without re-subscribing) the moment the first one is registered,
-  // rather than a synthetic placeholder that doesn't actually exercise anything.
+  it('Subcontract: buying levels raises the Gold rate live, +1/s per level, listed as its own source', () => {
+    const upgrades = TestBed.inject(UpgradesService);
+    TestBed.inject(CharacterSelectService).unlock('ranger');
+    TestBed.inject(WalletService).add('raw-meat', 1_000_000);
+    expect(calculator.getRate('gold')).toBe(0);
+
+    for (let i = 0; i < 3; i++) upgrades.purchase('subcontract');
+    expect(calculator.getRate('gold')).toBe(3);
+    expect(calculator.getSources('gold')).toEqual([{ label: 'Subcontract', ratePerSecond: 3 }]);
+  });
+
+  it('activeResourceIds is built once — the same array every read (the game loop walks it every tick)', () => {
+    expect(calculator.activeResourceIds).toBe(calculator.activeResourceIds);
+  });
+
+  it('GameLoop pays the Subcontract rate into the wallet once per second', () => {
+    jasmine.clock().install();
+    try {
+      TestBed.inject(GameLoopService); // starts its 1s interval
+      const upgrades = TestBed.inject(UpgradesService);
+      const wallet = TestBed.inject(WalletService);
+      TestBed.inject(CharacterSelectService).unlock('ranger');
+      wallet.add('raw-meat', 1_000_000);
+      upgrades.purchase('subcontract');
+      upgrades.purchase('subcontract');
+      const before = wallet.getAmount('gold');
+
+      jasmine.clock().tick(3_000);
+      expect(wallet.getAmount('gold')).toBe(before + 6);
+    } finally {
+      jasmine.clock().uninstall();
+    }
+  });
 });

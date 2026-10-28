@@ -44,7 +44,7 @@ export interface SaveData {
   /** Timed-action id -> start timestamp, for whichever are mid-run. See
    *  TimedActionsService.getSnapshot/restore. */
   timedActions: TimedActionsSnapshot;
-  /** Blacksmith crafting progress (Forge Ingots hold-charge, Smith Metal click count).
+  /** Blacksmith crafting progress (Smelt Ingots hold-charge, Smith Metal click count).
    *  See CraftingService.getSnapshot/restore. */
   crafting: CraftingSnapshot;
   /** Fighter's equipped items + inventory. See EquipmentService.getSnapshot/restore. */

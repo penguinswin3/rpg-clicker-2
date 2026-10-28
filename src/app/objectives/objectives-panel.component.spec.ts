@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { ObjectivesPanelComponent } from './objectives-panel.component';
 import { ObjectivesService, ObjectiveState } from './objectives.service';
 import { OBJECTIVES } from '../configs/game-config';
+import { SettingsService } from '../options/settings.service';
 
 function state(index: number, overrides: Partial<ObjectiveState> = {}): ObjectiveState {
   return {
@@ -63,5 +64,17 @@ describe('ObjectivesPanelComponent', () => {
 
     fixture.componentInstance.claim(state(1, { current: 10, claimable: true }));
     expect(service.claim).toHaveBeenCalledOnceWith(OBJECTIVES[1].id);
+  });
+
+  describe('Options -> Hide completed objectives', () => {
+    it('shows completed objectives by default', () => {
+      expect(renderRows([state(0, { completed: true }), state(1)]).length).toBe(2);
+    });
+
+    it('hides completed (claimed) objectives when on, but keeps in-progress and claimable ones', () => {
+      TestBed.inject(SettingsService).set({ hideCompletedObjectives: true });
+      const rows = renderRows([state(0, { completed: true }), state(1), state(2, { claimable: true })]);
+      expect(rows.length).toBe(2);
+    });
   });
 });

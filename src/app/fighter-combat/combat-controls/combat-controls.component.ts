@@ -4,6 +4,7 @@ import { Subscription } from 'rxjs';
 import { FIGHTER_AREAS } from '../../configs/game-config';
 import { getFighterAreaFlavor } from '../../configs/flavor-text';
 import { CombatService } from '../combat.service';
+import { UpgradesService } from '../../upgrades/upgrades.service';
 
 @Component({
   selector: 'app-combat-controls',
@@ -15,6 +16,7 @@ import { CombatService } from '../combat.service';
 })
 export class CombatControlsComponent implements OnInit, OnDestroy {
   private combat = inject(CombatService);
+  private upgrades = inject(UpgradesService);
   private cdr = inject(ChangeDetectorRef);
   private sub = new Subscription();
   private countdownTimer?: ReturnType<typeof setInterval>;
@@ -28,6 +30,19 @@ export class CombatControlsComponent implements OnInit, OnDestroy {
 
   get canFight(): boolean {
     return this.combat.canFight;
+  }
+
+  /** The checkbox only exists once the Auto Fight upgrade is owned. */
+  get hasAutoFight(): boolean {
+    return this.upgrades.hasFeature('auto-fight');
+  }
+
+  get autoFight(): boolean {
+    return this.combat.autoFight;
+  }
+
+  toggleAutoFight(): void {
+    this.combat.setAutoFight(!this.combat.autoFight);
   }
 
   get lockedOutSecondsRemaining(): number {
@@ -54,6 +69,8 @@ export class CombatControlsComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.sub.add(this.combat.changes$.subscribe(() => this.cdr.markForCheck()));
+    // Buying Auto Fight reveals the checkbox without CombatService emitting.
+    this.sub.add(this.upgrades.changes$.subscribe(() => this.cdr.markForCheck()));
     // The lockout countdown needs its own tick independent of changes$ (which only fires
     // on real state transitions, not every passing second) — purely cosmetic, same
     // "separate refresh loop for a live countdown" precedent as a timed action's progress

@@ -5,6 +5,8 @@ import { StatisticsService } from '../statistics/statistics.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { EquipmentService } from './equipment.service';
 import { CollectionLogService } from '../collection-log/collection-log.service';
+import { UpgradesService } from '../upgrades/upgrades.service';
+import { UnlocksService } from '../shared/unlocks.service';
 import {
   COMBAT_CHECK_MS,
   COMBAT_TURN_MS,
@@ -345,6 +347,75 @@ describe('CombatService', () => {
     it('restores as not resting from a save that predates Short Rest', () => {
       service.restore({ fighterHp: 10, lockedOutUntil: null, activeEncounter: null });
       expect(service.resting).toBeFalse();
+    });
+  });
+
+  describe('Auto Fight', () => {
+    function ownAutoFight(): void {
+      TestBed.inject(UnlocksService).unlock('minigames');
+      wallet.add('kobold-ears', 10);
+      TestBed.inject(UpgradesService).purchase('auto-fight');
+    }
+
+    function winOneTurn(): void {
+      service.restore({
+        fighterHp: service.fighterMaxHp,
+        lockedOutUntil: null,
+        activeEncounter: { areaId: KOBOLD_DEN, enemyId: 'kobold', enemyHp: 1, actorTurn: 'fighter' },
+        autoFight: service.autoFight,
+      });
+      spyOn(Math, 'random').and.returnValue(0.9999); // guaranteed hit, see 'a won fight' above
+      jasmine.clock().tick(COMBAT_TURN_MS);
+    }
+
+    it('with the box ticked and the upgrade owned, a victory starts the next fight in the same area', () => {
+      ownAutoFight();
+      service.setAutoFight(true);
+      winOneTurn();
+      expect(service.activeEncounter?.areaId).toBe(KOBOLD_DEN);
+      expect(service.activeEncounter?.enemyHp).toBeGreaterThan(1); // a fresh enemy
+    });
+
+    it('box unticked: a victory just ends the fight', () => {
+      ownAutoFight();
+      winOneTurn();
+      expect(service.activeEncounter).toBeNull();
+    });
+
+    it('box ticked but the upgrade not owned: does nothing', () => {
+      service.setAutoFight(true);
+      winOneTurn();
+      expect(service.activeEncounter).toBeNull();
+    });
+
+    it('never restarts after a defeat', () => {
+      ownAutoFight();
+      service.setAutoFight(true);
+      service.restore({
+        fighterHp: 1,
+        lockedOutUntil: null,
+        activeEncounter: { areaId: KOBOLD_DEN, enemyId: 'kobold', enemyHp: 60, actorTurn: 'enemy' },
+        autoFight: true,
+      });
+      spyOn(Math, 'random').and.returnValues(0.9999, 0, 0.9999); // the Kobold lands its hit
+      jasmine.clock().tick(COMBAT_TURN_MS);
+      expect(service.activeEncounter).toBeNull();
+      expect(service.lockedOutRemainingMs).toBeGreaterThan(0);
+    });
+
+    it('never restarts after fleeing', () => {
+      ownAutoFight();
+      service.setAutoFight(true);
+      service.start(KOBOLD_DEN);
+      service.flee();
+      expect(service.activeEncounter).toBeNull();
+    });
+
+    it('the checkbox round-trips through a snapshot, and defaults off for older saves', () => {
+      service.setAutoFight(true);
+      expect(service.getSnapshot().autoFight).toBeTrue();
+      service.restore({ fighterHp: 10, lockedOutUntil: null, activeEncounter: null });
+      expect(service.autoFight).toBeFalse();
     });
   });
 });

@@ -6,8 +6,12 @@ export interface SettingsState {
   showPlaytime: boolean;
   /** Suppresses the reset-save screen-shake and any other future incidental motion. */
   reducedMotion: boolean;
-  /** Read by UpgradesPanelComponent once real upgrade data exists. */
+  /** Hides maxed-out upgrade cards (UpgradesPanelComponent). */
   hideMaxedUpgrades: boolean;
+  /** Hides already-claimed objectives (ObjectivesPanelComponent). */
+  hideCompletedObjectives: boolean;
+  /** Hides Blacksmith Forge rows whose item is already owned (BlacksmithForgeComponent). */
+  hideCraftedItems: boolean;
   /** Collection Log drop rates as "5%" instead of the default "1/20". */
   dropRateAsPercent: boolean;
 }
@@ -16,6 +20,8 @@ const DEFAULT_SETTINGS: SettingsState = {
   showPlaytime: true,
   reducedMotion: false,
   hideMaxedUpgrades: false,
+  hideCompletedObjectives: false,
+  hideCraftedItems: false,
   dropRateAsPercent: false,
 };
 

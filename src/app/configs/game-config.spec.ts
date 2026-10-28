@@ -246,15 +246,31 @@ describe('game-config integrity', () => {
       expect(danglingReferences(UPGRADES.map(u => u.characterId), characterIds)).toEqual([]);
     });
 
-    it('every upgrade is paid in a real resource', () => {
-      expect(danglingReferences(UPGRADES.map(u => u.resourceId), resourceIds)).toEqual([]);
+    it('every upgrade is paid in at least one real resource, with no currency listed twice', () => {
+      for (const upgrade of UPGRADES) {
+        const ids = upgrade.costs.map(c => c.resourceId);
+        expect(ids.length).withContext(upgrade.id).toBeGreaterThan(0);
+        expect(danglingReferences(ids, resourceIds)).withContext(upgrade.id).toEqual([]);
+        expect(duplicateIds(ids)).withContext(upgrade.id).toEqual([]);
+      }
     });
 
-    it('every upgrade has a sane cost curve and level cap', () => {
+    it('every upgrade has a sane cost curve (per currency) and level cap', () => {
       for (const upgrade of UPGRADES) {
-        expect(upgrade.baseCost).withContext(upgrade.id).toBeGreaterThan(0);
-        expect(upgrade.costScalingFactor).withContext(upgrade.id).toBeGreaterThan(0);
+        for (const cost of upgrade.costs) {
+          expect(cost.baseCost).withContext(`${upgrade.id} ${cost.resourceId}`).toBeGreaterThan(0);
+          expect(cost.costScalingFactor).withContext(`${upgrade.id} ${cost.resourceId}`).toBeGreaterThan(0);
+        }
         expect(upgrade.maxLevel).withContext(upgrade.id).toBeGreaterThan(0);
+      }
+    });
+
+    it('a prerequisite, if set, references a real system or character', () => {
+      for (const upgrade of UPGRADES) {
+        const p = upgrade.prerequisite;
+        if (!p) continue;
+        if (p.type === 'system') expect(Object.keys(UNLOCKS)).withContext(upgrade.id).toContain(p.systemId);
+        else expect(characterIds).withContext(upgrade.id).toContain(p.characterId);
       }
     });
 
@@ -279,6 +295,28 @@ describe('game-config integrity', () => {
             for (const targetId of effect.targetActionIds) {
               expect(knownActionIds.has(targetId)).withContext(`${upgrade.id} -> ${targetId}`).toBeTrue();
             }
+            break;
+          case 'auto-start-timed-action':
+            expect(characterActionIds).withContext(upgrade.id).toContain(effect.triggerActionId);
+            expect(timedActionIds).withContext(upgrade.id).toContain(effect.timedActionId);
+            break;
+          case 'bonus-amount-chance':
+            expect(characterActionIds).withContext(upgrade.id).toContain(effect.actionId);
+            expect(effect.chance).withContext(upgrade.id).toBeGreaterThan(0);
+            expect(effect.chance).withContext(upgrade.id).toBeLessThanOrEqual(1);
+            break;
+          case 'crafting-speed': {
+            const target = CRAFTING_ACTIONS.find(a => a.id === effect.craftingActionId);
+            expect(target).withContext(upgrade.id).toBeDefined();
+            expect(target?.mechanic.type).withContext(`${upgrade.id}: speed only applies to 'hold'`).toBe('hold');
+            break;
+          }
+          case 'crafting-refund-chance':
+            expect(craftingActionIds).withContext(upgrade.id).toContain(effect.craftingActionId);
+            break;
+          case 'feature':
+            // A switch, not a number — more levels would do nothing.
+            expect(upgrade.maxLevel).withContext(upgrade.id).toBe(1);
             break;
         }
       }

@@ -67,6 +67,8 @@
 
 .upgrade-cost {
   font-weight: bold;
+
+  & + & { margin-left: 6px; }
 }
 
 .upgrade-maxed {

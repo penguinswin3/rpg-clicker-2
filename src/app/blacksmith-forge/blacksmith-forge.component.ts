@@ -1,6 +1,8 @@
 import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subscription, interval } from 'rxjs';
+import { SettingsService } from '../options/settings.service';
+import { WalletService } from '../economy/wallet.service';
 import { TooltipDirective } from '../shared/tooltip/tooltip.directive';
 import { TooltipContent } from '../shared/tooltip/tooltip-content';
 import { PatternCraftingService, PatternState } from './pattern-crafting.service';
@@ -22,12 +24,12 @@ export interface CostDisplayEntry {
  *  craftButtonMinWidthPx can't silently drift out of sync if the wording ever changes. */
 const CRAFT_BUTTON_LABELS = ['Craft', 'Crafting...', 'Forge Busy', 'OWNED'];
 
-/** .craft-button's own horizontal padding (2 * 14px) + border (2 * 1px) —
+/** .craft-button's own horizontal padding (2 * 10px) + border (2 * 1px) —
  *  blacksmith-forge.component.scss. A min-width sized purely off character count (`ch`)
  *  has no effect until it's large enough to also cover this chrome too, since the button
  *  is `box-sizing: border-box` — same reasoning as ButtonZoneComponent's own
  *  `timedActionMinWidthPx`. Keep in sync if `.craft-button`'s padding/border change. */
-const CRAFT_BUTTON_HORIZONTAL_CHROME_PX = 30;
+const CRAFT_BUTTON_HORIZONTAL_CHROME_PX = 22;
 
 /** .craft-button's own font-size/letter-spacing — same file. A `ch` unit only measures
  *  one glyph, not the letter-spacing gap after it, so the raw character count
@@ -49,6 +51,8 @@ const CRAFT_BUTTON_LETTER_SPACING_EM = 0.05;
 })
 export class BlacksmithForgeComponent implements OnInit, OnDestroy {
   private patternCrafting = inject(PatternCraftingService);
+  private settings = inject(SettingsService);
+  private wallet = inject(WalletService);
   private cdr = inject(ChangeDetectorRef);
   private sub = new Subscription();
 
@@ -56,11 +60,17 @@ export class BlacksmithForgeComponent implements OnInit, OnDestroy {
    *  unknown pattern (none exist yet; reserved for a future Uncommon+ tier) renders no
    *  row at all rather than a dimmed placeholder. */
   get visiblePatterns(): PatternState[] {
-    return this.patternCrafting.patterns.filter(p => p.known);
+    const known = this.patternCrafting.patterns.filter(p => p.known);
+    return this.hideCrafted ? known.filter(p => !p.owned) : known;
   }
 
+  /** Options -> "Hide crafted items" — an owned row has nothing left to do. */
+  hideCrafted = this.settings.state.hideCraftedItems;
+
+  /** Across every known pattern, not just the visible ones — hiding owned rows must
+   *  never hide the fact that the forge is busy. */
   get anyActive(): boolean {
-    return this.visiblePatterns.some(p => p.active);
+    return this.patternCrafting.patterns.some(p => p.active);
   }
 
   /** Fixed width sized for the longest possible status label ("Crafting...") — every
@@ -78,6 +88,12 @@ export class BlacksmithForgeComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.sub.add(this.patternCrafting.changes$.subscribe(() => this.cdr.markForCheck()));
+    // Affordability (the grayed-out Craft look) changes whenever a cost resource does.
+    this.sub.add(this.wallet.changes$.subscribe(() => this.cdr.markForCheck()));
+    this.sub.add(this.settings.state$.subscribe(s => {
+      this.hideCrafted = s.hideCraftedItems;
+      this.cdr.markForCheck();
+    }));
     // Re-renders the active row's progress fill on the same cadence
     // PatternCraftingService checks completion on — purely visual, same reasoning as
     // ButtonZoneComponent's own TIMED_ACTION_TICK_MS refresh (AGENTS.md §6).
@@ -116,6 +132,14 @@ export class BlacksmithForgeComponent implements OnInit, OnDestroy {
    *  any craft (including this one) currently in progress, both block it. */
   craftDisabled(p: PatternState): boolean {
     return p.owned || this.anyActive;
+  }
+
+  /** Can't pay for it right now — grayed like a disabled button, but deliberately left
+   *  clickable (aria-disabled, not `disabled`): a click still logs which resource is
+   *  short (PatternCraftingService.start), and the hover tooltip keeps working. Only
+   *  meaningful while the row would otherwise be craftable. */
+  isUnaffordable(p: PatternState): boolean {
+    return !this.craftDisabled(p) && !this.patternCrafting.canAfford(p.config);
   }
 
   statusLabel(p: PatternState): string {

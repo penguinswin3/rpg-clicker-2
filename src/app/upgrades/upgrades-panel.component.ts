@@ -8,6 +8,7 @@ import { UpgradesService, UpgradeState } from './upgrades.service';
 import { WalletService } from '../economy/wallet.service';
 import { SettingsService } from '../options/settings.service';
 import { CharacterSelectService } from '../character-select/character-select.service';
+import { UnlocksService } from '../shared/unlocks.service';
 
 /** Upgrades modify button/minigame numbers and mechanics. `hideMaxedUpgrades`
  *  (Options) filters out anything already at its level cap. Each upgrade belongs to
@@ -26,6 +27,7 @@ export class UpgradesPanelComponent implements OnInit, OnDestroy {
   private wallet = inject(WalletService);
   private settings = inject(SettingsService);
   private characterService = inject(CharacterSelectService);
+  private unlocks = inject(UnlocksService);
   private cdr = inject(ChangeDetectorRef);
   private sub = new Subscription();
 
@@ -37,7 +39,7 @@ export class UpgradesPanelComponent implements OnInit, OnDestroy {
     // Character Select gives a locked character (see AGENTS.md) — before hideMaxed even
     // applies.
     const forCharacter = this.upgradesService.upgrades.filter(u => u.config.characterId === this.activeCharacterId);
-    const unlocked = forCharacter.filter(u => this.upgradesService.isUnlocked(u.config.id));
+    const unlocked = forCharacter.filter(u => this.upgradesService.isAvailable(u.config.id));
     return this.hideMaxed ? unlocked.filter(u => !u.maxed) : unlocked;
   }
 
@@ -48,6 +50,10 @@ export class UpgradesPanelComponent implements OnInit, OnDestroy {
       this.hideMaxed = s.hideMaxedUpgrades;
       this.cdr.markForCheck();
     }));
+    // An UpgradeConfig.prerequisite (a system or character unlock) can flip without
+    // UpgradesService itself emitting.
+    this.sub.add(this.unlocks.state$.subscribe(() => this.cdr.markForCheck()));
+    this.sub.add(this.characterService.changes$.subscribe(() => this.cdr.markForCheck()));
     this.sub.add(this.characterService.active$.subscribe(id => {
       this.activeCharacterId = id;
       this.cdr.markForCheck();
@@ -75,7 +81,7 @@ export class UpgradesPanelComponent implements OnInit, OnDestroy {
   }
 
   canAfford(u: UpgradeState): boolean {
-    return !u.maxed && this.wallet.getAmount(u.config.resourceId) >= u.cost;
+    return !u.maxed && this.upgradesService.canAfford(u.costs);
   }
 
   formatAmount(value: number): string {

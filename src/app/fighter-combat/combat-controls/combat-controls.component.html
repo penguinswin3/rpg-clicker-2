@@ -13,10 +13,25 @@
     </button>
   </div>
 
-  <button class="fight-button" *ngIf="!inEncounter" [disabled]="!canFight" (click)="fight()">
-    <ng-container *ngIf="canFight; else lockedOut">Fight!</ng-container>
-    <ng-template #lockedOut>Recovering... {{ lockedOutSecondsRemaining }}s</ng-template>
-  </button>
+  <div class="fight-row">
+    <button class="fight-button" *ngIf="!inEncounter" [disabled]="!canFight" (click)="fight()">
+      <ng-container *ngIf="canFight; else lockedOut">Fight!</ng-container>
+      <ng-template #lockedOut>Recovering... {{ lockedOutSecondsRemaining }}s</ng-template>
+    </button>
 
-  <button class="flee-button" *ngIf="inEncounter" (click)="flee()">Flee</button>
+    <button class="flee-button" *ngIf="inEncounter" (click)="flee()">Flee</button>
+
+    <!-- Stays beside Flee too, so the chain can be switched off mid-fight. -->
+    <button
+      type="button"
+      class="auto-fight"
+      role="checkbox"
+      data-testid="auto-fight"
+      *ngIf="hasAutoFight"
+      [attr.aria-checked]="autoFight"
+      (click)="toggleAutoFight()">
+      <span class="auto-label">Auto</span>
+      <span class="auto-box" [class.on]="autoFight" aria-hidden="true">{{ autoFight ? 'X' : ' ' }}</span>
+    </button>
+  </div>
 </div>

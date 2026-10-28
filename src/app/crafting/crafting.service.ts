@@ -3,6 +3,9 @@ import { Subject } from 'rxjs';
 import { WalletService } from '../economy/wallet.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { StatisticsService } from '../statistics/statistics.service';
+import { UpgradesService } from '../upgrades/upgrades.service';
+import { resolveExcessCount } from '../shared/chance';
+import { migrateKeys } from '../shared/renamed-ids';
 import { CRAFTING_ACTIONS, CraftingActionConfig, TIMED_ACTION_TICK_MS } from '../configs/game-config';
 import { getCraftingFlavor } from '../configs/flavor-text';
 import { resourceAmountToken, resourceNameToken } from '../shared/resource-token';
@@ -31,6 +34,11 @@ interface HoldInstance {
   anchorProgressMs: number;
   anchorAt: number;
   holding: boolean;
+  /** Charge-speed multiplier (Faster Smelting) in force since `anchorAt` — captured at
+   *  each re-anchor rather than read live, so buying a level mid-hold speeds up the
+   *  rest of the charge without retroactively rewriting the part already charged (see
+   *  the `upgrades.changes$` re-anchor in the constructor). Decay ignores it. */
+  speed: number;
 }
 
 export interface CraftingSnapshot {
@@ -42,7 +50,7 @@ export interface CraftingSnapshot {
 }
 
 /**
- * Blacksmith's crafting buttons — Forge Ingots (hold to charge, decays fast on release)
+ * Blacksmith's crafting buttons — Smelt Ingots (hold to charge, decays fast on release)
  * and Smith Metal (click N times) — both interactive multi-step actions that need
  * sustained player engagement to complete, unlike CHARACTER_ACTIONS (instant) or
  * TIMED_ACTIONS (passive real-time wait that runs unattended regardless of screen). See
@@ -59,6 +67,7 @@ export class CraftingService {
   private wallet = inject(WalletService);
   private activityLog = inject(ActivityLogService);
   private statistics = inject(StatisticsService);
+  private upgrades = inject(UpgradesService);
 
   private holdInstances = new Map<string, HoldInstance>();
   private clickCounts = new Map<string, number>();
@@ -72,6 +81,23 @@ export class CraftingService {
     // inventing a second near-identical constant, same reasoning as that constant's own
     // doc comment (game-config.ts).
     setInterval(() => this.checkHoldCompletions(), TIMED_ACTION_TICK_MS);
+    this.upgrades.changes$.subscribe(() => this.reanchorHolds());
+  }
+
+  /** Re-anchors every in-progress hold at its current progress with the *current*
+   *  speed multiplier — a Faster Smelting purchase applies from this moment on. */
+  private reanchorHolds(): void {
+    const now = Date.now();
+    for (const [id, instance] of this.holdInstances) {
+      const config = CRAFTING_ACTIONS.find(a => a.id === id);
+      if (!config || config.mechanic.type !== 'hold') continue;
+      this.holdInstances.set(id, {
+        anchorProgressMs: this.holdProgressMs(instance, config.mechanic),
+        anchorAt: now,
+        holding: instance.holding,
+        speed: this.upgrades.getCraftingSpeedMultiplier(config),
+      });
+    }
   }
 
   get actions(): CraftingActionState[] {
@@ -110,7 +136,12 @@ export class CraftingService {
       if (this.beginFreshHold(config)) this.changesSource.next();
     } else if (!existing.holding) {
       const progressMs = this.holdProgressMs(existing, config.mechanic);
-      this.holdInstances.set(id, { anchorProgressMs: progressMs, anchorAt: Date.now(), holding: true });
+      this.holdInstances.set(id, {
+        anchorProgressMs: progressMs,
+        anchorAt: Date.now(),
+        holding: true,
+        speed: this.upgrades.getCraftingSpeedMultiplier(config),
+      });
       this.changesSource.next();
     }
   }
@@ -127,7 +158,12 @@ export class CraftingService {
       return false;
     }
     this.wallet.add(config.cost.resourceId, -config.cost.amount);
-    this.holdInstances.set(config.id, { anchorProgressMs: 0, anchorAt: Date.now(), holding: true });
+    this.holdInstances.set(config.id, {
+      anchorProgressMs: 0,
+      anchorAt: Date.now(),
+      holding: true,
+      speed: this.upgrades.getCraftingSpeedMultiplier(config),
+    });
     return true;
   }
 
@@ -141,7 +177,7 @@ export class CraftingService {
     if (!existing || !existing.holding) return;
 
     const progressMs = this.holdProgressMs(existing, config.mechanic);
-    this.holdInstances.set(id, { anchorProgressMs: progressMs, anchorAt: Date.now(), holding: false });
+    this.holdInstances.set(id, { anchorProgressMs: progressMs, anchorAt: Date.now(), holding: false, speed: existing.speed });
     this.changesSource.next();
   }
 
@@ -171,7 +207,7 @@ export class CraftingService {
   }
 
   private holdProgressMs(instance: HoldInstance, mechanic: HoldMechanic): number {
-    const rate = instance.holding ? 1 : -mechanic.decayMultiplier;
+    const rate = instance.holding ? instance.speed : -mechanic.decayMultiplier;
     const raw = instance.anchorProgressMs + rate * (Date.now() - instance.anchorAt);
     return Math.min(mechanic.holdMs, Math.max(0, raw));
   }
@@ -210,7 +246,11 @@ export class CraftingService {
     // action-count objective once it's actually finished.
     this.statistics.recordAction(config.id);
     this.wallet.add(config.reward.resourceId, config.reward.amount);
-    this.logCompletion(config);
+    // Scrappy Resourcefulness — refunds whole units of the cost resource, cascading past
+    // 100% (500% = exactly 5), rolled once per completion.
+    const refund = resolveExcessCount(this.upgrades.getCraftingRefundChance(config.id));
+    if (refund > 0) this.wallet.add(config.cost.resourceId, refund);
+    this.logCompletion(config, refund);
   }
 
   private logInsufficientCost(config: CraftingActionConfig): void {
@@ -218,10 +258,11 @@ export class CraftingService {
     this.activityLog.log(`Not enough ${resourceNameToken(config.cost.resourceId)} to start ${label}.`, 'error');
   }
 
-  private logCompletion(config: CraftingActionConfig): void {
+  private logCompletion(config: CraftingActionConfig, refund: number): void {
     const { logMessage } = getCraftingFlavor(config.id);
-    const gainToken = resourceAmountToken(config.reward.resourceId, config.reward.amount);
-    this.activityLog.log(`${logMessage} (${gainToken})`, 'default');
+    const tokens = [resourceAmountToken(config.reward.resourceId, config.reward.amount)];
+    if (refund > 0) tokens.push(resourceAmountToken(config.cost.resourceId, refund));
+    this.activityLog.log(`${logMessage} (${tokens.join(', ')})`, 'default');
   }
 
   getSnapshot(): CraftingSnapshot {
@@ -238,7 +279,8 @@ export class CraftingService {
   restore(snapshot: CraftingSnapshot | undefined): void {
     const now = Date.now();
     const holds = new Map<string, HoldInstance>();
-    for (const [id, saved] of Object.entries(snapshot?.holds ?? {})) {
+    // Keys are crafting action ids — migrate any since renamed (RENAMED_IDS).
+    for (const [id, saved] of Object.entries(migrateKeys(snapshot?.holds ?? {}))) {
       const config = CRAFTING_ACTIONS.find(a => a.id === id);
       if (!config || config.mechanic.type !== 'hold') continue;
       // Can't literally still be holding right after a reload — apply whatever decay
@@ -249,10 +291,15 @@ export class CraftingService {
       // it survives an in-session release/decay cycle (see class doc).
       const elapsedSinceSave = now - saved.savedAt;
       const progressMs = Math.max(0, saved.progressMs - elapsedSinceSave * config.mechanic.decayMultiplier);
-      holds.set(id, { anchorProgressMs: progressMs, anchorAt: now, holding: false });
+      holds.set(id, {
+        anchorProgressMs: progressMs,
+        anchorAt: now,
+        holding: false,
+        speed: this.upgrades.getCraftingSpeedMultiplier(config),
+      });
     }
     this.holdInstances = holds;
-    this.clickCounts = new Map(Object.entries(snapshot?.clicks ?? {}));
+    this.clickCounts = new Map(Object.entries(migrateKeys(snapshot?.clicks ?? {})));
     this.changesSource.next();
   }
 }

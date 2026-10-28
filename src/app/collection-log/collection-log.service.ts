@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Subject } from 'rxjs';
 import { ActivityLogService } from '../activity-log/activity-log.service';
+import { UnlocksService } from '../shared/unlocks.service';
 import {
   COLLECTION_LOG_SETS,
   CollectionLogCategory,
@@ -30,12 +31,15 @@ const ALL_ENTRIES: CollectionLogEntryConfig[] = COLLECTION_LOG_SETS.flatMap(s =>
  * Whoever performs the real event calls the matching `record*` method directly — same
  * "the actor records it" convention as StatisticsService.recordAction — and an event
  * with no matching entry is a silent no-op, so callers never need to check first.
- * Collected is sticky: counts only ever grow. Runs regardless of whether the
- * `collectionLog` system is unlocked; that only gates the modal.
+ * Collected is sticky: counts only ever grow. Recording runs regardless of whether the
+ * `collectionLog` system is unlocked; the unlock gates the modal and the "New collection
+ * log entry" Activity Log line — an entry collected while still locked is recorded
+ * silently and never announced later (no backlog flood on unlock).
  */
 @Injectable({ providedIn: 'root' })
 export class CollectionLogService {
   private activityLog = inject(ActivityLogService);
+  private unlocks = inject(UnlocksService);
 
   private counts = new Map<string, number>();
 
@@ -91,8 +95,10 @@ export class CollectionLogService {
       this.counts.set(entry.id, next);
       changed = true;
       // 'rare' — a brand-new entry is a noteworthy one-off, and logging above
-      // 'default' gets it screen-reader-announced for free (AGENTS.md §19).
-      if (next === 1) this.activityLog.log(`New collection log entry: ${entryDisplayName(entry)}.`, 'rare');
+      // 'default' gets it screen-reader-announced for free (AGENTS.md §19). Silent while
+      // the log itself is still locked — it would announce a system the player can't
+      // see yet.
+      if (next === 1 && this.unlocks.isUnlocked('collectionLog')) this.activityLog.log(`New collection log entry: ${entryDisplayName(entry)}.`, 'rare');
     }
     if (changed) this.changesSource.next();
   }

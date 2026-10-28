@@ -1,13 +1,15 @@
 <div class="side-panel">
   <div class="side-column">
     <div class="column-header">[ Upgrades ]</div>
-    <div class="column-body">
+    <!-- Focusable so a keyboard user can scroll it even when every button inside is
+         disabled (all upgrades unaffordable) — axe scrollable-region-focusable. -->
+    <div class="column-body" tabindex="0" role="region" aria-label="Upgrades">
       <app-upgrades-panel></app-upgrades-panel>
     </div>
   </div>
   <div class="side-column">
     <div class="column-header">[ Objectives ]</div>
-    <div class="column-body">
+    <div class="column-body" tabindex="0" role="region" aria-label="Objectives">
       <app-objectives-panel></app-objectives-panel>
     </div>
   </div>

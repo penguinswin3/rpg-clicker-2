@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Subject } from 'rxjs';
 import { WalletService } from '../economy/wallet.service';
+import { migrateKeys } from '../shared/renamed-ids';
 
 export interface MajorUnlockRecord {
   id: string;
@@ -90,7 +91,8 @@ export class StatisticsService {
   }
 
   restore(snapshot: StatisticsSnapshot | undefined): void {
-    this.actionCounts = new Map(Object.entries(snapshot?.actionCounts ?? {}));
+    // Action ids are config ids — an old save may hold one since renamed (RENAMED_IDS).
+    this.actionCounts = new Map(Object.entries(migrateKeys(snapshot?.actionCounts ?? {})));
     this.lifetimeGained = new Map(Object.entries(snapshot?.lifetimeGained ?? {}));
     this.majorUnlocks = snapshot?.majorUnlocks ?? [];
     this.changesSource.next();

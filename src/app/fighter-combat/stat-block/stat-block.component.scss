@@ -1,21 +1,28 @@
+// Sized to its content, not stretched to its container — a label/value pair split to
+// opposite edges of a wide panel reads as two unrelated columns.
 .stat-block {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  width: max-content;
   font-family: 'Courier New', Courier, monospace;
   font-size: 11px;
 }
 
 .stat-row {
   display: flex;
-  justify-content: space-between;
+  gap: 8px;
   padding: 1px 4px;
 }
 
 .stat-label {
+  width: 3ch;
   color: #bbb;
 }
 
+// Right-aligned in a fixed width so 1- and 2-digit values still line up.
 .stat-value {
+  min-width: 3ch;
+  text-align: right;
   color: #fff;
 }

@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { GENERATORS, GeneratorConfig } from '../configs/game-config';
+import { GENERATORS, GeneratorConfig, UPGRADES } from '../configs/game-config';
 import { UpgradesService } from '../upgrades/upgrades.service';
 
 export interface ResourceSource {
@@ -20,6 +20,12 @@ interface ResourceAggregate {
  * this stays cheap as the generator count grows, regardless of how a generator's rate
  * later comes to change at runtime (an upgrade, a Jack, etc.). There is no per-frame or
  * per-tick recalculation; GameLoopService just reads the cached `getRate`/`getSources`.
+ *
+ * The generator -> resource index, the active-resource list the game loop walks every
+ * tick, and the set of resources any 'generator-rate' upgrade can touch are all built
+ * once at construction (config is static) — so a tick allocates nothing, and an upgrade
+ * purchase only recomputes resources an upgrade could actually have changed (a Hard
+ * Work purchase recomputes nothing at all).
  */
 @Injectable({ providedIn: 'root' })
 export class PerSecondCalculatorService {
@@ -27,6 +33,12 @@ export class PerSecondCalculatorService {
 
   private generatorsByResource = new Map<string, GeneratorConfig[]>();
   private aggregates = new Map<string, ResourceAggregate>();
+  /** Every resource id with at least one registered generator — what the game loop
+   *  ticks. Built once; never re-spread per tick. */
+  readonly activeResourceIds: readonly string[];
+  /** Resources owning a generator targeted by at least one 'generator-rate' upgrade —
+   *  the only aggregates an upgrade change can affect. */
+  private readonly upgradeAffectedResourceIds: readonly string[];
 
   constructor() {
     for (const generator of GENERATORS) {
@@ -34,15 +46,25 @@ export class PerSecondCalculatorService {
       list.push(generator);
       this.generatorsByResource.set(generator.resourceId, list);
     }
-    for (const resourceId of this.generatorsByResource.keys()) {
+    this.activeResourceIds = [...this.generatorsByResource.keys()];
+    for (const resourceId of this.activeResourceIds) {
       this.recompute(resourceId);
     }
 
+    const resourceByGenerator = new Map(GENERATORS.map(g => [g.id, g.resourceId]));
+    const affected = new Set<string>();
+    for (const upgrade of UPGRADES) {
+      if (upgrade.effect.type !== 'generator-rate') continue;
+      const resourceId = resourceByGenerator.get(upgrade.effect.generatorId);
+      if (resourceId) affected.add(resourceId);
+    }
+    this.upgradeAffectedResourceIds = [...affected];
+
     // An upgrade with a 'generator-rate' effect changes a resource's aggregate without
-    // WalletService ever emitting — re-derive every active resource's aggregate off this
+    // WalletService ever emitting — re-derive just the resources an upgrade can reach,
     // instead of GameLoopService having to know upgrades exist.
     this.upgrades.changes$.subscribe(() => {
-      for (const resourceId of this.generatorsByResource.keys()) {
+      for (const resourceId of this.upgradeAffectedResourceIds) {
         this.recompute(resourceId);
       }
     });
@@ -54,11 +76,6 @@ export class PerSecondCalculatorService {
 
   getSources(resourceId: string): ResourceSource[] {
     return this.aggregates.get(resourceId)?.sources ?? [];
-  }
-
-  /** Every resource id with at least one registered generator — what the game loop ticks. */
-  get activeResourceIds(): string[] {
-    return [...this.generatorsByResource.keys()];
   }
 
   /** O(generators for this resource) — never touches any other resource's aggregate. */

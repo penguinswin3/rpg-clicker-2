@@ -74,6 +74,11 @@ export class PatternCraftingService {
     return Math.min((Date.now() - this.activeCraft.startedAt) / config.durationMs, 1);
   }
 
+  /** Whether the wallet currently covers every cost entry — the same check start() makes. */
+  canAfford(config: PatternConfig): boolean {
+    return config.cost.every(entry => this.wallet.getAmount(entry.resourceId) >= entry.amount);
+  }
+
   /** Idempotent — the future hook for a combat-dropped pattern (see CombatService). */
   unlock(patternId: string): void {
     if (this.knownPatternIds.has(patternId)) return;

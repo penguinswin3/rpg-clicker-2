@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ButtonZoneComponent } from './button-zone.component';
 import { CharacterSelectService } from '../../character-select/character-select.service';
 import { StatisticsService } from '../../statistics/statistics.service';
@@ -8,7 +8,7 @@ import { TimedActionsService, TimedActionState } from '../../timed-actions/timed
 import { CraftingService } from '../../crafting/crafting.service';
 import { CombatService } from '../../fighter-combat/combat.service';
 import { UnlocksService } from '../../shared/unlocks.service';
-import { CHARACTER_ACTIONS, TIMED_ACTIONS, CRAFTING_ACTIONS, TimedActionConfig } from '../../configs/game-config';
+import { CHARACTER_ACTIONS, TIMED_ACTIONS, CRAFTING_ACTIONS, UPGRADES, TimedActionConfig } from '../../configs/game-config';
 import { RESOURCE_FLAVOR } from '../../configs/flavor-text';
 import { formatAmount, formatDurationMs } from '../../shared/number-format';
 
@@ -84,8 +84,8 @@ describe('ButtonZoneComponent', () => {
   });
 
   describe('onCraftHoldStartKeyboard — Enter/Space parity for the hold-craft button', () => {
-    const forgeIngots = CRAFTING_ACTIONS.find(a => a.id === 'blacksmith-forge-ingots')!;
-    const holdState = { config: forgeIngots, progress: 0, costPaid: false };
+    const smeltIngots = CRAFTING_ACTIONS.find(a => a.id === 'blacksmith-smelt-ingots')!;
+    const holdState = { config: smeltIngots, progress: 0, costPaid: false };
 
     it('drives the same CraftingService.startHold a pointer hold does', () => {
       const fixture = TestBed.createComponent(ButtonZoneComponent);
@@ -94,7 +94,7 @@ describe('ButtonZoneComponent', () => {
 
       fixture.componentInstance.onCraftHoldStartKeyboard(new KeyboardEvent('keydown', { key: ' ' }), holdState);
 
-      expect(crafting.startHold).toHaveBeenCalledOnceWith(forgeIngots.id);
+      expect(crafting.startHold).toHaveBeenCalledOnceWith(smeltIngots.id);
     });
 
     it("preventDefaults the key event — Angular's (keydown.space) binding doesn't, and Space would scroll", () => {
@@ -287,9 +287,9 @@ describe('ButtonZoneComponent', () => {
     });
 
     describe('craftingTooltip', () => {
-      it("a 'hold' action (Forge Ingots) shows Cost, Yield, and Hold Time", () => {
+      it("a 'hold' action (Smelt Ingots) shows Cost, Yield, and Hold Time", () => {
         const fixture = TestBed.createComponent(ButtonZoneComponent);
-        const config = CRAFTING_ACTIONS.find(a => a.id === 'blacksmith-forge-ingots')!;
+        const config = CRAFTING_ACTIONS.find(a => a.id === 'blacksmith-smelt-ingots')!;
         const content = fixture.componentInstance.craftingTooltip(config);
         const costResource = RESOURCE_FLAVOR[config.cost.resourceId];
         const rewardResource = RESOURCE_FLAVOR[config.reward.resourceId];
@@ -303,7 +303,7 @@ describe('ButtonZoneComponent', () => {
 
       it('shows "Paid" in place of the cost amount once the cost is already staged', () => {
         const fixture = TestBed.createComponent(ButtonZoneComponent);
-        const config = CRAFTING_ACTIONS.find(a => a.id === 'blacksmith-forge-ingots')!;
+        const config = CRAFTING_ACTIONS.find(a => a.id === 'blacksmith-smelt-ingots')!;
         const content = fixture.componentInstance.craftingTooltip(config, true);
         expect(row(content.rows, 'Cost')!.value).toBe('Paid');
       });
@@ -343,13 +343,13 @@ describe('ButtonZoneComponent', () => {
       const fixture = TestBed.createComponent(ButtonZoneComponent);
       fixture.detectChanges();
       const button = (): HTMLElement =>
-        fixture.nativeElement.querySelector('[data-testid="crafting-action-blacksmith-forge-ingots"]');
+        fixture.nativeElement.querySelector('[data-testid="crafting-action-blacksmith-smelt-ingots"]');
       expect(button().classList).not.toContain('cost-paid');
       expect(button().style.borderColor).toBe('');
 
       wallet.add('ore', 10);
-      crafting.startHold('blacksmith-forge-ingots');
-      crafting.releaseHold('blacksmith-forge-ingots');
+      crafting.startHold('blacksmith-smelt-ingots');
+      crafting.releaseHold('blacksmith-smelt-ingots');
       fixture.detectChanges();
       expect(button().classList).toContain('cost-paid');
       const probe = document.createElement('div');
@@ -386,6 +386,40 @@ describe('ButtonZoneComponent', () => {
       expect(restButton(fixture)!.disabled).toBeTrue();
     });
 
+    it('starting a rest interrupts a running Guild Contract; stopping one does not touch it', () => {
+      TestBed.inject(UnlocksService).unlock('minigames');
+      TestBed.inject(UnlocksService).unlock('guildContract');
+      const combat = TestBed.inject(CombatService);
+      const timedActions = TestBed.inject(TimedActionsService);
+      const contract = () => timedActions.actions.find(a => a.config.id === 'fighter-guild-contract')!;
+      combat.restore({ fighterHp: 10, lockedOutUntil: null, activeEncounter: null });
+      const fixture = TestBed.createComponent(ButtonZoneComponent);
+      fixture.detectChanges();
+
+      timedActions.start('fighter-guild-contract');
+      fixture.componentInstance.onShortRest();
+      expect(combat.resting).toBeTrue();
+      expect(contract().running).toBeFalse();
+
+      fixture.componentInstance.onShortRest(); // stop resting
+      expect(combat.resting).toBeFalse();
+      timedActions.start('fighter-guild-contract');
+      fixture.componentInstance.onShortRest(); // rest again — interrupts again
+      expect(contract().running).toBeFalse();
+    });
+
+    it('a click that cannot start a rest (full HP) leaves a running Guild Contract alone', () => {
+      TestBed.inject(UnlocksService).unlock('minigames');
+      TestBed.inject(UnlocksService).unlock('guildContract');
+      const timedActions = TestBed.inject(TimedActionsService);
+      const fixture = TestBed.createComponent(ButtonZoneComponent);
+      fixture.detectChanges();
+
+      timedActions.start('fighter-guild-contract');
+      fixture.componentInstance.onShortRest();
+      expect(timedActions.actions.find(a => a.config.id === 'fighter-guild-contract')!.running).toBeTrue();
+    });
+
     it("while resting: aria-pressed, and the Fighter's other buttons are disabled and inert", () => {
       TestBed.inject(UnlocksService).unlock('minigames');
       TestBed.inject(UnlocksService).unlock('guildContract');
@@ -408,6 +442,114 @@ describe('ButtonZoneComponent', () => {
       const before = wallet.getAmount(action.resourceId);
       fixture.componentInstance.onAction();
       expect(wallet.getAmount(action.resourceId)).toBe(before);
+    });
+  });
+
+  describe('Dense Ore (bonus-amount-chance)', () => {
+    function mineOre(random: number): number {
+      const characters = TestBed.inject(CharacterSelectService);
+      const wallet = TestBed.inject(WalletService);
+      characters.unlock('blacksmith');
+      characters.select('blacksmith');
+      const fixture = TestBed.createComponent(ButtonZoneComponent);
+      fixture.componentInstance.activeCharacterId = 'blacksmith';
+      const before = wallet.getAmount('ore');
+      spyOn(Math, 'random').and.returnValue(random);
+      fixture.componentInstance.onAction();
+      return wallet.getAmount('ore') - before;
+    }
+
+    beforeEach(() => {
+      const wallet = TestBed.inject(WalletService);
+      for (const c of UPGRADES.find(u => u.id === 'dense-ore')!.costs) wallet.add(c.resourceId, 1_000_000);
+      for (let i = 0; i < 4; i++) TestBed.inject(UpgradesService).purchase('dense-ore');
+    });
+
+    it('a winning 5% roll adds extra Ore equal to the upgrade level', () => {
+      expect(mineOre(0.01)).toBe(1 + 4);
+    });
+
+    it('a losing roll pays the normal amount', () => {
+      expect(mineOre(0.5)).toBe(1);
+    });
+  });
+
+  describe('Multitasking (auto-start-timed-action)', () => {
+    function setup(): { fixture: ComponentFixture<ButtonZoneComponent>; timedActions: TimedActionsService } {
+      TestBed.inject(UnlocksService).unlock('guildContract');
+      TestBed.inject(WalletService).add('gold', 1_000_000);
+      TestBed.inject(UpgradesService).purchase('multitasking'); // 5%
+      const fixture = TestBed.createComponent(ButtonZoneComponent);
+      return { fixture, timedActions: TestBed.inject(TimedActionsService) };
+    }
+    const contract = (t: TimedActionsService) => t.actions.find(a => a.config.id === 'fighter-guild-contract')!;
+
+    it('a winning roll on Hard Labor starts an idle Guild Contract', () => {
+      const { fixture, timedActions } = setup();
+      spyOn(Math, 'random').and.returnValue(0.01);
+      fixture.componentInstance.onAction();
+      expect(contract(timedActions).running).toBeTrue();
+    });
+
+    it('a losing roll leaves it idle', () => {
+      const { fixture, timedActions } = setup();
+      spyOn(Math, 'random').and.returnValue(0.5);
+      fixture.componentInstance.onAction();
+      expect(contract(timedActions).running).toBeFalse();
+    });
+
+    it('never restarts one already running', () => {
+      const { fixture, timedActions } = setup();
+      timedActions.start('fighter-guild-contract');
+      const startSpy = spyOn(timedActions, 'start').and.callThrough();
+      spyOn(Math, 'random').and.returnValue(0.01);
+      fixture.componentInstance.onAction();
+      expect(startSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Bait Trap "Extra Bait" checkbox', () => {
+    function render(levels: number) {
+      const characters = TestBed.inject(CharacterSelectService);
+      characters.unlock('ranger');
+      characters.select('ranger');
+      const upgrades = TestBed.inject(UpgradesService);
+      upgrades.unlock('extra-baiting');
+      TestBed.inject(WalletService).add('bait', 1_000_000);
+      for (let i = 0; i < levels; i++) upgrades.purchase('extra-baiting');
+      const fixture = TestBed.createComponent(ButtonZoneComponent);
+      fixture.detectChanges();
+      return fixture;
+    }
+    const box = (el: HTMLElement) => el.querySelector<HTMLButtonElement>('[data-testid="batch-toggle-ranger-bait-trap"]');
+
+    it('is hidden until Extra Baiting is bought (both modes would be identical)', () => {
+      expect(box(render(0).nativeElement)).toBeNull();
+    });
+
+    it('reads "Extra Bait", is checked by default, and unchecks to one-at-a-time', () => {
+      const fixture = render(2);
+      const checkbox = box(fixture.nativeElement)!;
+      expect(checkbox.textContent).toContain('Extra Bait');
+      expect(checkbox.getAttribute('role')).toBe('checkbox');
+      expect(checkbox.getAttribute('aria-checked')).toBe('true');
+
+      checkbox.click();
+      fixture.detectChanges();
+      expect(checkbox.getAttribute('aria-checked')).toBe('false');
+      expect(TestBed.inject(TimedActionsService).isSingleMode('ranger-bait-trap')).toBeTrue();
+    });
+
+    it('the tooltip follows the mode: cost and yield both scale together', () => {
+      const fixture = render(2);
+      const config = TIMED_ACTIONS.find(a => a.id === 'ranger-bait-trap')!;
+      const rows = () => fixture.componentInstance.timedActionTooltip(config).rows;
+      expect(rows().find(r => r.label === 'Cost')!.value).toContain('3');
+      expect(rows().find(r => r.label === 'Yield')!.value).toContain('+3');
+
+      TestBed.inject(TimedActionsService).setSingleMode('ranger-bait-trap', true);
+      expect(rows().find(r => r.label === 'Cost')!.value).toContain('1');
+      expect(rows().find(r => r.label === 'Yield')!.value).toContain('+1');
     });
   });
 });

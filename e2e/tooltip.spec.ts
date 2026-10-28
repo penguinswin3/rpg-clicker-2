@@ -78,12 +78,12 @@ test.describe('Tooltips', () => {
     await expect(tooltip).toContainText('Collection');
   });
 
-  test('a crafting tooltip (Forge Ingots) shows Cost, Yield, and Hold Time', async ({ page }) => {
+  test('a crafting tooltip (Smelt Ingots) shows Cost, Yield, and Hold Time', async ({ page }) => {
     await seedBlacksmithUnlockedSave(page);
     await gotoFreshGame(page);
 
-    const forge = craftingActionButton(page, 'blacksmith-forge-ingots');
-    await forge.hover();
+    const smelt = craftingActionButton(page, 'blacksmith-smelt-ingots');
+    await smelt.hover();
 
     const tooltip = page.locator('.tooltip-box');
     await expect(tooltip).toBeVisible({ timeout: 1000 });

@@ -29,13 +29,34 @@ interface TimedActionInstance {
    *  live by UpgradesService.getTimedActionDurationMs on every check/render instead of
    *  being re-rolled. */
   rolledMs?: number;
+  /** The yield bonus this run was *paid for* at start() (a `costScalesWithYield` action
+   *  in batch mode) — locked in so neither toggling the mode nor buying another level
+   *  mid-run changes what it pays out. Absent (older saves, or an action whose cost
+   *  doesn't scale) means "read the live upgrade bonus at payout", the old behavior. */
+  yieldBonus?: number;
 }
 
 /** Per-action-id running instances — see class doc for why a start timestamp (plus, for
  *  a random-duration action, its one-time roll) is enough to survive a screen change or a
- *  reload without drifting. Pre-`requiresCollection` saves stored a bare timestamp
- *  number instead of `TimedActionInstance` — restore() normalizes either shape. */
-export type TimedActionsSnapshot = Record<string, TimedActionInstance | number>;
+ *  reload without drifting. */
+type TimedActionInstances = Record<string, TimedActionInstance | number>;
+
+export interface TimedActionsSnapshot {
+  instances: TimedActionInstances;
+  /** `costScalesWithYield` action ids the player has toggled to one-at-a-time. */
+  singleModeIds: string[];
+}
+
+/** Before Bait Trap's batch toggle, the snapshot *was* the bare instances record (and
+ *  before `requiresCollection`, each instance a bare startedAt number) — restore()
+ *  accepts every older shape. Same wrapped-vs-flat detection as UpgradesSnapshot. */
+export type LegacyTimedActionsSnapshot = TimedActionInstances;
+
+function isWrappedSnapshot(
+  snapshot: TimedActionsSnapshot | LegacyTimedActionsSnapshot | undefined
+): snapshot is TimedActionsSnapshot {
+  return !!snapshot && 'instances' in snapshot && typeof snapshot['instances'] === 'object';
+}
 
 /**
  * Manual "start a timer, get paid later" buttons — Guild Contract (§ TIMED_ACTIONS in
@@ -80,6 +101,9 @@ export class TimedActionsService {
   /** Ids currently sitting in the `ready` phase — just what lets `checkCompletions` push
    *  exactly one `changes$` at the running->ready transition, not every tick after. */
   private notifiedReady = new Set<string>();
+  /** See TimedActionsSnapshot.singleModeIds. Default (absent) is batch mode — the
+   *  Extra Baiting amount — since that's what buying the upgrade asked for. */
+  private singleModeIds = new Set<string>();
 
   private changesSource = new Subject<void>();
   readonly changes$ = this.changesSource.asObservable();
@@ -103,6 +127,37 @@ export class TimedActionsService {
     return { config, unlocked, running, ready, progress };
   }
 
+  isSingleMode(id: string): boolean {
+    return this.singleModeIds.has(id);
+  }
+
+  /** Toggle for a `costScalesWithYield` action — no-op for any other. Applies from the
+   *  next start(); a run already going keeps what it paid for. */
+  setSingleMode(id: string, single: boolean): void {
+    const config = TIMED_ACTIONS.find(a => a.id === id);
+    if (!config?.costScalesWithYield || this.singleModeIds.has(id) === single) return;
+    if (single) this.singleModeIds.add(id);
+    else this.singleModeIds.delete(id);
+    this.changesSource.next();
+  }
+
+  /** Yield bonus the *next* start() would pay for — 0 in one-at-a-time mode for a
+   *  `costScalesWithYield` action, the live upgrade bonus otherwise. */
+  nextYieldBonus(config: TimedActionConfig): number {
+    if (config.costScalesWithYield && this.singleModeIds.has(config.id)) return 0;
+    return this.upgrades.getTimedActionYieldBonus(config.id);
+  }
+
+  /** What the next start() charges — `config.cost` scaled by effective / base yield for
+   *  a `costScalesWithYield` action (rounded up, never below the base), unchanged
+   *  otherwise. Undefined for a free action. */
+  costFor(config: TimedActionConfig): { resourceId: string; amount: number } | undefined {
+    if (!config.cost) return undefined;
+    if (!config.costScalesWithYield) return config.cost;
+    const ratio = (config.reward.amount + this.nextYieldBonus(config)) / config.reward.amount;
+    return { resourceId: config.cost.resourceId, amount: Math.ceil(config.cost.amount * ratio) };
+  }
+
   /** No-op if locked or already in progress; logs an error to the activity log if
    *  unaffordable (`config.cost`) instead of silently doing nothing, since that's the one
    *  case the player might actually be confused by. Safe to call directly from a click
@@ -112,12 +167,13 @@ export class TimedActionsService {
     if (!config) return;
     if (config.unlockKey && !this.unlocks.isUnlocked(config.unlockKey)) return;
     if (this.instances.has(id)) return;
-    if (config.cost && this.wallet.getAmount(config.cost.resourceId) < config.cost.amount) {
+    const cost = this.costFor(config);
+    if (cost && this.wallet.getAmount(cost.resourceId) < cost.amount) {
       this.logInsufficientCost(config);
       return;
     }
 
-    if (config.cost) this.wallet.add(config.cost.resourceId, -config.cost.amount);
+    if (cost) this.wallet.add(cost.resourceId, -cost.amount);
     // Built conditionally rather than always including `rolledMs: undefined` — an
     // explicit-undefined key round-trips fine through the Map itself, but JSON.stringify
     // (what the real save path does, see SaveService) silently drops it, which would
@@ -127,7 +183,22 @@ export class TimedActionsService {
       config.duration.type === 'random'
         ? { startedAt: Date.now(), rolledMs: config.duration.minMs + Math.random() * (config.duration.maxMs - config.duration.minMs) }
         : { startedAt: Date.now() };
+    if (config.costScalesWithYield) instance.yieldBonus = this.nextYieldBonus(config);
     this.instances.set(id, instance);
+    this.changesSource.next();
+  }
+
+  /** Abandons a run that's still in progress — no reward, and no refund of any `cost`
+   *  (the attempt was spent). No-op unless it's actually running; a `ready` run is
+   *  finished and left for `collect`. */
+  cancel(id: string): void {
+    const config = TIMED_ACTIONS.find(a => a.id === id);
+    if (!config || !this.stateFor(config).running) return;
+
+    this.instances.delete(id);
+    this.notifiedReady.delete(id);
+    const flavor = getTimedActionFlavor(id);
+    this.activityLog.log(flavor.interruptLogMessage ?? `${flavor.label} interrupted.`, 'default');
     this.changesSource.next();
   }
 
@@ -138,9 +209,10 @@ export class TimedActionsService {
     if (!config || !config.requiresCollection) return;
     if (!this.stateFor(config).ready) return;
 
+    const instance = this.instances.get(id)!;
     this.instances.delete(id);
     this.notifiedReady.delete(id);
-    this.payout(config);
+    this.payout(config, instance);
     this.changesSource.next();
   }
 
@@ -161,20 +233,21 @@ export class TimedActionsService {
         }
       } else {
         this.instances.delete(config.id);
-        this.payout(config);
+        this.payout(config, instance);
         changed = true;
       }
     }
     if (changed) this.changesSource.next();
   }
 
-  private payout(config: TimedActionConfig): void {
+  private payout(config: TimedActionConfig, instance: TimedActionInstance): void {
     // Recorded here rather than in start() — an action-count objective ("Work 15
     // times") should count a completed/collected timed action the same way it counts a
     // primary-button press, not the moment the player merely starts waiting on one.
     this.statistics.recordAction(config.id);
 
-    const baseAmount = config.reward.amount + this.upgrades.getTimedActionYieldBonus(config.id);
+    const yieldBonus = instance.yieldBonus ?? this.upgrades.getTimedActionYieldBonus(config.id);
+    const baseAmount = config.reward.amount + yieldBonus;
     const doubled = Math.random() < this.upgrades.getPayoutDoubleChance(config.id);
     const amount = doubled ? baseAmount * 2 : baseAmount;
     this.wallet.add(config.reward.resourceId, amount);
@@ -211,14 +284,17 @@ export class TimedActionsService {
   }
 
   getSnapshot(): TimedActionsSnapshot {
-    return Object.fromEntries(this.instances);
+    return { instances: Object.fromEntries(this.instances), singleModeIds: [...this.singleModeIds] };
   }
 
-  restore(snapshot: TimedActionsSnapshot | undefined): void {
+  restore(snapshot: TimedActionsSnapshot | LegacyTimedActionsSnapshot | undefined): void {
+    const wrapped = isWrappedSnapshot(snapshot);
+    const rawInstances: TimedActionInstances = wrapped ? snapshot.instances ?? {} : snapshot ?? {};
+    this.singleModeIds = new Set(wrapped ? snapshot.singleModeIds ?? [] : []);
     // Pre-`requiresCollection` saves stored a bare startedAt number per id — normalize
     // that older flat shape into a TimedActionInstance rather than crashing or dropping
     // an in-progress Guild Contract on load (see AGENTS.md's forward-compat rule).
-    const entries = Object.entries(snapshot ?? {}).map(
+    const entries = Object.entries(rawInstances).map(
       ([id, value]): [string, TimedActionInstance] => [
         id,
         typeof value === 'number' ? { startedAt: value } : value,

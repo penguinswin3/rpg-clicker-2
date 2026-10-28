@@ -3,6 +3,8 @@ import { BlacksmithForgeComponent } from './blacksmith-forge.component';
 import { PatternCraftingService } from './pattern-crafting.service';
 import { WalletService } from '../economy/wallet.service';
 import { RESOURCE_FLAVOR } from '../configs/flavor-text';
+import { SettingsService } from '../options/settings.service';
+import { EquipmentService } from '../fighter-combat/equipment.service';
 
 function findRow(fixture: ComponentFixture<BlacksmithForgeComponent>, slotLabelText: string): HTMLElement {
   const rows = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.pattern-row'));
@@ -133,5 +135,53 @@ describe('BlacksmithForgeComponent', () => {
       expect(labels).withContext(p.config.id).not.toContain('Cost');
       expect(labels).withContext(p.config.id).toContain('Duration');
     }
+  });
+
+  describe('Options -> Hide crafted items', () => {
+    function ownWeapon(): void {
+      TestBed.inject(EquipmentService).addToInventory('forged-sword');
+      fixture.detectChanges();
+    }
+
+    it('keeps an owned row visible by default', () => {
+      ownWeapon();
+      expect(findRow(fixture, 'Weapon')).toBeDefined();
+    });
+
+    it('hides owned rows when on, live', () => {
+      ownWeapon();
+      TestBed.inject(SettingsService).set({ hideCraftedItems: true });
+      fixture.detectChanges();
+      expect(findRow(fixture, 'Weapon')).toBeUndefined();
+      expect(fixture.nativeElement.querySelectorAll('.pattern-row').length).toBe(4);
+    });
+
+    it('shows a placeholder once every row is hidden', () => {
+      for (const id of ['forged-sword', 'forged-helmet', 'forged-armor', 'forged-boots', 'forged-gauntlets']) {
+        TestBed.inject(EquipmentService).addToInventory(id);
+      }
+      TestBed.inject(SettingsService).set({ hideCraftedItems: true });
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.forge-empty')).not.toBeNull();
+    });
+  });
+
+  describe('unaffordable Craft buttons', () => {
+    const weaponButton = () =>
+      (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('[data-testid="pattern-craft-pattern-common-weapon"]')!;
+
+    it('are grayed (and aria-disabled) while the cost is not covered, but stay clickable', () => {
+      expect(weaponButton().classList).toContain('unaffordable');
+      expect(weaponButton().getAttribute('aria-disabled')).toBe('true');
+      expect(weaponButton().disabled).toBeFalse();
+    });
+
+    it('light back up the moment the wallet covers the cost', () => {
+      wallet.add('ironmongery', 5);
+      wallet.add('ingot', 5);
+      fixture.detectChanges();
+      expect(weaponButton().classList).not.toContain('unaffordable');
+      expect(weaponButton().getAttribute('aria-disabled')).toBeNull();
+    });
   });
 });

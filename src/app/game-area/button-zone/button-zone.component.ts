@@ -169,6 +169,9 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
     }));
     this.sub.add(this.timedActions.changes$.subscribe(() => this.cdr.markForCheck()));
     this.sub.add(this.crafting.changes$.subscribe(() => this.cdr.markForCheck()));
+    // A purchase can reveal the Bait Trap x1/xN toggle (batchSize) and changes tooltip
+    // numbers, without any of the services above emitting.
+    this.sub.add(this.upgrades.changes$.subscribe(() => this.cdr.markForCheck()));
     this.sub.add(this.unlocks.state$.subscribe(() => this.cdr.markForCheck()));
     // Rest on/off, the HP fill while resting, and Short Rest's own enabled state (HP
     // dropping mid-fight, a fight starting/ending) all change through CombatService.
@@ -199,10 +202,32 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
     // Better Offcuts' cascading chance (uncapped at 100%, unlike the simple double-chance
     // above) — resolveExcessCount turns it into an actual doubling count.
     const cascadeDoubles = resolveExcessCount(this.upgrades.getCascadingDoubleChance(action.id));
-    const amount = (doubled ? baseAmount * 2 : baseAmount) * Math.pow(2, cascadeDoubles);
+    // Dense Ore-style flat-chance bonus — added after doubling, not doubled itself.
+    let bonus = 0;
+    for (const roll of this.upgrades.getBonusAmountRolls(action.id)) {
+      if (Math.random() < roll.chance) bonus += roll.amount;
+    }
+    const amount = (doubled ? baseAmount * 2 : baseAmount) * Math.pow(2, cascadeDoubles) + bonus;
     this.wallet.add(action.resourceId, amount);
     this.statistics.recordAction(action.id);
-    this.logAction(action, amount, doubled || cascadeDoubles > 0);
+    this.logAction(action, amount, doubled || cascadeDoubles > 0 || bonus > 0);
+    this.rollAutoStarts(action.id);
+  }
+
+  /** Multitasking: each 'auto-start-timed-action' target gets one roll per action, and
+   *  only if it's unlocked and idle — never restarts or stacks on a running/ready one.
+   *  Starts through the normal TimedActionsService.start (so any cost still applies). */
+  private rollAutoStarts(actionId: string): void {
+    for (const { timedActionId, chance } of this.upgrades.getAutoStartChances(actionId)) {
+      const state = this.timedActions.actions.find(a => a.config.id === timedActionId);
+      if (!state || !state.unlocked || state.running || state.ready) continue;
+      if (Math.random() >= chance) continue;
+      this.timedActions.start(timedActionId);
+      if (this.timedActions.actions.find(a => a.config.id === timedActionId)?.running) {
+        const flavor = getTimedActionFlavor(timedActionId);
+        this.activityLog.log(flavor.autoStartLogMessage ?? `${flavor.label} started.`, 'default');
+      }
+    }
   }
 
   /** Click handler for a timed-action button in every phase: idle starts it, ready
@@ -213,13 +238,28 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
     else if (!t.running) this.timedActions.start(t.config.id);
   }
 
+  /** The reward resource's accent color — tints a ready-to-collect timed action's
+   *  border (see `.ready-to-collect`). */
+  rewardColor(config: TimedActionConfig): string {
+    return RESOURCE_FLAVOR[config.reward.resourceId].color;
+  }
+
   /** The staged cost's resource accent color — tints a paid crafting button's border
    *  (see `.cost-paid`), same resource-color pairing used everywhere else. */
   costColor(config: CraftingActionConfig): string {
     return RESOURCE_FLAVOR[config.cost.resourceId].color;
   }
 
+  /** Starting a rest interrupts any of the Fighter's timed actions still running (Guild
+   *  Contract) — resting is the Fighter's whole focus, same reasoning as
+   *  `otherButtonsBlockedByRest`. Only when a rest will actually begin; ending one, or a
+   *  click while rest isn't available, touches nothing else. */
   onShortRest(): void {
+    if (!this.combat.resting && this.combat.canRest) {
+      for (const t of this.timedActionsForActiveCharacter) {
+        if (t.running) this.timedActions.cancel(t.config.id);
+      }
+    }
     this.combat.toggleRest();
   }
 
@@ -279,9 +319,41 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
     const cascadeChance = this.upgrades.getCascadingDoubleChance(action.id);
     if (cascadeChance > 0) rows.push({ label: 'Bonus Yield Chance', value: `${Math.round(cascadeChance * 100)}%` });
 
+    for (const roll of this.upgrades.getBonusAmountRolls(action.id)) {
+      rows.push({
+        label: 'Bonus Chance',
+        value: `${Math.round(roll.chance * 100)}% for +${formatAmount(roll.amount)} ${resource.symbol}`,
+        color: resource.color,
+      });
+    }
+
+    for (const { timedActionId, chance } of this.upgrades.getAutoStartChances(action.id)) {
+      rows.push({ label: `Auto ${getTimedActionFlavor(timedActionId).label}`, value: `${Math.round(chance * 100)}%` });
+    }
+
     rows.push({ label: 'Repeats', value: `every ${formatDurationMs(this.autoClickIntervalMs)} held` });
 
     return { title: getActionFlavor(action.id).label, rows };
+  }
+
+  /** Units per run in batch mode (1 + the yield upgrade bonus) for a
+   *  `costScalesWithYield` action — the checkbox only renders once this exceeds 1, since
+   *  until Extra Baiting is bought both modes are identical. 1 for anything else. */
+  batchSize(t: TimedActionState): number {
+    if (!t.config.costScalesWithYield) return 1;
+    return (t.config.reward.amount + this.upgrades.getTimedActionYieldBonus(t.config.id)) / t.config.reward.amount;
+  }
+
+  batchLabel(t: TimedActionState): string {
+    return getTimedActionFlavor(t.config.id).batchLabel ?? 'Extra';
+  }
+
+  isSingleMode(t: TimedActionState): boolean {
+    return this.timedActions.isSingleMode(t.config.id);
+  }
+
+  setSingleMode(t: TimedActionState, single: boolean): void {
+    this.timedActions.setSingleMode(t.config.id, single);
   }
 
   /** Detail tooltip for a timed-action button — cost (if any), effective duration (a
@@ -292,11 +364,14 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
   timedActionTooltip(config: TimedActionConfig): TooltipContent {
     const rows: TooltipRow[] = [];
 
-    if (config.cost) {
-      const costResource = RESOURCE_FLAVOR[config.cost.resourceId];
+    // Through TimedActionsService, not raw config — a costScalesWithYield action's cost
+    // and yield depend on Extra Baiting and the x1/xN toggle, same numbers start() uses.
+    const cost = this.timedActions.costFor(config);
+    if (cost) {
+      const costResource = RESOURCE_FLAVOR[cost.resourceId];
       rows.push({
         label: 'Cost',
-        value: `${formatAmount(config.cost.amount)} ${costResource.symbol}`,
+        value: `${formatAmount(cost.amount)} ${costResource.symbol}`,
         color: costResource.color,
       });
     }
@@ -310,7 +385,7 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
     }
 
     const rewardResource = RESOURCE_FLAVOR[config.reward.resourceId];
-    const rewardAmount = config.reward.amount + this.upgrades.getTimedActionYieldBonus(config.id);
+    const rewardAmount = config.reward.amount + this.timedActions.nextYieldBonus(config);
     rows.push({
       label: 'Yield',
       value: `+${formatAmount(rewardAmount)} ${rewardResource.symbol}`,
@@ -336,11 +411,9 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
   }
 
   /** Detail tooltip for a crafting-action button — cost (or "Paid" once the current
-   *  attempt's cost is already staged, see CraftingActionState.costPaid), yield, and the
-   *  mechanic-specific requirement (hold duration or click count). No upgrade bonuses
-   *  apply to a crafting action yet (Forge Ingots' hold duration is meant to be
-   *  shortenable by a future upgrade — see CraftingActionConfig in game-config.ts), so
-   *  this reads config values directly rather than through UpgradesService. */
+   *  attempt's cost is already staged, see CraftingActionState.costPaid), yield, the
+   *  mechanic-specific requirement (effective hold time after Faster Smelting, or click
+   *  count), and Scrappy Resourcefulness' refund chance once leveled. */
   craftingTooltip(config: CraftingActionConfig, costPaid = false): TooltipContent {
     const costResource = RESOURCE_FLAVOR[config.cost.resourceId];
     const rewardResource = RESOURCE_FLAVOR[config.reward.resourceId];
@@ -356,9 +429,20 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
     ];
 
     if (config.mechanic.type === 'hold') {
-      rows.push({ label: 'Hold Time', value: formatDurationMs(config.mechanic.holdMs) });
+      // Effective, after Faster Smelting — the same multiplier CraftingService charges at.
+      const holdMs = config.mechanic.holdMs / this.upgrades.getCraftingSpeedMultiplier(config);
+      rows.push({ label: 'Hold Time', value: formatDurationMs(holdMs) });
     } else {
       rows.push({ label: 'Clicks Required', value: `${config.mechanic.clicksRequired}` });
+    }
+
+    const refundChance = this.upgrades.getCraftingRefundChance(config.id);
+    if (refundChance > 0) {
+      rows.push({
+        label: 'Refund Chance',
+        value: `${Math.round(refundChance * 100)}% ${costResource.symbol}`,
+        color: costResource.color,
+      });
     }
 
     return { title: getCraftingFlavor(config.id).label, rows };
