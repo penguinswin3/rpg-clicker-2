@@ -4,7 +4,14 @@ import { WalletService } from '../economy/wallet.service';
 import { StatisticsService } from '../statistics/statistics.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { EquipmentService } from './equipment.service';
-import { COMBAT_TURN_MS, FIGHTER_DEFEAT_LOCKOUT_MS } from '../configs/game-config';
+import { CollectionLogService } from '../collection-log/collection-log.service';
+import {
+  COMBAT_CHECK_MS,
+  COMBAT_TURN_MS,
+  FIGHTER_DEFEAT_LOCKOUT_MS,
+  FIGHTER_DEFEAT_REVIVE_HP,
+  SHORT_REST,
+} from '../configs/game-config';
 
 const KOBOLD_DEN = 'kobold-den';
 
@@ -93,7 +100,25 @@ describe('CombatService', () => {
       expect(service.canFight).toBeTrue();
     });
 
-    it('a lost fight revives the Fighter to full HP and starts the defeat lockout', () => {
+    it('a won fight records the kill and each actual drop in the Collection Log', () => {
+      const collectionLog = TestBed.inject(CollectionLogService);
+      spyOn(collectionLog, 'recordDrop').and.callThrough();
+      service.restore({
+        fighterHp: service.fighterMaxHp,
+        lockedOutUntil: null,
+        activeEncounter: { areaId: KOBOLD_DEN, enemyId: 'kobold', enemyHp: 1, actorTurn: 'fighter' },
+      });
+      // 0.9999 guarantees the hit (see above) and fails every loot roll except the
+      // guaranteed (chance 1.0) gold.
+      spyOn(Math, 'random').and.returnValue(0.9999);
+      jasmine.clock().tick(COMBAT_TURN_MS);
+
+      expect(collectionLog.getCount('kobold-kill')).toBe(1);
+      expect(collectionLog.recordDrop).toHaveBeenCalledOnceWith('kobold', { type: 'resource', resourceId: 'gold' });
+      expect(collectionLog.isCollected('kobold-ears')).toBeFalse(); // didn't drop
+    });
+
+    it('a lost fight revives the Fighter at FIGHTER_DEFEAT_REVIVE_HP (not full) and starts the defeat lockout', () => {
       service.restore({
         fighterHp: 1,
         lockedOutUntil: null,
@@ -106,7 +131,8 @@ describe('CombatService', () => {
       jasmine.clock().tick(COMBAT_TURN_MS);
 
       expect(service.activeEncounter).toBeNull();
-      expect(service.currentFighterHp).toBe(service.fighterMaxHp);
+      expect(service.currentFighterHp).toBe(FIGHTER_DEFEAT_REVIVE_HP);
+      expect(service.canRest).toBeTrue(); // resting through the lockout is the way back up
       expect(service.canFight).toBeFalse();
       expect(service.lockedOutRemainingMs).toBeGreaterThan(0);
     });
@@ -228,6 +254,97 @@ describe('CombatService', () => {
 
       // restore() just re-anchored nextTurnAt to "now" - no turn has resolved yet.
       expect(restored.activeEncounter?.enemyHp).toBe(enemyHpBefore);
+    });
+  });
+
+  describe('Short Rest', () => {
+    /** Wounded, out of combat — the only state rest can actually be turned on from. */
+    function wound(hp: number): void {
+      service.restore({ fighterHp: hp, lockedOutUntil: null, activeEncounter: null });
+    }
+
+    /** ms to regen `points` HP at the current max HP, plus one check tick of slack. */
+    function msFor(points: number): number {
+      return (points * 1000) / SHORT_REST.hpPerSecond + COMBAT_CHECK_MS;
+    }
+
+    it('cannot start at full HP', () => {
+      expect(service.canRest).toBeFalse();
+      service.toggleRest();
+      expect(service.resting).toBeFalse();
+    });
+
+    it('cannot start mid-fight', () => {
+      wound(10);
+      service.start(KOBOLD_DEN);
+      expect(service.canRest).toBeFalse();
+      service.toggleRest();
+      expect(service.resting).toBeFalse();
+    });
+
+    it('restores HP over time while on, and nothing while off', () => {
+      wound(10);
+      jasmine.clock().tick(msFor(5));
+      expect(service.currentFighterHp).toBe(10);
+
+      service.toggleRest();
+      jasmine.clock().tick(msFor(5));
+      expect(service.currentFighterHp).toBe(15);
+    });
+
+    it('carries fractional progress between checks rather than dropping it', () => {
+      wound(10);
+      service.toggleRest();
+      // Many one-tick steps, each short of one whole HP, must still add up.
+      for (let i = 0; i < 20; i++) jasmine.clock().tick(COMBAT_CHECK_MS);
+      const expected = 10 + Math.floor((20 * COMBAT_CHECK_MS) / (1000 / SHORT_REST.hpPerSecond));
+      expect(service.currentFighterHp).toBe(expected);
+    });
+
+    it('toggling again stops the rest', () => {
+      wound(10);
+      service.toggleRest();
+      service.toggleRest();
+      expect(service.resting).toBeFalse();
+      jasmine.clock().tick(msFor(5));
+      expect(service.currentFighterHp).toBe(10);
+    });
+
+    it('turns itself off at full HP, never overshooting max', () => {
+      wound(service.fighterMaxHp - 2);
+      service.toggleRest();
+      jasmine.clock().tick(msFor(10));
+      expect(service.currentFighterHp).toBe(service.fighterMaxHp);
+      expect(service.resting).toBeFalse();
+    });
+
+    it('starting a fight ends the rest', () => {
+      wound(10);
+      service.toggleRest();
+      service.start(KOBOLD_DEN);
+      expect(service.activeEncounter).not.toBeNull();
+      expect(service.resting).toBeFalse();
+    });
+
+    it('round-trips through a snapshot, without regenerating for time spent closed', () => {
+      wound(10);
+      service.toggleRest();
+      const snapshot = service.getSnapshot();
+      expect(snapshot.resting).toBeTrue();
+
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({});
+      const restored = TestBed.inject(CombatService);
+      jasmine.clock().tick(60 * 60 * 1000); // an hour "closed"
+      restored.restore(snapshot);
+
+      expect(restored.resting).toBeTrue();
+      expect(restored.currentFighterHp).toBe(10);
+    });
+
+    it('restores as not resting from a save that predates Short Rest', () => {
+      service.restore({ fighterHp: 10, lockedOutUntil: null, activeEncounter: null });
+      expect(service.resting).toBeFalse();
     });
   });
 });

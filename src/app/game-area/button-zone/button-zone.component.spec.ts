@@ -6,6 +6,8 @@ import { WalletService } from '../../economy/wallet.service';
 import { UpgradesService } from '../../upgrades/upgrades.service';
 import { TimedActionsService, TimedActionState } from '../../timed-actions/timed-actions.service';
 import { CraftingService } from '../../crafting/crafting.service';
+import { CombatService } from '../../fighter-combat/combat.service';
+import { UnlocksService } from '../../shared/unlocks.service';
 import { CHARACTER_ACTIONS, TIMED_ACTIONS, CRAFTING_ACTIONS, TimedActionConfig } from '../../configs/game-config';
 import { RESOURCE_FLAVOR } from '../../configs/flavor-text';
 import { formatAmount, formatDurationMs } from '../../shared/number-format';
@@ -83,7 +85,7 @@ describe('ButtonZoneComponent', () => {
 
   describe('onCraftHoldStartKeyboard — Enter/Space parity for the hold-craft button', () => {
     const forgeIngots = CRAFTING_ACTIONS.find(a => a.id === 'blacksmith-forge-ingots')!;
-    const holdState = { config: forgeIngots, progress: 0 };
+    const holdState = { config: forgeIngots, progress: 0, costPaid: false };
 
     it('drives the same CraftingService.startHold a pointer hold does', () => {
       const fixture = TestBed.createComponent(ButtonZoneComponent);
@@ -299,6 +301,13 @@ describe('ButtonZoneComponent', () => {
         expect(row(content.rows, 'Clicks Required')).toBeUndefined();
       });
 
+      it('shows "Paid" in place of the cost amount once the cost is already staged', () => {
+        const fixture = TestBed.createComponent(ButtonZoneComponent);
+        const config = CRAFTING_ACTIONS.find(a => a.id === 'blacksmith-forge-ingots')!;
+        const content = fixture.componentInstance.craftingTooltip(config, true);
+        expect(row(content.rows, 'Cost')!.value).toBe('Paid');
+      });
+
       it("a 'clicks' action (Smith Metal) shows Cost, Yield, and Clicks Required", () => {
         const fixture = TestBed.createComponent(ButtonZoneComponent);
         const config = CRAFTING_ACTIONS.find(a => a.id === 'blacksmith-smith-metal')!;
@@ -321,6 +330,84 @@ describe('ButtonZoneComponent', () => {
       for (const crafting of CRAFTING_ACTIONS) {
         expect(fixture.componentInstance.craftingTooltip(crafting).rows.length).withContext(crafting.id).toBeGreaterThan(0);
       }
+    });
+  });
+
+  describe('crafting buttons — paid cue', () => {
+    it('marks a crafting button .cost-paid once its cost is staged', () => {
+      const characters = TestBed.inject(CharacterSelectService);
+      const wallet = TestBed.inject(WalletService);
+      const crafting = TestBed.inject(CraftingService);
+      characters.unlock('blacksmith');
+      characters.select('blacksmith');
+      const fixture = TestBed.createComponent(ButtonZoneComponent);
+      fixture.detectChanges();
+      const button = (): HTMLElement =>
+        fixture.nativeElement.querySelector('[data-testid="crafting-action-blacksmith-forge-ingots"]');
+      expect(button().classList).not.toContain('cost-paid');
+      expect(button().style.borderColor).toBe('');
+
+      wallet.add('ore', 10);
+      crafting.startHold('blacksmith-forge-ingots');
+      crafting.releaseHold('blacksmith-forge-ingots');
+      fixture.detectChanges();
+      expect(button().classList).toContain('cost-paid');
+      const probe = document.createElement('div');
+      probe.style.borderColor = RESOURCE_FLAVOR['ore'].color;
+      expect(button().style.borderColor).toBe(probe.style.borderColor);
+    });
+  });
+
+  describe('Short Rest', () => {
+    const restButton = (fixture: { nativeElement: HTMLElement }): HTMLButtonElement | null =>
+      fixture.nativeElement.querySelector('[data-testid="short-rest"]');
+
+    it('is hidden until minigames unlock, then shows for the Fighter only', () => {
+      const unlocks = TestBed.inject(UnlocksService);
+      const characters = TestBed.inject(CharacterSelectService);
+      const fixture = TestBed.createComponent(ButtonZoneComponent);
+      fixture.detectChanges();
+      expect(restButton(fixture)).toBeNull();
+
+      unlocks.unlock('minigames');
+      fixture.detectChanges();
+      expect(restButton(fixture)).not.toBeNull();
+
+      characters.unlock('ranger');
+      characters.select('ranger');
+      fixture.detectChanges();
+      expect(restButton(fixture)).toBeNull();
+    });
+
+    it('is disabled at full HP', () => {
+      TestBed.inject(UnlocksService).unlock('minigames');
+      const fixture = TestBed.createComponent(ButtonZoneComponent);
+      fixture.detectChanges();
+      expect(restButton(fixture)!.disabled).toBeTrue();
+    });
+
+    it("while resting: aria-pressed, and the Fighter's other buttons are disabled and inert", () => {
+      TestBed.inject(UnlocksService).unlock('minigames');
+      TestBed.inject(UnlocksService).unlock('guildContract');
+      const combat = TestBed.inject(CombatService);
+      const wallet = TestBed.inject(WalletService);
+      combat.restore({ fighterHp: 10, lockedOutUntil: null, activeEncounter: null });
+      const fixture = TestBed.createComponent(ButtonZoneComponent);
+      fixture.detectChanges();
+
+      restButton(fixture)!.click();
+      fixture.detectChanges();
+
+      expect(combat.resting).toBeTrue();
+      expect(restButton(fixture)!.getAttribute('aria-pressed')).toBe('true');
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector<HTMLButtonElement>('.primary-button')!.disabled).toBeTrue();
+      expect(el.querySelector<HTMLButtonElement>('[data-testid="timed-action-fighter-guild-contract"]')!.disabled).toBeTrue();
+
+      const action = CHARACTER_ACTIONS.find(a => a.characterId === 'fighter')!;
+      const before = wallet.getAmount(action.resourceId);
+      fixture.componentInstance.onAction();
+      expect(wallet.getAmount(action.resourceId)).toBe(before);
     });
   });
 });

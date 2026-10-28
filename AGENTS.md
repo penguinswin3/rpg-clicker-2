@@ -108,15 +108,18 @@ Collapse/expand affordances use `[-]`/`[+]` (state-based) everywhere, project-wi
   milestone) — copy should teach, not just track.
 - **`ObjectiveConfig.type` is a discriminated union:** `resource-threshold` (lifetime
   gained, not current wallet balance — spending must never undo progress), `action-count`
-  (every recorded action, summed), `specific-action-count` (one exact action id only).
+  (every recorded action, summed), `specific-action-count` (one exact action id only —
+  includes enemy kills via `enemyDefeatActionId`), `equipment-equipped` (every listed item
+  worn at once; needs a flavor `description`, since it has no auto-generated row text).
+  Any objective can override its row text with a flavor `description`.
 - **Reaching a target ≠ completing it.** Hitting target makes it *claimable*; the player
   must click to claim (`ObjectivesService.claim`) — a reward never fires silently. Both
   "reached" and "claimed" are sticky, independent of the live current/target numbers.
 - **`ObjectiveConfig.rewards` is a list** — one objective can unlock several things at
   once, each a single-purpose union (`character`/`system`/`upgrade`). `ObjectivesService`
   never mutates another service's state directly — always routes through the owning one.
-- **Prerequisite-gated objectives** (`ObjectiveConfig.prerequisiteCharacterId`) stay
-  completely absent until the prerequisite unlocks, same "invisible until unlocked"
+- **Prerequisite-gated objectives** (`ObjectiveConfig.prerequisiteCharacterId` and/or
+  `prerequisiteSystemId`) stay completely absent until the prerequisite unlocks, same "invisible until unlocked"
   treatment as a locked character/upgrade.
 - Claiming logs at `'success'` level — an exception to the usual flavor+token log shape
   (§18), since the reward is often an unlock, not a currency amount.
@@ -161,7 +164,9 @@ wait). Built on `CraftingService`, config in `CraftingActionConfig`.
   release doesn't require re-charging on the next press. Only a successful completion
   consumes the staged payment.
 - Progress renders as the button's own background fill, same convention as Timed Actions
-  (§6).
+  (§6). A staged-but-unconsumed payment (`CraftingActionState.costPaid`) shows as a
+  dashed border tinted the cost resource's color, plus "Paid" in the tooltip's Cost row — the fill alone can't show it
+  once a hold has decayed back to 0.
 - Persisted via the usual `getSnapshot()`/`restore()` pair; a `'hold'` instance's decay
   is replayed on restore using real elapsed time, same convention as Timed Actions.
 
@@ -276,6 +281,33 @@ resources/generators grow:
 
 ---
 
+## 14b. Collection Log
+
+Comprehensive "everything found" checklist (`COLLECTION_LOG_SETS`, `CollectionLogService`).
+
+- Categories (filter-bar tabs) contain sets (grid blocks) contain entries. **Uncollected
+  entries show as `???`, not hidden** — the one deliberate exception to "invisible until
+  unlocked", since visible gaps and real set/overall totals are the point.
+- **One item = one entry.** Drops live in the set of the monster that drops them; crafted
+  gear lives in its item-set. Crafting is just *how* you got something, not its own
+  category. Unlocks/systems are not tracked.
+- Entries are keyed on the real event (`source`: `craft`/`kill`/`drop`), recorded by
+  whoever performs it (`recordCraft`/`recordKill`/`recordDrop`) — an item reaching the
+  bag/wallet some other way doesn't count. Unmatched events are silent no-ops.
+- Tracking runs from game start regardless of the `collectionLog` unlock (which only
+  gates the modal). No backfill from before the system existed.
+- Counts are always kept; `showCount` only controls display (monster drops yes, a
+  once-ever crafted piece no). A first collection logs at `'rare'`.
+- Future rewards (per entry, per complete set, per overall %) should key off these ids
+  and `CollectionLogService`'s progress methods.
+- Fixed-size modal: tabs/overall pinned, only the body scrolls — new content scrolls,
+  never resizes the window. Detail views (monster ASCII + stats + full loot table; item
+  glyph + stats + sources) replace the grid *inside* the same modal, never a second one,
+  with focus moved in on open and back to the opener on Back.
+- Drop rates appear only in a monster's detail loot table (every row, collected or not —
+  a `???` row still shows its rate), not on the top-level grid. Format via `formatDropRate` (`1/N` default, `%` with the `dropRateAsPercent` setting) —
+  use it anywhere else a drop chance is displayed.
+
 ## 15. Minigames
 
 - Live in the bottom half of the game screen (top half reserved for buttons, §1).
@@ -310,13 +342,20 @@ First minigame: turn-based fight vs. a single enemy, built to extend as pure con
 - **Rolls:** raw stat value added directly to `1d20` (not a D&D-style modifier) — a
   deliberate simplification that makes equipment bonuses feel impactful.
 - **Max HP = Constitution × 10**, persists across fights (not reset) — a real
-  risk/reward. Defeat is the one exception: revives to full HP in exchange for a timed
-  Fight-disabled lockout — losing costs time, never progress.
+  risk/reward. Defeat revives at 1 HP (`FIGHTER_DEFEAT_REVIVE_HP`) plus a timed
+  Fight-disabled lockout — losing costs time (lockout, then Short Rest back up), never
+  progress, and is never a shortcut to full HP.
 - **Combat does not fast-forward on reload — deliberately, unlike Timed Actions.** A
   turn's outcome is a dice roll; bulk-resolving elapsed offline turns would mean silently
   auto-battling an unbounded number of them. `restore()` brings back exact state and a
   fresh countdown to the next turn; the lockout timer (a plain threshold, not a dice
   roll) is the one part that *does* honor real elapsed time.
+- **Short Rest** (`SHORT_REST`, owned by `CombatService` as another writer of HP): a
+  Fighter Button Zone toggle, revealed with minigames, that regens a flat HP/s
+  (meant to be upgradeable). Exclusive with fighting (Fight! ends it; can't start mid-fight or at full
+  HP), auto-off at full HP, and disables the Fighter's other buttons while on (UI-layer
+  enforcement, like gear-lock). Its on/off state persists, but regen does *not* honor
+  closed-tab time — a deliberate choice, not an oversight.
 - **Equipment items are fungible by id** (`EquipmentService`) — a bag count, never an
   individually-rolled instance. Slots are typed instances (not just types), since Ring
   needs two concurrent positions.

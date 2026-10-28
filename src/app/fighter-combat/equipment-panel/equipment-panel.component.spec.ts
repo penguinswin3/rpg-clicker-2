@@ -19,7 +19,7 @@ describe('EquipmentPanelComponent', () => {
     expect(labels).toEqual(['Weapon', 'Helmet', 'Armor', 'Boots', 'Gauntlets', 'Ring', 'Ring', 'Necklace']);
   });
 
-  it('shows "-- empty --" for every unoccupied slot', () => {
+  it('shows "-- no consumable --" for every unoccupied slot', () => {
     const el: HTMLElement = fixture.nativeElement;
     expect(el.querySelectorAll('.equipment-slot-empty').length).toBe(8);
   });

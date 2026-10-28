@@ -43,6 +43,7 @@ const EXPECTED_SAVE_KEYS: (keyof SaveData)[] = [
   'equipment',
   'combat',
   'patternCrafting',
+  'collectionLog',
 ];
 
 function decode(base64: string): Record<string, unknown> {

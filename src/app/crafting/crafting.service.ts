@@ -12,6 +12,10 @@ export interface CraftingActionState {
   /** 0..1 fraction toward completion — computed live for a 'hold' action (see
    *  HoldInstance below), a plain step ratio (clicksDone / clicksRequired) for 'clicks'. */
   progress: number;
+  /** True once this attempt's cost has been charged and not yet consumed by a payout — a
+   *  'hold' instance that exists at all (even fully decayed back to 0, see the class doc),
+   *  or a 'clicks' counter past its first step. Drives the button's "already paid" cue. */
+  costPaid: boolean;
 }
 
 type HoldMechanic = Extract<CraftingActionConfig['mechanic'], { type: 'hold' }>;
@@ -71,7 +75,16 @@ export class CraftingService {
   }
 
   get actions(): CraftingActionState[] {
-    return CRAFTING_ACTIONS.map(config => ({ config, progress: this.progressFor(config) }));
+    return CRAFTING_ACTIONS.map(config => ({
+      config,
+      progress: this.progressFor(config),
+      costPaid: this.isCostPaid(config),
+    }));
+  }
+
+  isCostPaid(config: CraftingActionConfig): boolean {
+    if (config.mechanic.type === 'clicks') return (this.clickCounts.get(config.id) ?? 0) > 0;
+    return this.holdInstances.has(config.id);
   }
 
   progressFor(config: CraftingActionConfig): number {

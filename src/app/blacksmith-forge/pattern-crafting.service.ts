@@ -4,6 +4,7 @@ import { WalletService } from '../economy/wallet.service';
 import { StatisticsService } from '../statistics/statistics.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { EquipmentService } from '../fighter-combat/equipment.service';
+import { CollectionLogService } from '../collection-log/collection-log.service';
 import { PATTERNS, PatternConfig, EQUIPMENT_SLOTS, TIMED_ACTION_TICK_MS } from '../configs/game-config';
 import { getPatternFlavor, getEquipmentFlavor } from '../configs/flavor-text';
 import { resourceNameToken } from '../shared/resource-token';
@@ -40,6 +41,7 @@ export class PatternCraftingService {
   private statistics = inject(StatisticsService);
   private activityLog = inject(ActivityLogService);
   private equipment = inject(EquipmentService);
+  private collectionLog = inject(CollectionLogService);
 
   private knownPatternIds = new Set<string>(PATTERNS.filter(p => p.unlocked).map(p => p.id));
   private activeCraft: { patternId: string; startedAt: number } | null = null;
@@ -138,6 +140,7 @@ export class PatternCraftingService {
       this.equipment.addToInventory(config.equipmentId);
     }
     this.logCompletion(config);
+    this.collectionLog.recordCraft(config.equipmentId);
   }
 
   private logInsufficientCost(config: PatternConfig, resourceId: string): void {

@@ -4,10 +4,18 @@ import { Subscription } from 'rxjs';
 import { EmptyStateComponent } from '../shared/empty-state/empty-state.component';
 import { formatAmount } from '../shared/number-format';
 import { formatPlaytime } from '../shared/time-format';
-import { CHARACTER_ACTIONS } from '../configs/game-config';
+import { CHARACTER_ACTIONS, FIGHTER_ENEMIES, PATTERNS, enemyDefeatActionId } from '../configs/game-config';
 import { getCharacterFlavor, getActionFlavor, RESOURCE_FLAVOR } from '../configs/flavor-text';
 import { StatisticsService } from './statistics.service';
 import { PlaytimeService } from './playtime.service';
+
+/** Action ids still recorded (objectives read them — e.g. kill-20-kobolds counts
+ *  enemy defeats) but not listed here, because the Collection Log already shows them:
+ *  forge crafts and monster kills. */
+const HIDDEN_ACTION_IDS = new Set<string>([
+  ...PATTERNS.map(p => p.id),
+  ...FIGHTER_ENEMIES.map(e => enemyDefeatActionId(e.id)),
+]);
 
 /** Lifetime totals, grouped by category (not character — a deliberate change from
  *  game 1). Each section only appears once there's data for it. */
@@ -30,7 +38,7 @@ export class StatsPanelComponent implements OnInit, OnDestroy {
   }
 
   get actionCounts(): { label: string; count: number }[] {
-    return this.statistics.getActionCounts().map(([id, count]) => ({
+    return this.statistics.getActionCounts().filter(([id]) => !HIDDEN_ACTION_IDS.has(id)).map(([id, count]) => ({
       label: this.actionLabel(id),
       count,
     }));

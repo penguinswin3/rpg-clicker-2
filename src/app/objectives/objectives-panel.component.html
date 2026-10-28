@@ -17,6 +17,8 @@
       [style.width.%]="progressPercent(o)"
       [style.background]="fillColor(o)"></div>
     <div class="objective-desc">
+      <ng-container *ngIf="objectiveDescription(o) as description; else autoDescription">{{ description }}</ng-container>
+      <ng-template #autoDescription>
       <ng-container *ngIf="isResourceObjective(o); else countObjective">
         Obtain
         <span [style.color]="resourceColor(objectiveResourceId(o)!)">
@@ -24,6 +26,7 @@
         </span>
       </ng-container>
       <ng-template #countObjective>{{ objectiveVerb(o) }} {{ o.target }} times</ng-template>
+      </ng-template>
     </div>
     <div class="objective-status">
       <span *ngIf="!o.completed && !o.claimable" class="objective-progress">

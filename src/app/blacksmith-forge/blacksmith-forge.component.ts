@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, ChangeDe
 import { CommonModule } from '@angular/common';
 import { Subscription, interval } from 'rxjs';
 import { TooltipDirective } from '../shared/tooltip/tooltip.directive';
-import { TooltipContent, TooltipRow } from '../shared/tooltip/tooltip-content';
+import { TooltipContent } from '../shared/tooltip/tooltip-content';
 import { PatternCraftingService, PatternState } from './pattern-crafting.service';
 import { EQUIPMENT_SLOTS, PatternConfig, TIMED_ACTION_TICK_MS } from '../configs/game-config';
 import { getPatternFlavor, getRarityFlavor, RESOURCE_FLAVOR } from '../configs/flavor-text';
@@ -13,6 +13,9 @@ import { formatAmount, formatDurationMs } from '../shared/number-format';
 export interface CostDisplayEntry {
   text: string;
   color: string;
+  /** Hover text naming the resource — same native-`title` treatment as an upgrade's
+   *  cost icon (UpgradesPanelComponent). */
+  name: string;
 }
 
 /** Every possible statusLabel() string — real data, not a hand-counted length, so
@@ -127,18 +130,17 @@ export class BlacksmithForgeComponent implements OnInit, OnDestroy {
     this.patternCrafting.start(p.config.id);
   }
 
-  /** Shared by the inline on-row cost display and the tooltip below, so both surfaces
-   *  always agree — one resource lookup, not two hand-rolled copies. */
+  /** The inline on-row cost display. */
   costEntries(config: PatternConfig): CostDisplayEntry[] {
     return config.cost.map(entry => {
       const resource = RESOURCE_FLAVOR[entry.resourceId];
-      return { text: `${formatAmount(entry.amount)} ${resource.symbol}`, color: resource.color };
+      return { text: `${formatAmount(entry.amount)} ${resource.symbol}`, color: resource.color, name: resource.name };
     });
   }
 
+  /** Only what the row doesn't already show — cost is displayed inline to the left
+   *  (`costEntries`), so repeating it here would just be noise. */
   tooltip(config: PatternConfig): TooltipContent {
-    const rows: TooltipRow[] = this.costEntries(config).map(c => ({ label: 'Cost', value: c.text, color: c.color }));
-    rows.push({ label: 'Duration', value: formatDurationMs(config.durationMs) });
-    return { title: getPatternFlavor(config.id).label, rows };
+    return { title: getPatternFlavor(config.id).label, rows: [{ label: 'Duration', value: formatDurationMs(config.durationMs) }] };
   }
 }

@@ -42,13 +42,14 @@ export class TopBarComponent implements OnInit, OnDestroy {
     return formatPlaytime(this.playtime.totalSeconds);
   }
 
-  // Data-driven off UnlocksService (runtime-toggleable) so unlocking Jacks/Crown at
+  // Data-driven off UnlocksService (runtime-toggleable) so unlocking Jacks/Crown/etc. at
   // runtime — via Dev Tools or a real unlock objective — reveals the button without a
   // reload. Stats/Options are always available.
   get leftButtons(): NavButton[] {
     const defs: NavButton[] = [
       { id: 'jacks', label: 'Jacks', unlocked: this.unlocks.isUnlocked('jacks') },
       { id: 'crown', label: 'Crown', unlocked: this.unlocks.isUnlocked('crown') },
+      { id: 'collection-log', label: 'Collection Log', unlocked: this.unlocks.isUnlocked('collectionLog') },
     ];
     return defs.filter(b => b.unlocked);
   }

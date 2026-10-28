@@ -38,6 +38,7 @@ export class OptionsPanelComponent implements OnInit, OnDestroy {
   readonly toggles: ToggleOption[] = [
     { key: 'showPlaytime', label: 'Show playtime on game screen' },
     { key: 'hideMaxedUpgrades', label: 'Hide maxed-out upgrades' },
+    { key: 'dropRateAsPercent', label: 'Show drop rates as percentages' },
     { key: 'reducedMotion', label: 'Reduced motion' },
   ];
 

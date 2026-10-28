@@ -11,6 +11,10 @@ import {
   EQUIPMENT_ITEMS,
   EquipmentRarity,
   FIGHTER_ENEMIES,
+  UNLOCKS,
+  enemyDefeatActionId,
+  COLLECTION_LOG_SETS,
+  COLLECTION_LOG_CATEGORIES,
   FIGHTER_AREAS,
   PATTERNS,
 } from './game-config';
@@ -25,6 +29,10 @@ import {
   FIGHTER_ENEMY_FLAVOR,
   FIGHTER_AREA_FLAVOR,
   PATTERN_FLAVOR,
+  OBJECTIVE_FLAVOR,
+  CHARACTER_FLAVOR,
+  COLLECTION_LOG_SET_FLAVOR,
+  COLLECTION_LOG_CATEGORY_FLAVOR,
 } from './flavor-text';
 import { idsMissingFlavor, duplicateIds, danglingReferences, emojiSymbols } from '../../testing/invariants';
 
@@ -54,6 +62,10 @@ describe('game-config integrity', () => {
   describe('Characters', () => {
     it('has no duplicate ids', () => {
       expect(duplicateIds(characterIds)).toEqual([]);
+    });
+
+    it('every character has flavor text (label + color)', () => {
+      expect(idsMissingFlavor(characterIds, CHARACTER_FLAVOR)).toEqual([]);
     });
   });
 
@@ -278,6 +290,10 @@ describe('game-config integrity', () => {
       expect(duplicateIds(OBJECTIVES.map(o => o.id))).toEqual([]);
     });
 
+    it('every objective has flavor text (its claim log message)', () => {
+      expect(idsMissingFlavor(OBJECTIVES.map(o => o.id), OBJECTIVE_FLAVOR)).toEqual([]);
+    });
+
     it('a resource-threshold objective targets a real resource', () => {
       for (const objective of OBJECTIVES) {
         if (objective.type !== 'resource-threshold') continue;
@@ -285,11 +301,33 @@ describe('game-config integrity', () => {
       }
     });
 
-    it('a specific-action-count objective targets a real action (character or timed)', () => {
-      const knownActionIds = new Set([...characterActionIds, ...timedActionIds, ...craftingActionIds]);
+    it('a specific-action-count objective targets a real action (character, timed, crafting, or enemy defeat)', () => {
+      const knownActionIds = new Set([
+        ...characterActionIds,
+        ...timedActionIds,
+        ...craftingActionIds,
+        ...fighterEnemyIds.map(enemyDefeatActionId),
+      ]);
       for (const objective of OBJECTIVES) {
         if (objective.type !== 'specific-action-count') continue;
         expect(knownActionIds.has(objective.actionId)).withContext(objective.id).toBeTrue();
+      }
+    });
+
+    it('an equipment-equipped objective lists real, distinct equipment items, and has description flavor', () => {
+      for (const objective of OBJECTIVES) {
+        if (objective.type !== 'equipment-equipped') continue;
+        expect(objective.equipmentIds.length).withContext(objective.id).toBeGreaterThan(0);
+        expect(danglingReferences(objective.equipmentIds, equipmentIds)).withContext(objective.id).toEqual([]);
+        expect(duplicateIds(objective.equipmentIds)).withContext(objective.id).toEqual([]);
+        expect(OBJECTIVE_FLAVOR[objective.id]?.description).withContext(objective.id).toBeTruthy();
+      }
+    });
+
+    it('prerequisiteSystemId, if set, references a real UNLOCKS key', () => {
+      for (const objective of OBJECTIVES) {
+        if (!objective.prerequisiteSystemId) continue;
+        expect(Object.keys(UNLOCKS)).withContext(objective.id).toContain(objective.prerequisiteSystemId);
       }
     });
 
@@ -495,6 +533,50 @@ describe('game-config integrity', () => {
           expect(value).withContext(`${enemy.id}.${stat}`).toBeGreaterThanOrEqual(0);
         }
       }
+    });
+  });
+
+  describe('Collection Log', () => {
+    const entries = COLLECTION_LOG_SETS.flatMap(s => s.entries);
+
+    it('has no duplicate set or entry ids', () => {
+      expect(duplicateIds(COLLECTION_LOG_SETS.map(s => s.id))).toEqual([]);
+      expect(duplicateIds(entries.map(e => e.id))).toEqual([]);
+    });
+
+    it('every set and category has flavor, and every set belongs to a real category', () => {
+      expect(idsMissingFlavor(COLLECTION_LOG_SETS.map(s => s.id), COLLECTION_LOG_SET_FLAVOR)).toEqual([]);
+      expect(idsMissingFlavor(COLLECTION_LOG_CATEGORIES, COLLECTION_LOG_CATEGORY_FLAVOR)).toEqual([]);
+      expect(danglingReferences(COLLECTION_LOG_SETS.map(s => s.category), COLLECTION_LOG_CATEGORIES)).toEqual([]);
+    });
+
+    it('every entry source references a real item / enemy / resource, and a drop is in that enemy\'s loot table', () => {
+      for (const entry of entries) {
+        const source = entry.source;
+        if (source.type === 'craft') {
+          expect(PATTERNS.map(p => p.equipmentId)).withContext(entry.id).toContain(source.equipmentId);
+          continue;
+        }
+        expect(fighterEnemyIds).withContext(entry.id).toContain(source.enemyId);
+        if (source.type !== 'drop') continue;
+        const loot = FIGHTER_ENEMIES.find(e => e.id === source.enemyId)?.loot ?? [];
+        const inLoot = loot.some(d =>
+          source.item.type === 'equipment'
+            ? d.type === 'equipment' && d.equipmentId === source.item.equipmentId
+            : d.type === 'resource' && d.resourceId === source.item.resourceId
+        );
+        expect(inLoot).withContext(entry.id).toBeTrue();
+      }
+    });
+
+    it('one item = one entry: no item, resource, or kill is collected by two entries', () => {
+      const keys = entries.map(e => {
+        const s = e.source;
+        if (s.type === 'craft') return `item:${s.equipmentId}`;
+        if (s.type === 'kill') return `kill:${s.enemyId}`;
+        return s.item.type === 'equipment' ? `item:${s.item.equipmentId}` : `resource:${s.enemyId}:${s.item.resourceId}`;
+      });
+      expect(duplicateIds(keys)).toEqual([]);
     });
   });
 });

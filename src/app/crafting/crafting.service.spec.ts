@@ -300,4 +300,42 @@ describe('CraftingService', () => {
     expect(CRAFTING_ACTIONS.find(a => a.id === FORGE_INGOTS)?.mechanic.type).toBe('hold');
     expect(CRAFTING_ACTIONS.find(a => a.id === SMITH_METAL)?.mechanic.type).toBe('clicks');
   });
+
+  describe('costPaid', () => {
+    function costPaid(id: string): boolean {
+      return crafting.actions.find(a => a.config.id === id)!.costPaid;
+    }
+
+    it("'hold': false before any attempt, true once charged, still true fully decayed, false after payout", () => {
+      wallet.add('ore', 10);
+      expect(costPaid(FORGE_INGOTS)).toBeFalse();
+
+      crafting.startHold(FORGE_INGOTS);
+      expect(costPaid(FORGE_INGOTS)).toBeTrue();
+
+      jasmine.clock().tick(1_000);
+      crafting.releaseHold(FORGE_INGOTS);
+      jasmine.clock().tick(1_000 + TIMED_ACTION_TICK_MS);
+      expect(progressFor(FORGE_INGOTS)).toBe(0);
+      expect(costPaid(FORGE_INGOTS)).toBeTrue(); // the whole point — progress alone can't show this
+
+      crafting.startHold(FORGE_INGOTS);
+      jasmine.clock().tick(10_000 + TIMED_ACTION_TICK_MS);
+      crafting.releaseHold(FORGE_INGOTS);
+      expect(costPaid(FORGE_INGOTS)).toBeFalse();
+    });
+
+    it('stays false after an unaffordable attempt', () => {
+      crafting.startHold(FORGE_INGOTS);
+      expect(costPaid(FORGE_INGOTS)).toBeFalse();
+    });
+
+    it("'clicks': true after the first (charging) click, false again after payout", () => {
+      wallet.add('ingot', 10);
+      crafting.click(SMITH_METAL);
+      expect(costPaid(SMITH_METAL)).toBeTrue();
+      for (let i = 1; i < 10; i++) crafting.click(SMITH_METAL);
+      expect(costPaid(SMITH_METAL)).toBeFalse();
+    });
+  });
 });

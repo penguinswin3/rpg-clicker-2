@@ -7,6 +7,7 @@
           class="primary-button"
           [attr.data-testid]="'primary-action-' + action.id"
           [appTooltip]="primaryActionTooltip(action)"
+          [disabled]="otherButtonsBlockedByRest"
           appHoldToClick
           [holdToClickIntervalMs]="autoClickIntervalMs"
           (appHoldToClick)="onAction()">
@@ -20,7 +21,7 @@
           [attr.data-testid]="'timed-action-' + t.config.id"
           [style.min-width]="timedActionMinWidthPx(t)"
           [appTooltip]="timedActionTooltip(t.config)"
-          [disabled]="t.running"
+          [disabled]="t.running || otherButtonsBlockedByRest"
           (click)="onTimedAction(t)">
           <div
             class="timed-button-fill"
@@ -31,11 +32,27 @@
         </button>
       </div>
 
+      <div class="rest-action-wrap" *ngIf="showShortRest">
+        <button
+          class="rest-button"
+          data-testid="short-rest"
+          [class.active]="resting"
+          [attr.aria-pressed]="resting"
+          [appTooltip]="shortRestTooltip()"
+          [disabled]="!resting && !canRest"
+          (click)="onShortRest()">
+          <div class="rest-button-fill" *ngIf="resting" aria-hidden="true" [style.width.%]="hpFraction * 100"></div>
+          <span class="rest-button-label">{{ shortRestLabel }}</span>
+        </button>
+      </div>
+
       <div class="crafting-action-wrap" *ngFor="let c of holdCraftingActions; trackBy: trackCraftingAction">
         <button
           class="crafting-button hold-craft-button"
           [attr.data-testid]="'crafting-action-' + c.config.id"
-          [appTooltip]="craftingTooltip(c.config)"
+          [class.cost-paid]="c.costPaid"
+          [style.border-color]="c.costPaid ? costColor(c.config) : null"
+          [appTooltip]="craftingTooltip(c.config, c.costPaid)"
           (pointerdown)="onCraftHoldStart(c)"
           (pointerup)="onCraftHoldEnd(c)"
           (pointerleave)="onCraftHoldEnd(c)"
@@ -54,7 +71,9 @@
         <button
           class="crafting-button click-craft-button"
           [attr.data-testid]="'crafting-action-' + c.config.id"
-          [appTooltip]="craftingTooltip(c.config)"
+          [class.cost-paid]="c.costPaid"
+          [style.border-color]="c.costPaid ? costColor(c.config) : null"
+          [appTooltip]="craftingTooltip(c.config, c.costPaid)"
           (click)="onCraftClick(c)">
           <div class="crafting-button-fill" aria-hidden="true" [style.width.%]="c.progress * 100"></div>
           <span class="crafting-button-label">{{ craftingLabel(c) }}</span>

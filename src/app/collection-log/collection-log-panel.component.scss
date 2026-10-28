@@ -1,0 +1,144 @@
+:host {
+  display: contents;
+}
+
+// Fixed footprint, not sized to content — switching tabs, collecting an entry, or
+// opening a detail view never resizes the modal. The header (tabs + overall) stays put;
+// only .log-body scrolls once content outgrows it.
+.collection-log-panel {
+  width: min(640px, 85vw);
+  height: min(420px, 65vh);
+  font-family: 'Courier New', Courier, monospace;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.log-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid #222;
+  padding-bottom: 6px;
+}
+
+.overall {
+  font-size: 11px;
+  color: #aaa;
+  white-space: nowrap;
+}
+
+.log-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #333 #0a0a0a;
+
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-track { background: #0a0a0a; }
+  &::-webkit-scrollbar-thumb { background: #333; }
+}
+
+// Same dense toggle-group as the Activity Log's filter bar — the model for any
+// toggle-group UI (AGENTS.md §1).
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.filter-btn {
+  background: #000;
+  color: #444;
+  border: 1px solid #2a2a2a;
+  font-family: inherit;
+  font-size: 10px;
+  text-transform: uppercase;
+  padding: 1px 7px;
+  cursor: pointer;
+  transition: color 0.1s, border-color 0.1s, background 0.1s;
+
+  &:hover { color: #aaa; border-color: #555; }
+  &.active { color: #fff; border-color: #fff; background: #111; }
+}
+
+.set-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+  align-items: start;
+}
+
+.set-block {
+  border: 1px solid #333;
+  background: #0a0a0a;
+}
+
+.set-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 6px;
+  background: #111;
+  border-bottom: 1px solid #222;
+  font-size: 11px;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+
+  // A finished set is a noteworthy milestone (and the future per-set reward hook) —
+  // gold, same tier as a claimable objective (AGENTS.md §3).
+  &.complete { color: #ffd700; }
+}
+
+.set-header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.info-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 11px;
+  color: #aaa;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { color: #fff; }
+  &:disabled { color: #333; cursor: default; }
+}
+
+.entry {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 2px 6px;
+  font-family: inherit;
+  font-size: 12px;
+  text-align: left;
+  background: none;
+  border: none;
+  color: inherit;
+
+  &.uncollected .entry-name { color: #444; }
+}
+
+button.entry {
+  cursor: pointer;
+
+  &:hover { background: #151515; }
+}
+
+.entry-name {
+  flex: 1 1 auto;
+}
+
+.entry-count {
+  color: #888;
+}

@@ -5,8 +5,9 @@ import { CharacterSelectService } from '../character-select/character-select.ser
 import { UnlocksService } from '../shared/unlocks.service';
 import { UpgradesService } from '../upgrades/upgrades.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
+import { EquipmentService } from '../fighter-combat/equipment.service';
 import { getObjectiveFlavor } from '../configs/flavor-text';
-import { OBJECTIVES, ObjectiveConfig, ObjectiveReward } from '../configs/game-config';
+import { EQUIPMENT_SLOTS, OBJECTIVES, ObjectiveConfig, ObjectiveReward } from '../configs/game-config';
 
 export interface ObjectiveState {
   config: ObjectiveConfig;
@@ -44,6 +45,7 @@ export class ObjectivesService {
   private unlocks = inject(UnlocksService);
   private upgrades = inject(UpgradesService);
   private activityLog = inject(ActivityLogService);
+  private equipment = inject(EquipmentService);
 
   private reachedIds = new Set<string>();
   private completedIds = new Set<string>();
@@ -56,6 +58,11 @@ export class ObjectivesService {
     // off lifetime-gained, action-count off action counts — so one subscription covers
     // re-evaluating every objective.
     this.statistics.changes$.subscribe(() => this.evaluateAll());
+    // 'equipment-equipped' progress lives in EquipmentService instead, and a
+    // prerequisiteSystemId-gated objective becomes visible on an unlock — both need a
+    // re-evaluation that no statistics change would trigger.
+    this.equipment.changes$.subscribe(() => this.evaluateAll());
+    this.unlocks.state$.subscribe(() => this.evaluateAll());
   }
 
   get objectives(): ObjectiveState[] {
@@ -105,11 +112,14 @@ export class ObjectivesService {
     if (changed) this.changesSource.next();
   }
 
-  /** Whether a prerequisite-gated objective should even be visible yet — undefined
-   *  `prerequisiteCharacterId` means always available. Same "invisible until unlocked"
-   *  treatment as a locked character/upgrade, rather than a dimmed/locked placeholder row. */
+  /** Whether a prerequisite-gated objective should even be visible yet — an undefined
+   *  `prerequisiteCharacterId`/`prerequisiteSystemId` means that gate always passes. Same
+   *  "invisible until unlocked" treatment as a locked character/upgrade, rather than a
+   *  dimmed/locked placeholder row. */
   private isAvailable(config: ObjectiveConfig): boolean {
-    return !config.prerequisiteCharacterId || this.characterService.isUnlocked(config.prerequisiteCharacterId);
+    if (config.prerequisiteCharacterId && !this.characterService.isUnlocked(config.prerequisiteCharacterId)) return false;
+    if (config.prerequisiteSystemId && !this.unlocks.isUnlocked(config.prerequisiteSystemId)) return false;
+    return true;
   }
 
   private currentFor(config: ObjectiveConfig): number {
@@ -120,11 +130,24 @@ export class ObjectivesService {
         return this.totalActionCount();
       case 'specific-action-count':
         return this.statistics.getActionCount(config.actionId);
+      case 'equipment-equipped':
+        return config.equipmentIds.filter(id => this.isEquipped(id)).length;
     }
   }
 
   private targetFor(config: ObjectiveConfig): number {
-    return config.type === 'resource-threshold' ? config.targetAmount : config.targetCount;
+    switch (config.type) {
+      case 'resource-threshold':
+        return config.targetAmount;
+      case 'equipment-equipped':
+        return config.equipmentIds.length;
+      default:
+        return config.targetCount;
+    }
+  }
+
+  private isEquipped(itemId: string): boolean {
+    return EQUIPMENT_SLOTS.some(slot => this.equipment.getEquippedItemId(slot.id) === itemId);
   }
 
   /** "Work N times" counts every recorded action press, not one specific character's

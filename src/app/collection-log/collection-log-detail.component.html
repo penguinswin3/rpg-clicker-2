@@ -1,0 +1,38 @@
+<div class="detail">
+  <div class="detail-header">
+    <button #backButton type="button" class="back-btn" aria-label="Back to collection log" (click)="back.emit()">
+      <span aria-hidden="true">[ &lt; BACK ]</span>
+    </button>
+    <h2 class="detail-title">{{ title }}</h2>
+  </div>
+
+  <div class="detail-body">
+    <div class="detail-image">
+      <pre class="detail-ascii" *ngIf="detail.kind === 'monster'; else glyph" aria-hidden="true">{{ ascii }}</pre>
+      <ng-template #glyph>
+        <div class="detail-glyph" aria-hidden="true" [style.color]="symbolColor" [style.border-color]="symbolColor">{{ symbol }}</div>
+      </ng-template>
+    </div>
+
+    <div class="detail-info">
+      <div class="detail-row" *ngFor="let r of rows">
+        <span class="detail-label">{{ r.label }}</span>
+        <span class="detail-value" [style.color]="r.color ?? null">{{ r.value }}</span>
+      </div>
+      <app-stat-block *ngIf="enemy as e" [stats]="e.stats"></app-stat-block>
+    </div>
+  </div>
+
+  <div class="loot-table" *ngIf="detail.kind === 'monster'">
+    <div class="loot-head">
+      <span class="loot-name">DROP</span>
+      <span class="loot-qty">QTY</span>
+      <span class="loot-rate">RATE</span>
+    </div>
+    <div class="loot-row" *ngFor="let l of lootRows; trackBy: trackLoot">
+      <span class="loot-name" [style.color]="l.color">{{ l.name }}</span>
+      <span class="loot-qty">{{ l.quantity }}</span>
+      <span class="loot-rate">{{ l.rate }}</span>
+    </div>
+  </div>
+</div>

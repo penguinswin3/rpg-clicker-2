@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { BlacksmithForgeComponent } from './blacksmith-forge.component';
 import { PatternCraftingService } from './pattern-crafting.service';
 import { WalletService } from '../economy/wallet.service';
+import { RESOURCE_FLAVOR } from '../configs/flavor-text';
 
 function findRow(fixture: ComponentFixture<BlacksmithForgeComponent>, slotLabelText: string): HTMLElement {
   const rows = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.pattern-row'));
@@ -95,6 +96,12 @@ describe('BlacksmithForgeComponent', () => {
     expect(costEntries[0].style.color).not.toBe(costEntries[1].style.color);
   });
 
+  it("names each cost entry's resource on hover (native title), like an upgrade's cost icon", () => {
+    const costEntries = findRow(fixture, 'Weapon').querySelectorAll<HTMLElement>('.cost-entry');
+    expect(costEntries[0].title).toBe(RESOURCE_FLAVOR['ironmongery'].name);
+    expect(costEntries[1].title).toBe(RESOURCE_FLAVOR['ingot'].name);
+  });
+
   it('hides the on-row cost display once a pattern is owned (via a real completed craft)', () => {
     // jasmine.clock() must install *before* PatternCraftingService is constructed —
     // its constructor registers a real setInterval, and jasmine.clock() only fakes
@@ -118,5 +125,13 @@ describe('BlacksmithForgeComponent', () => {
 
     const weaponRow = findRow(freshFixture, 'Weapon');
     expect(weaponRow.querySelectorAll('.cost-entry').length).toBe(0);
+  });
+
+  it("tooltip omits cost (already shown on the row) but keeps the duration", () => {
+    for (const p of patternCrafting.patterns) {
+      const labels = fixture.componentInstance.tooltip(p.config).rows.map(r => r.label);
+      expect(labels).withContext(p.config.id).not.toContain('Cost');
+      expect(labels).withContext(p.config.id).toContain('Duration');
+    }
   });
 });

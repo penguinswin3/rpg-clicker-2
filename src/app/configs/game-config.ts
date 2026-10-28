@@ -21,6 +21,7 @@ export const UNLOCKS = {
     crown: false,
     minigames: false,
     guildContract: false,
+    collectionLog: false,
 };
 
 // ── Characters ────────────────────────────────────────────────
@@ -38,6 +39,9 @@ export const CHARACTERS: CharacterConfig[] = [
     { id: 'fighter', unlocked: true },
     { id: 'ranger', unlocked: false },
     { id: 'blacksmith', unlocked: false },
+    // Placeholder — unlockable via the 'unlock-brewmaster' objective, but no buttons,
+    // resources, or minigame yet (Button Zone / Minigames show their empty states).
+    { id: 'brewmaster', unlocked: false },
 ];
 
 // ── Resources ─────────────────────────────────────────────────
@@ -369,6 +373,8 @@ export type ObjectiveReward =
 // `prerequisiteCharacterId`, common to every variant, is what lets an objective stay
 // hidden until another one's character reward has actually been claimed — e.g.
 // "unlock-blacksmith" has no reason to appear before Ranger (and Bait Trap) even exist.
+// `prerequisiteSystemId` is the same gate keyed on an UNLOCKS system instead (e.g. a
+// combat objective stays hidden until minigames exist); both must pass when both are set.
 // Undefined means always available, same "no gate" meaning omitting a field has
 // elsewhere in these configs (TimedActionConfig.unlockKey, etc). See ObjectivesService
 // for how this is enforced (filtered out of `.objectives` and skipped in `evaluateAll`,
@@ -382,6 +388,7 @@ export type ObjectiveConfig =
         targetAmount: number;
         rewards?: ObjectiveReward[];
         prerequisiteCharacterId?: string;
+        prerequisiteSystemId?: keyof typeof UNLOCKS;
     }
     | {
         id: string;
@@ -389,6 +396,7 @@ export type ObjectiveConfig =
         targetCount: number;
         rewards?: ObjectiveReward[];
         prerequisiteCharacterId?: string;
+        prerequisiteSystemId?: keyof typeof UNLOCKS;
     }
     // Like 'action-count', but scoped to one specific action id rather than summed
     // across every recorded action — e.g. "collect prey 25 times" must count only
@@ -400,6 +408,18 @@ export type ObjectiveConfig =
         targetCount: number;
         rewards?: ObjectiveReward[];
         prerequisiteCharacterId?: string;
+        prerequisiteSystemId?: keyof typeof UNLOCKS;
+    }
+    // Every listed item worn at the same moment (progress = how many currently are).
+    // Like every objective, reaching it is sticky — unequipping afterwards never
+    // un-reaches it.
+    | {
+        id: string;
+        type: 'equipment-equipped';
+        equipmentIds: string[];
+        rewards?: ObjectiveReward[];
+        prerequisiteCharacterId?: string;
+        prerequisiteSystemId?: keyof typeof UNLOCKS;
     };
 
 // Order here is display order in the Objectives panel — "Work 15 times" is meant to be
@@ -444,7 +464,36 @@ export const OBJECTIVES: ObjectiveConfig[] = [
         prerequisiteCharacterId: 'blacksmith',
         rewards: [{ type: 'system', systemId: 'minigames' }],
     },
+    {
+        id: 'kill-20-kobolds',
+        type: 'specific-action-count',
+        actionId: enemyDefeatActionId('kobold'),
+        targetCount: 20,
+        prerequisiteSystemId: 'minigames',
+        rewards: [{ type: 'system', systemId: 'jacks' }],
+    },
+    {
+        id: 'equip-common-set',
+        type: 'equipment-equipped',
+        equipmentIds: ['forged-sword', 'forged-helmet', 'forged-armor', 'forged-boots', 'forged-gauntlets'],
+        prerequisiteSystemId: 'minigames',
+        rewards: [{ type: 'system', systemId: 'collectionLog' }],
+    },
+    {
+        id: 'unlock-brewmaster',
+        type: 'resource-threshold',
+        resourceId: 'gold',
+        targetAmount: 50_000,
+        prerequisiteCharacterId: 'blacksmith',
+        rewards: [{ type: 'character', characterId: 'brewmaster' }],
+    },
 ];
+
+/** The StatisticsService action id a won fight against `enemyId` records under — shared
+ *  by CombatService (the writer) and any kill-count objective (the reader). */
+export function enemyDefeatActionId(enemyId: string): string {
+    return `fighter-defeat-${enemyId}`;
+}
 
 // ── Fighter Combat: shared stats ──────────────────────────────
 // SixStats is defined in shared/six-stats.ts (reused by a future Jacks system, which
@@ -699,3 +748,99 @@ export const COMBAT_TURN_MS = 1_000;
 
 /** How long Fight! stays disabled after a loss. */
 export const FIGHTER_DEFEAT_LOCKOUT_MS = 30_000;
+
+/** HP the Fighter revives with after a loss — deliberately not full, so losing is never
+ *  a shortcut past Short Rest's slow regen back to full HP. */
+export const FIGHTER_DEFEAT_REVIVE_HP = 1;
+
+// ── Fighter Combat: Short Rest ─────────────────────────────────
+// The Fighter's third Button Zone button, revealed alongside minigames — a toggle that
+// slowly restores combat HP while on (see CombatService). Rest and fighting are
+// exclusive: Fight! turns it off, and it can't be turned on mid-fight. While resting,
+// the Fighter's other buttons are disabled, so healing costs active income. Turns itself
+// off at full HP. Unlike the defeat lockout, regen does *not* honor time spent with the
+// tab closed — a restored rest resumes healing from the moment of load.
+
+export const SHORT_REST = {
+  characterId: 'fighter',
+  unlockKey: 'minigames' as keyof typeof UNLOCKS,
+  /** Flat HP restored per second while resting. Deliberately slow to start — meant to
+   *  be raised by a future upgrade. */
+  hpPerSecond: 0.5,
+};
+
+// ── Collection Log ─────────────────────────────────────────────
+// A comprehensive "everything you've found" checklist, grouped into sets within
+// categories. Tracking runs from the very start of a game — independent of whether the
+// `collectionLog` system (the modal) is unlocked yet — so the log is already populated
+// the first time the player opens it. Nothing is backfilled from before this system
+// existed. See CollectionLogService.
+//
+// Each entry is keyed on the real event that collects it, a discriminated union on
+// `source.type`:
+//  - 'craft': the Blacksmith finishes crafting `equipmentId` (PatternCraftingService).
+//  - 'kill': the Fighter defeats `enemyId` (CombatService).
+//  - 'drop': `enemyId`'s loot roll actually drops `item` (CombatService) — an item
+//    reaching the bag/wallet any other way doesn't count toward this entry.
+// Every entry keeps a count; `showCount` is a display choice (a once-ever crafted piece
+// has nothing meaningful to count, a monster drop does). One item = one entry: an item
+// never appears in two sets — drops live in their monster's set, crafted gear in its
+// item-set. Future rewards (per entry / per complete set / per overall percent) are
+// meant to key off these same ids.
+
+export type CollectionLogCategory = 'equipment' | 'monsters';
+
+export const COLLECTION_LOG_CATEGORIES: CollectionLogCategory[] = ['equipment', 'monsters'];
+
+export type CollectionLogSource =
+  | { type: 'craft'; equipmentId: string }
+  | { type: 'kill'; enemyId: string }
+  | {
+      type: 'drop';
+      enemyId: string;
+      item: { type: 'equipment'; equipmentId: string } | { type: 'resource'; resourceId: string };
+    };
+
+export interface CollectionLogEntryConfig {
+  /** Stable save key — never rename. */
+  id: string;
+  source: CollectionLogSource;
+  showCount: boolean;
+}
+
+export interface CollectionLogSetConfig {
+  id: string;
+  category: CollectionLogCategory;
+  entries: CollectionLogEntryConfig[];
+}
+
+export const COLLECTION_LOG_SETS: CollectionLogSetConfig[] = [
+  {
+    id: 'forged',
+    category: 'equipment',
+    entries: [
+      { id: 'forged-sword', source: { type: 'craft', equipmentId: 'forged-sword' }, showCount: false },
+      { id: 'forged-helmet', source: { type: 'craft', equipmentId: 'forged-helmet' }, showCount: false },
+      { id: 'forged-armor', source: { type: 'craft', equipmentId: 'forged-armor' }, showCount: false },
+      { id: 'forged-boots', source: { type: 'craft', equipmentId: 'forged-boots' }, showCount: false },
+      { id: 'forged-gauntlets', source: { type: 'craft', equipmentId: 'forged-gauntlets' }, showCount: false },
+    ],
+  },
+  {
+    id: 'kobold',
+    category: 'monsters',
+    entries: [
+      { id: 'kobold-kill', source: { type: 'kill', enemyId: 'kobold' }, showCount: true },
+      {
+        id: 'kobold-ears',
+        source: { type: 'drop', enemyId: 'kobold', item: { type: 'resource', resourceId: 'kobold-ears' } },
+        showCount: true,
+      },
+      {
+        id: 'kobold-ring-swift-strike',
+        source: { type: 'drop', enemyId: 'kobold', item: { type: 'equipment', equipmentId: 'ring-swift-strike' } },
+        showCount: true,
+      },
+    ],
+  },
+];

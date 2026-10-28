@@ -82,6 +82,11 @@ export class ObjectivesPanelComponent implements OnInit, OnDestroy {
     return o.config.type === 'resource-threshold' ? o.config.resourceId : undefined;
   }
 
+  /** Flavor-supplied full row text, if any — overrides the auto-generated shapes below. */
+  objectiveDescription(o: ObjectiveState): string | undefined {
+    return getObjectiveFlavor(o.config.id).description;
+  }
+
   objectiveVerb(o: ObjectiveState): string {
     return getObjectiveFlavor(o.config.id).verb ?? '';
   }

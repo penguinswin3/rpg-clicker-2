@@ -10,6 +10,7 @@ export const CHARACTER_FLAVOR: Record<string, CharacterFlavor> = {
   fighter: { label: 'Fighter', color: 'rgb(204, 119, 21)' },
   ranger: { label: 'Ranger', color: '#0f0' },
   blacksmith: { label: 'Blacksmith', color: '#7790a7' },
+  brewmaster: { label: 'Brewmaster', color: '#d4c46a' },
 };
 
 // Symbols are plain Unicode text glyphs, never emoji — see AGENTS.md's "No emojis, ever" rule.
@@ -141,6 +142,10 @@ export interface ObjectiveFlavor {
    *  "Work" -> "Work 15 times". 'resource-threshold' objectives build their own
    *  "Obtain N <symbol>" text from RESOURCE_FLAVOR instead and don't need this. */
   verb?: string;
+  /** Replaces the auto-generated row text entirely ("Obtain N <symbol>" / "<verb> N
+   *  times") — for objectives whose goal doesn't fit either shape. Required in
+   *  practice for 'equipment-equipped', which has no auto-generated text. */
+  description?: string;
   /** Logged (INFO level) the moment the player clicks to claim this objective's reward. */
   logMessage: string;
 }
@@ -160,6 +165,17 @@ export const OBJECTIVE_FLAVOR: Record<string, ObjectiveFlavor> = {
   },
   'craft-10-ironmongery': {
     logMessage: 'Your growing stockpile of ironmongery makes new contraptions possible.',
+  },
+  'kill-20-kobolds': {
+    description: 'Defeat 20 Kobolds',
+    logMessage: 'Tales of the Kobold Den spread, and odd-job hands start asking for work.',
+  },
+  'equip-common-set': {
+    description: 'Equip a full set of Common gear',
+    logMessage: 'Fully kitted out, you start keeping a record of everything you have found.',
+  },
+  'unlock-brewmaster': {
+    logMessage: 'The smell of your fortune draws in a wandering Brewmaster, who offers to join you.',
   },
 };
 
@@ -310,7 +326,7 @@ export interface FighterEnemyFlavor {
 export const FIGHTER_ENEMY_FLAVOR: Record<string, FighterEnemyFlavor> = {
   kobold: {
     label: 'Kobold',
-    ascii: '  /\\_/\\\n ( o.o )\n  > ^ <',
+    ascii: '  /\\_/\\\n ( o.o )\n  > v <',
   },
 };
 
@@ -335,9 +351,20 @@ export function getFighterAreaFlavor(id: string): FighterAreaFlavor {
   return FIGHTER_AREA_FLAVOR[id] ?? DEFAULT_FIGHTER_AREA_FLAVOR;
 }
 
+// The Fighter's Short Rest toggle (only one, so a bare constant rather than a Record).
+export const SHORT_REST_FLAVOR = {
+  label: 'Short Rest',
+  /** Shown on the button while resting — clicking again ends the rest. */
+  activeLabel: 'Resting...',
+  startLogMessage: 'You sit down by the fire to catch your breath.',
+  stopLogMessage: 'You get back on your feet.',
+  fullLogMessage: 'You feel fully rested.',
+  fightLogMessage: 'You break off your rest and ready your weapon.',
+};
+
 // The Fighter's own combat-display art (only one Fighter, so a bare constant rather than
 // a Record).
-export const FIGHTER_COMBAT_ASCII = '  _O_\n //|\\\\\n  / \\';
+export const FIGHTER_COMBAT_ASCII = '  _O_\n  /|\\/\n  / \\';
 
 // ── Blacksmith Forge: patterns ─────────────────────────────────
 
@@ -377,3 +404,21 @@ const DEFAULT_PATTERN_FLAVOR: PatternFlavor = { label: '', logMessage: '' };
 export function getPatternFlavor(id: string): PatternFlavor {
   return PATTERN_FLAVOR[id] ?? DEFAULT_PATTERN_FLAVOR;
 }
+
+// ── Collection Log ─────────────────────────────────────────────
+// Entry names come from the thing each entry points at (EQUIPMENT_FLAVOR /
+// RESOURCE_FLAVOR / FIGHTER_ENEMY_FLAVOR) — only categories and sets need their own.
+
+export const COLLECTION_LOG_CATEGORY_FLAVOR: Record<string, { label: string }> = {
+  equipment: { label: 'Equipment' },
+  monsters: { label: 'Monsters' },
+};
+
+// Keyed by CollectionLogSetConfig.id (game-config.ts).
+export const COLLECTION_LOG_SET_FLAVOR: Record<string, { label: string }> = {
+  forged: { label: 'Forged' },
+  kobold: { label: 'Kobold' },
+};
+
+/** Row label for a 'kill' entry, inside its monster's own set. */
+export const COLLECTION_LOG_KILL_LABEL = 'Defeated';

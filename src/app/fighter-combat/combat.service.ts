@@ -5,6 +5,7 @@ import { StatisticsService } from '../statistics/statistics.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { EquipmentService } from './equipment.service';
 import { PatternCraftingService } from '../blacksmith-forge/pattern-crafting.service';
+import { CollectionLogService, CollectionLogDropItem } from '../collection-log/collection-log.service';
 import { CombatCombatant, CombatTurnResult, resolveTurn, rollInitiative } from './combat-resolution';
 import { getMaxHp } from '../shared/six-stats';
 import {
@@ -15,8 +16,11 @@ import {
   COMBAT_CHECK_MS,
   COMBAT_TURN_MS,
   FIGHTER_DEFEAT_LOCKOUT_MS,
+  FIGHTER_DEFEAT_REVIVE_HP,
+  SHORT_REST,
+  enemyDefeatActionId,
 } from '../configs/game-config';
-import { getEquipmentFlavor, getFighterEnemyFlavor, getPatternFlavor } from '../configs/flavor-text';
+import { getEquipmentFlavor, getFighterEnemyFlavor, getPatternFlavor, SHORT_REST_FLAVOR } from '../configs/flavor-text';
 import { resourceAmountToken } from '../shared/resource-token';
 
 export interface ActiveEncounter {
@@ -30,6 +34,8 @@ export interface CombatSnapshot {
   fighterHp: number;
   lockedOutUntil: number | null;
   activeEncounter: ActiveEncounter | null;
+  /** Optional for forward-compat with saves from before Short Rest existed. */
+  resting?: boolean;
 }
 
 /**
@@ -47,12 +53,19 @@ export interface CombatSnapshot {
  * countdown to the next turn from the moment of load. lockedOutUntil, being a plain
  * threshold like a timed action's duration, does correctly honor real elapsed time
  * across a closed tab.
+ *
+ * Also owns Short Rest (SHORT_REST in game-config.ts), since it's just another writer
+ * of fighterHp. Regen is anchored the same way: `restAnchorAt` marks the last moment
+ * whole HP points were credited, and each check credits however many whole points the
+ * elapsed time has earned since, carrying the fractional remainder forward by advancing
+ * the anchor only by the time those whole points cost.
  */
 @Injectable({ providedIn: 'root' })
 export class CombatService {
   private wallet = inject(WalletService);
   private equipment = inject(EquipmentService);
   private patternCrafting = inject(PatternCraftingService);
+  private collectionLog = inject(CollectionLogService);
   private statistics = inject(StatisticsService);
   private activityLog = inject(ActivityLogService);
 
@@ -60,12 +73,17 @@ export class CombatService {
   private lockedOutUntil: number | null = null;
   private encounter: ActiveEncounter | null = null;
   private nextTurnAt = 0;
+  private restingState = false;
+  private restAnchorAt = 0;
 
   private changesSource = new Subject<void>();
   readonly changes$ = this.changesSource.asObservable();
 
   constructor() {
-    setInterval(() => this.checkTurn(), COMBAT_CHECK_MS);
+    setInterval(() => {
+      this.checkTurn();
+      this.checkRest();
+    }, COMBAT_CHECK_MS);
   }
 
   get fighterMaxHp(): number {
@@ -89,6 +107,49 @@ export class CombatService {
     return this.encounter;
   }
 
+  get resting(): boolean {
+    return this.restingState;
+  }
+
+  /** Short Rest can only be turned *on* outside a fight and below full HP — turning it
+   *  off is always allowed. */
+  get canRest(): boolean {
+    return this.encounter === null && this.currentFighterHp < this.fighterMaxHp;
+  }
+
+  toggleRest(): void {
+    if (this.restingState) this.stopRest(SHORT_REST_FLAVOR.stopLogMessage);
+    else this.startRest();
+  }
+
+  private startRest(): void {
+    if (!this.canRest) return;
+    this.restingState = true;
+    this.restAnchorAt = Date.now();
+    this.activityLog.log(SHORT_REST_FLAVOR.startLogMessage, 'default');
+    this.changesSource.next();
+  }
+
+  private stopRest(logMessage: string): void {
+    if (!this.restingState) return;
+    this.restingState = false;
+    this.activityLog.log(logMessage, 'default');
+    this.changesSource.next();
+  }
+
+  private checkRest(): void {
+    if (!this.restingState) return;
+    const maxHp = this.fighterMaxHp;
+    const msPerHp = 1000 / SHORT_REST.hpPerSecond;
+    const points = Math.floor((Date.now() - this.restAnchorAt) / msPerHp);
+    if (points > 0) {
+      this.fighterHp = Math.min(this.currentFighterHp + points, maxHp);
+      this.restAnchorAt += points * msPerHp;
+      this.changesSource.next();
+    }
+    if (this.currentFighterHp >= maxHp) this.stopRest(SHORT_REST_FLAVOR.fullLogMessage);
+  }
+
   /** No-op if a fight is already in progress, the area is unknown, or currently locked
    *  out. Picks uniformly at random among the area's enemyIds (today, always the only
    *  one), rolls initiative once, and schedules the first turn COMBAT_TURN_MS from now. */
@@ -99,6 +160,8 @@ export class CombatService {
     const enemyId = area.enemyIds[Math.floor(Math.random() * area.enemyIds.length)];
     const enemyConfig = FIGHTER_ENEMIES.find(e => e.id === enemyId);
     if (!enemyConfig) return;
+
+    this.stopRest(SHORT_REST_FLAVOR.fightLogMessage);
 
     const fighter = this.fighterCombatant();
     const enemy = this.enemyCombatant(enemyConfig);
@@ -203,18 +266,21 @@ export class CombatService {
 
   private resolveVictory(enemyConfig: EnemyConfig): void {
     this.encounter = null;
-    this.statistics.recordAction(`fighter-defeat-${enemyConfig.id}`);
+    this.statistics.recordAction(enemyDefeatActionId(enemyConfig.id));
 
     const grants: string[] = [];
+    const collected: CollectionLogDropItem[] = [];
     for (const drop of enemyConfig.loot) {
       if (Math.random() >= drop.chance) continue;
       if (drop.type === 'resource') {
         const amount = drop.min + Math.floor(Math.random() * (drop.max - drop.min + 1));
         this.wallet.add(drop.resourceId, amount);
         grants.push(resourceAmountToken(drop.resourceId, amount));
+        collected.push({ type: 'resource', resourceId: drop.resourceId });
       } else if (drop.type === 'equipment') {
         this.equipment.addToInventory(drop.equipmentId);
         grants.push(getEquipmentFlavor(drop.equipmentId).label);
+        collected.push({ type: 'equipment', equipmentId: drop.equipmentId });
       } else {
         this.patternCrafting.unlock(drop.patternId);
         grants.push(getPatternFlavor(drop.patternId).label);
@@ -224,13 +290,17 @@ export class CombatService {
     const enemyLabel = getFighterEnemyFlavor(enemyConfig.id).label;
     const lootText = grants.length > 0 ? ` (${grants.join(', ')})` : '';
     this.activityLog.log(`You defeat a ${enemyLabel}!${lootText}`, 'success');
+    // After the victory line, so any "New collection log entry" lines read as its
+    // consequence rather than preceding the fight's own outcome.
+    this.collectionLog.recordKill(enemyConfig.id);
+    for (const item of collected) this.collectionLog.recordDrop(enemyConfig.id, item);
     this.changesSource.next();
   }
 
   private resolveDefeat(encounter: ActiveEncounter): void {
     const enemyLabel = getFighterEnemyFlavor(encounter.enemyId).label;
     this.encounter = null;
-    this.fighterHp = this.fighterMaxHp;
+    this.fighterHp = FIGHTER_DEFEAT_REVIVE_HP;
     this.lockedOutUntil = Date.now() + FIGHTER_DEFEAT_LOCKOUT_MS;
     this.activityLog.log(`You are defeated by a ${enemyLabel} and stumble back to recover.`, 'warn');
     this.changesSource.next();
@@ -246,6 +316,7 @@ export class CombatService {
       // that shared the live object by reference would silently drift if the encounter
       // kept ticking after the snapshot was taken.
       activeEncounter: this.encounter ? { ...this.encounter } : null,
+      resting: this.restingState,
     };
   }
 
@@ -262,6 +333,11 @@ export class CombatService {
     const enemyStillExists = !!restored && FIGHTER_ENEMIES.some(e => e.id === restored.enemyId);
     this.encounter = restored && enemyStillExists ? { ...restored } : null;
     this.nextTurnAt = this.encounter ? Date.now() + COMBAT_TURN_MS : 0;
+    // No offline regen (see SHORT_REST in game-config.ts) — a restored rest heals from
+    // the moment of load. A save can't normally hold resting + an active encounter at
+    // once (start() ends the rest), but guard it anyway rather than heal mid-fight.
+    this.restingState = !!snapshot?.resting && this.encounter === null;
+    this.restAnchorAt = Date.now();
     this.changesSource.next();
   }
 }

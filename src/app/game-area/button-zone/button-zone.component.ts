@@ -14,6 +14,7 @@ import { UnlocksService } from '../../shared/unlocks.service';
 import { resolveExcessCount } from '../../shared/chance';
 import { TimedActionsService, TimedActionState } from '../../timed-actions/timed-actions.service';
 import { CraftingService, CraftingActionState } from '../../crafting/crafting.service';
+import { CombatService } from '../../fighter-combat/combat.service';
 import {
   CHARACTER_ACTIONS,
   CharacterActionConfig,
@@ -21,8 +22,15 @@ import {
   CraftingActionConfig,
   AUTOCLICK_INTERVAL_MS,
   TIMED_ACTION_TICK_MS,
+  SHORT_REST,
 } from '../../configs/game-config';
-import { getActionFlavor, getTimedActionFlavor, getCraftingFlavor, RESOURCE_FLAVOR } from '../../configs/flavor-text';
+import {
+  getActionFlavor,
+  getTimedActionFlavor,
+  getCraftingFlavor,
+  RESOURCE_FLAVOR,
+  SHORT_REST_FLAVOR,
+} from '../../configs/flavor-text';
 import { StatisticsService } from '../../statistics/statistics.service';
 import { UpgradesService } from '../../upgrades/upgrades.service';
 
@@ -67,6 +75,7 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
   private unlocks = inject(UnlocksService);
   private timedActions = inject(TimedActionsService);
   private crafting = inject(CraftingService);
+  private combat = inject(CombatService);
   private cdr = inject(ChangeDetectorRef);
   private sub = new Subscription();
 
@@ -100,8 +109,36 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
     return this.craftingActionsForActiveCharacter.filter(c => c.config.mechanic.type === 'clicks');
   }
 
+  get showShortRest(): boolean {
+    return this.activeCharacterId === SHORT_REST.characterId && this.unlocks.isUnlocked(SHORT_REST.unlockKey);
+  }
+
+  get resting(): boolean {
+    return this.combat.resting;
+  }
+
+  get canRest(): boolean {
+    return this.combat.canRest;
+  }
+
+  /** Resting is the Fighter's whole focus — every other button of theirs is disabled
+   *  until it ends. Enforced here (plus a guard in each handler) rather than in
+   *  CombatService, same UI-layer enforcement as gear-locked-during-combat (AGENTS.md §17). */
+  get otherButtonsBlockedByRest(): boolean {
+    return this.showShortRest && this.combat.resting;
+  }
+
+  get hpFraction(): number {
+    return this.combat.currentFighterHp / this.combat.fighterMaxHp;
+  }
+
+  get shortRestLabel(): string {
+    return this.resting ? SHORT_REST_FLAVOR.activeLabel : SHORT_REST_FLAVOR.label;
+  }
+
   get hasAnyButtons(): boolean {
     return (
+      this.showShortRest ||
       !!this.action ||
       this.timedActionsForActiveCharacter.length > 0 ||
       this.craftingActionsForActiveCharacter.length > 0
@@ -133,6 +170,9 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
     this.sub.add(this.timedActions.changes$.subscribe(() => this.cdr.markForCheck()));
     this.sub.add(this.crafting.changes$.subscribe(() => this.cdr.markForCheck()));
     this.sub.add(this.unlocks.state$.subscribe(() => this.cdr.markForCheck()));
+    // Rest on/off, the HP fill while resting, and Short Rest's own enabled state (HP
+    // dropping mid-fight, a fight starting/ending) all change through CombatService.
+    this.sub.add(this.combat.changes$.subscribe(() => this.cdr.markForCheck()));
     // Re-renders the progress fill on the same cadence TimedActionsService/CraftingService
     // check completion on (TIMED_ACTION_TICK_MS) — purely visual, the running/complete
     // state itself never depends on this timer, this just keeps the bar from looking
@@ -152,7 +192,7 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
 
   onAction(): void {
     const action = this.action;
-    if (!action) return;
+    if (!action || this.otherButtonsBlockedByRest) return;
 
     const baseAmount = action.amountPerAction + this.upgrades.getActionAmountBonus(action.id);
     const doubled = Math.random() < this.upgrades.getPayoutDoubleChance(action.id);
@@ -168,8 +208,30 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
   /** Click handler for a timed-action button in every phase: idle starts it, ready
    *  collects it, running is a no-op (the button is disabled anyway). */
   onTimedAction(t: TimedActionState): void {
+    if (this.otherButtonsBlockedByRest) return;
     if (t.ready) this.timedActions.collect(t.config.id);
     else if (!t.running) this.timedActions.start(t.config.id);
+  }
+
+  /** The staged cost's resource accent color — tints a paid crafting button's border
+   *  (see `.cost-paid`), same resource-color pairing used everywhere else. */
+  costColor(config: CraftingActionConfig): string {
+    return RESOURCE_FLAVOR[config.cost.resourceId].color;
+  }
+
+  onShortRest(): void {
+    this.combat.toggleRest();
+  }
+
+  /** Reads the same SHORT_REST.hpPerSecond CombatService's own regen math uses. */
+  shortRestTooltip(): TooltipContent {
+    const rows: TooltipRow[] = [
+      { label: 'Restores', value: `${formatAmount(SHORT_REST.hpPerSecond)} HP/s` },
+      { label: 'HP', value: `${this.combat.currentFighterHp} / ${this.combat.fighterMaxHp}` },
+      { label: 'While Resting', value: 'Other actions disabled' },
+      { label: 'Ends', value: 'At full HP, or on Fight!' },
+    ];
+    return { title: SHORT_REST_FLAVOR.label, rows };
   }
 
   craftingLabel(c: CraftingActionState): string {
@@ -273,16 +335,19 @@ export class ButtonZoneComponent implements OnInit, OnDestroy {
     return { title: getTimedActionFlavor(config.id).label, rows };
   }
 
-  /** Detail tooltip for a crafting-action button — cost, yield, and the
+  /** Detail tooltip for a crafting-action button — cost (or "Paid" once the current
+   *  attempt's cost is already staged, see CraftingActionState.costPaid), yield, and the
    *  mechanic-specific requirement (hold duration or click count). No upgrade bonuses
    *  apply to a crafting action yet (Forge Ingots' hold duration is meant to be
    *  shortenable by a future upgrade — see CraftingActionConfig in game-config.ts), so
    *  this reads config values directly rather than through UpgradesService. */
-  craftingTooltip(config: CraftingActionConfig): TooltipContent {
+  craftingTooltip(config: CraftingActionConfig, costPaid = false): TooltipContent {
     const costResource = RESOURCE_FLAVOR[config.cost.resourceId];
     const rewardResource = RESOURCE_FLAVOR[config.reward.resourceId];
     const rows: TooltipRow[] = [
-      { label: 'Cost', value: `${formatAmount(config.cost.amount)} ${costResource.symbol}`, color: costResource.color },
+      costPaid
+        ? { label: 'Cost', value: 'Paid' }
+        : { label: 'Cost', value: `${formatAmount(config.cost.amount)} ${costResource.symbol}`, color: costResource.color },
       {
         label: 'Yield',
         value: `+${formatAmount(config.reward.amount)} ${rewardResource.symbol}`,

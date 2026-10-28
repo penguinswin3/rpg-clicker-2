@@ -8,12 +8,15 @@ export interface SettingsState {
   reducedMotion: boolean;
   /** Read by UpgradesPanelComponent once real upgrade data exists. */
   hideMaxedUpgrades: boolean;
+  /** Collection Log drop rates as "5%" instead of the default "1/20". */
+  dropRateAsPercent: boolean;
 }
 
 const DEFAULT_SETTINGS: SettingsState = {
   showPlaytime: true,
   reducedMotion: false,
   hideMaxedUpgrades: false,
+  dropRateAsPercent: false,
 };
 
 @Injectable({ providedIn: 'root' })

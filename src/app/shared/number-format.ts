@@ -34,3 +34,19 @@ export function formatDurationMs(ms: number): string {
   const rounded = Math.round(ms / 100) / 10;
   return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(1)}s`;
 }
+
+/** Formats a 0..1 drop chance for display — "1/20" by default, or "5%" when `asPercent`
+ *  (Options -> drop rates as percentages). A guaranteed drop reads "Always" either way.
+ *  The 1/N denominator keeps one decimal only when it isn't a whole number ("1/1.7");
+ *  a percent keeps up to two decimals, trailing zeros dropped ("0.01%", "60%"). */
+export function formatDropRate(chance: number, asPercent: boolean): string {
+  if (chance >= 1) return 'Always';
+  if (chance <= 0) return 'Never';
+  if (asPercent) {
+    return `${parseFloat((chance * 100).toFixed(2))}%`;
+  }
+  const denominator = 1 / chance;
+  const rounded = Math.round(denominator * 10) / 10;
+  return `1/${Number.isInteger(rounded) ? rounded : rounded.toFixed(1)}`;
+}
+

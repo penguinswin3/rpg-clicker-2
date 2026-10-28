@@ -9,6 +9,7 @@ import { CraftingSnapshot } from '../crafting/crafting.service';
 import { EquipmentSnapshot } from '../fighter-combat/equipment.service';
 import { CombatSnapshot } from '../fighter-combat/combat.service';
 import { PatternCraftingSnapshot } from '../blacksmith-forge/pattern-crafting.service';
+import { CollectionLogSnapshot } from '../collection-log/collection-log.service';
 
 /**
  * The full persisted shape. `schemaVersion` is ours to bump for migrations;
@@ -54,6 +55,8 @@ export interface SaveData {
   /** Blacksmith's known patterns and any in-progress craft. See
    *  PatternCraftingService.getSnapshot/restore. */
   patternCrafting: PatternCraftingSnapshot;
+  /** Collection Log entry id -> times collected. See CollectionLogService.getSnapshot/restore. */
+  collectionLog: CollectionLogSnapshot;
 }
 
 export const SCHEMA_VERSION = 1;

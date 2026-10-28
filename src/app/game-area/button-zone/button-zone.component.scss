@@ -57,8 +57,15 @@
   @extend %zone-button;
   touch-action: none;
 
-  &:hover { background: #1a1a1a; }
-  &:active { background: #222; }
+  &:hover:not(:disabled) { background: #1a1a1a; }
+  &:active:not(:disabled) { background: #222; }
+
+  // Only reachable while Short Rest blocks the Fighter's other buttons.
+  &:disabled {
+    color: #666;
+    border-color: #444;
+    cursor: default;
+  }
 
   // Fires once per HoldToClickDirective tick (press + every repeat while held) so the
   // player can visually confirm the actual rate it's firing at, not just that it's
@@ -113,6 +120,48 @@
   z-index: 1;
 }
 
+.rest-action-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+// A toggle, not a one-shot — "lit" (lighter background) while resting, same
+// lit-only-when-active convention as the filter bars, plus aria-pressed in the template.
+.rest-button {
+  @extend %zone-button;
+  position: relative;
+  overflow: hidden;
+
+  &:hover:not(:disabled) { background: #1a1a1a; }
+  &:active:not(:disabled) { background: #222; }
+
+  &.active { background: #1a1a1a; }
+
+  &:disabled {
+    color: #666;
+    border-color: #444;
+    cursor: default;
+  }
+}
+
+// Current HP / max HP while resting — same layered-fill-behind-text shape as
+// .timed-button-fill, so it reads as "filling back up."
+.rest-button-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: #fff;
+  opacity: 0.18;
+  transition: width 0.1s linear;
+  z-index: 0;
+}
+
+.rest-button-label {
+  position: relative;
+  z-index: 1;
+}
+
 .crafting-action-wrap {
   display: flex;
   flex-direction: column;
@@ -127,6 +176,12 @@
 
   &:hover { background: #1a1a1a; }
   &:active { background: #222; }
+
+  // Cost already charged for the current attempt (CraftingActionState.costPaid) — most
+  // visible on a 'hold' action fully decayed back to 0, whose fill alone can't show the
+  // payment is still staged. The border color is bound inline to the cost resource's own
+  // accent color (ButtonZoneComponent.costColor). The tooltip's Cost row says "Paid".
+  &.cost-paid { border-style: dashed; }
 }
 
 // Needs continuous pointerdown/up tracking while charging, same reasoning as the

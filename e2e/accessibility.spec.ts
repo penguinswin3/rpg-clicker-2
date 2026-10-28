@@ -61,6 +61,31 @@ test.describe('Accessibility', () => {
     });
   }
 
+  test('Collection Log modal open', async ({ page }) => {
+    await seedSave(page, { unlocks: { collectionLog: true } });
+    await gotoFreshGame(page);
+    await page.click('button.nav-btn:has-text("Collection Log")');
+    await expect(page.locator('.collection-log-panel')).toBeVisible();
+
+    const results = await scan(page);
+    expect(results.violations).toEqual([]);
+  });
+
+  test('Collection Log monster detail open', async ({ page }) => {
+    await seedSave(page, {
+      unlocks: { collectionLog: true },
+      collectionLog: { counts: { 'kobold-kill': 3, 'kobold-ears': 2 } },
+    });
+    await gotoFreshGame(page);
+    await page.click('button.nav-btn:has-text("Collection Log")');
+    await page.click('.collection-log-panel .filter-btn:has-text("Monsters")');
+    await page.click('.collection-log-panel .info-btn');
+    await expect(page.locator('.collection-log-panel .loot-table')).toBeVisible();
+
+    const results = await scan(page);
+    expect(results.violations).toEqual([]);
+  });
+
   test('Dev Tools modal open', async ({ page }) => {
     await gotoFreshGame(page);
     await openDevTools(page);

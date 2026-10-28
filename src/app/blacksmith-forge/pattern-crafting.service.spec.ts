@@ -4,6 +4,7 @@ import { WalletService } from '../economy/wallet.service';
 import { StatisticsService } from '../statistics/statistics.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { EquipmentService } from '../fighter-combat/equipment.service';
+import { CollectionLogService } from '../collection-log/collection-log.service';
 
 const WEAPON_PATTERN = 'pattern-common-weapon'; // 5 ironmongery + 5 ingot, 60s -> forged-sword
 
@@ -111,6 +112,16 @@ describe('PatternCraftingService', () => {
       expect(stateFor(WEAPON_PATTERN).owned).toBeTrue();
     });
 
+    it('records the crafted item in the Collection Log on completion, not on start', () => {
+      const collectionLog = TestBed.inject(CollectionLogService);
+      fundWeaponPattern();
+      service.start(WEAPON_PATTERN);
+      expect(collectionLog.isCollected('forged-sword')).toBeFalse();
+
+      jasmine.clock().tick(60_000);
+      expect(collectionLog.isCollected('forged-sword')).toBeTrue();
+    });
+
     it('does not grant the item before the duration elapses', () => {
       fundWeaponPattern();
       service.start(WEAPON_PATTERN);
@@ -139,7 +150,7 @@ describe('PatternCraftingService', () => {
 
       jasmine.clock().tick(60_000);
 
-      expect(log).toHaveBeenCalledOnceWith(jasmine.stringMatching(/Forged Sword/), 'success');
+      expect(log).toHaveBeenCalledWith(jasmine.stringMatching(/\(Forged Sword\)$/), 'success');
     });
 
     it('progress climbs from 0 toward 1 while active, and resets to 0 once complete', () => {

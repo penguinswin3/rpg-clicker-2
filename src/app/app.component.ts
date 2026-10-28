@@ -14,6 +14,7 @@ import { UiModalComponent } from './shared/ui-modal/ui-modal.component';
 import { ModalId, ModalService, MODAL_TITLES } from './shared/modal.service';
 import { JacksPanelComponent } from './jacks/jacks-panel.component';
 import { CrownPanelComponent } from './crown/crown-panel.component';
+import { CollectionLogPanelComponent } from './collection-log/collection-log-panel.component';
 import { StatsPanelComponent } from './statistics/stats-panel.component';
 import { OptionsPanelComponent } from './options/options-panel.component';
 import { CreditsPanelComponent } from './credits/credits-panel.component';
@@ -39,6 +40,7 @@ import { GAME_TITLE } from './configs/game-config';
     UiModalComponent,
     JacksPanelComponent,
     CrownPanelComponent,
+    CollectionLogPanelComponent,
     StatsPanelComponent,
     OptionsPanelComponent,
     CreditsPanelComponent,

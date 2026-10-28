@@ -1,0 +1,65 @@
+<div class="collection-log-panel">
+  <div class="log-header">
+    <div class="filter-bar" role="group" aria-label="Collection log category">
+      <button
+        type="button"
+        class="filter-btn"
+        *ngFor="let c of categories"
+        [class.active]="c === activeCategory"
+        [attr.aria-pressed]="c === activeCategory"
+        (click)="selectCategory(c)">
+        {{ categoryLabel(c) }} {{ formatProgress(categoryProgress(c)) }}
+      </button>
+    </div>
+    <div class="overall">COMPLETE {{ formatProgress(overall) }} ({{ overallPercent }}%)</div>
+  </div>
+
+  <div class="log-body">
+    <app-collection-log-detail
+      *ngIf="detail; else grid"
+      [detail]="detail"
+      [dropRateAsPercent]="dropRateAsPercent"
+      [isLootCollected]="isLootCollected"
+      (back)="closeDetail()"></app-collection-log-detail>
+
+    <ng-template #grid>
+      <div class="set-grid">
+        <section class="set-block" *ngFor="let set of activeSets; trackBy: trackSet" [attr.aria-label]="setLabel(set)">
+          <div class="set-header" [class.complete]="isComplete(set)">
+            <span class="set-label">{{ setLabel(set) }}</span>
+            <span class="set-header-right">
+              <span class="set-count">{{ formatProgress(setProgress(set)) }}</span>
+              <button
+                type="button"
+                class="info-btn"
+                *ngIf="setEnemy(set) as enemyId"
+                [attr.data-focus-key]="'monster:' + enemyId"
+                [disabled]="!isMonsterKnown(set)"
+                [attr.aria-label]="setLabel(set) + ' details'"
+                (click)="openMonster(enemyId)">
+                <span aria-hidden="true">[?]</span>
+              </button>
+            </span>
+          </div>
+
+          <ng-container *ngFor="let e of set.entries; trackBy: trackEntry">
+            <button
+              type="button"
+              class="entry"
+              *ngIf="isCollected(e); else lockedEntry"
+              [attr.data-focus-key]="'entry:' + e.id"
+              (click)="openEntry(e)">
+              <span class="entry-name" [style.color]="entryColor(e)">{{ entryLabel(e) }}</span>
+              <span class="entry-count" *ngIf="e.showCount">x{{ formatAmount(count(e)) }}</span>
+            </button>
+            <ng-template #lockedEntry>
+              <div class="entry uncollected">
+                <span class="entry-name">???</span>
+              </div>
+            </ng-template>
+          </ng-container>
+        </section>
+      </div>
+    </ng-template>
+  </div>
+</div>

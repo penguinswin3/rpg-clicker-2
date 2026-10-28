@@ -3,12 +3,21 @@ import { BehaviorSubject } from 'rxjs';
 
 /** Identifiers for every modal in the app (most are top-bar-launched; 'credits' and
  *  'confirm' open from within another modal instead — see OptionsPanelComponent). */
-export type ModalId = 'jacks' | 'crown' | 'stats' | 'options' | 'credits' | 'dev-tools' | 'confirm';
+export type ModalId =
+  | 'jacks'
+  | 'crown'
+  | 'collection-log'
+  | 'stats'
+  | 'options'
+  | 'credits'
+  | 'dev-tools'
+  | 'confirm';
 
 /** Display title shown in the modal header for each modal id. */
 export const MODAL_TITLES: Record<ModalId, string> = {
   jacks: 'JACKS',
   crown: 'THE CROWN',
+  'collection-log': 'COLLECTION LOG',
   stats: 'STATISTICS',
   options: 'OPTIONS',
   credits: 'CREDITS',
